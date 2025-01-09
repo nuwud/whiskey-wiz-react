@@ -1,4 +1,3 @@
-
 # Whiskey Wiz - React Edition
 
 ## Project Overview
@@ -37,29 +36,29 @@ Whiskey Wiz is an interactive web application for whiskey tasting enthusiasts, a
 
 ### Installation Steps
 1. Clone the repository
-\`\`\`bash
+```bash
 git clone https://github.com/nuwud/whiskey-wiz-react.git
 cd whiskey-wiz-react
-\`\`\`
+```
 
 2. Install dependencies
-\`\`\`bash
+```bash
 npm install
-\`\`\`
+```
 
 3. Firebase Configuration
-- Create \`.env\` file
+- Create `.env` file
 - Add Firebase configuration variables
-\`\`\`
+```
 REACT_APP_FIREBASE_API_KEY=your_api_key
 REACT_APP_FIREBASE_AUTH_DOMAIN=your_auth_domain
 ...
-\`\`\`
+```
 
 4. Run the application
-\`\`\`bash
+```bash
 npm start
-\`\`\`
+```
 
 ## Development Roadmap
 - [x] Project initialization
@@ -72,9 +71,9 @@ npm start
 
 ## Contributing
 1. Fork the repository
-2. Create your feature branch (\`git checkout -b feature/AmazingFeature\`)
-3. Commit your changes (\`git commit -m 'Add some AmazingFeature'\`)
-4. Push to the branch (\`git push origin feature/AmazingFeature\`)
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
 ## License
