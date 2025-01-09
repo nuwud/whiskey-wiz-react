@@ -13,14 +13,14 @@ const GameContainer = React.lazy(() => import('./components/game/GameContainer')
 const ResultsView = React.lazy(() => import('./components/results/ResultsView'));
 const AdminQuarterManagement = React.lazy(() => import('./components/admin/AdminQuarterManagement'));
 
-// New Components
+// New Feature Components
 const SeasonalTrends = React.lazy(() => import('./components/SeasonalTrends'));
 const AchievementBadges = React.lazy(() => import('./components/AchievementBadges'));
 const FlavorWheel = React.lazy(() => import('./components/FlavorWheel'));
 const WhiskeyRecommendations = React.lazy(() => import('./components/WhiskeyRecommendations'));
 
 // Import private route and styles
-import PrivateRoute from './routes/PrivateRoute';
+import PrivateRoute from './components/PrivateRoute';
 import './styles/global.css';
 
 const App: React.FC = () => {
