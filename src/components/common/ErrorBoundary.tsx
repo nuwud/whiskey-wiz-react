@@ -1,17 +1,13 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
-
-interface ErrorBoundaryProps {
-  children: ReactNode;
-  fallback?: ReactNode;
-}
+import React, { ErrorInfo } from 'react';
 
 interface ErrorBoundaryState {
   hasError: boolean;
-  error?: Error;
+    error?: Error;
+    errorInfo?: ErrorInfo;
 }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, ErrorBoundaryState> {
+  constructor(props: {children: React.ReactNode}) {
     super(props);
     this.state = { hasError: false };
   }
@@ -21,16 +17,16 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log error to analytics or error tracking service
+    // Log error to analytics service
     console.error('Uncaught error:', error, errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
-      return this.props.fallback || (
+      return (
         <div className="error-fallback">
           <h1>Something went wrong</h1>
-          <p>We're sorry for the inconvenience. Please try again later.</p>
+          <p>We're sorry, but an unexpected error occurred.</p>
           <button onClick={() => window.location.reload()}>Reload Page</button>
         </div>
       );

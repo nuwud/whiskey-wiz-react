@@ -1,53 +1,42 @@
-import { initializeApp } from 'firebase/app';
-import { getAnalytics, logEvent, setUserId, setUserProperties } from 'firebase/analytics';
-import { User } from 'firebase/auth';
+import { getAnalytics, logEvent, Analytics } from 'firebase/analytics';
+import { Quarter } from '../models/Quarter';
 
 class AnalyticsService {
-  private analytics;
+  private analytics: Analytics;
 
   constructor() {
-    const firebaseConfig = {
-      // Your Firebase config
-      apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-      authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-      projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-      // ... other config
-    };
-
-    const app = initializeApp(firebaseConfig);
-    this.analytics = getAnalytics(app);
+    this.analytics = getAnalytics();
   }
 
   // Track game start
-  trackGameStart(quarterId: string) {
-    logEvent(this.analytics, 'game_start', {
+  gameStarted(quarterId: string) {
+    logEvent(this.analytics, 'game_started', {
       quarter_id: quarterId
     });
   }
 
   // Track game completion
-  trackGameCompletion(score: number, quarterId: string) {
-    logEvent(this.analytics, 'game_complete', {
-      score,
-      quarter_id: quarterId
+  gameCompleted(quarterId: string, score: number) {
+    logEvent(this.analytics, 'game_completed', {
+      quarter_id: quarterId,
+      score: score
     });
   }
 
-  // Set user ID for tracking
-  setUser(user: User | null) {
-    if (user) {
-      setUserId(this.analytics, user.uid);
-      setUserProperties(this.analytics, {
-        email: user.email || 'unknown',
-        display_name: user.displayName || 'Anonymous'
-      });
-    }
+  // Track score sharing
+  scoreShared(method: string) {
+    logEvent(this.analytics, 'score_shared', {
+      share_method: method
+    });
   }
 
-  // Track custom events
-  trackEvent(eventName: string, eventData?: Record<string, any>) {
-    logEvent(this.analytics, eventName, eventData);
+  // Track errors
+  trackError(errorMessage: string, context?: string) {
+    logEvent(this.analytics, 'error_occurred', {
+      error_message: errorMessage,
+      context: context || 'unknown'
+    });
   }
 }
 
-export default new AnalyticsService();
+export const analyticsService = new AnalyticsService();
