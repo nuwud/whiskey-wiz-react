@@ -1,115 +1,108 @@
-# BlindBarrels.com - Whiskey Tasting Game (Next.js)
+# BlindBarrels.com - Whiskey Tasting Game
 
-> **Important Update**: This project has been migrated from Create React App to Next.js for improved performance and features.
+## Quick Links
+- [Store Owners: Add Game to Your Shopify Store](#shopify-setup)
+- [Players: Play the Game](https://app.blindbarrels.com)
+- [Documentation](docs/)
 
-## Overview
-A quarterly whiskey tasting game where users try to identify whiskey characteristics and compete for points.
+## Shopify Setup
 
-### Core Features
-- Quarterly whiskey tasting challenges
-- Point-based scoring system
-- Firebase authentication
-- Admin management interface
-- Feature toggle system
+Add the game to your Shopify store in 3 easy steps:
 
-## Technical Stack
-- Next.js 13 (App Router)
-- TypeScript
-- Firebase (Firestore, Authentication)
-- Shadcn/UI Components
-- Tailwind CSS
+1. Go to your Shopify admin → Online Store → Themes → Customize
+2. Add a Custom HTML section where you want the game
+3. Copy and paste this code:
 
-## Quick Start
+```html
+<!-- BlindBarrels Game -->
+<div 
+  id="blindbarrels-game" 
+  data-theme="light"
+  data-height="600px"
+></div>
 
+<script>
+  (function loadBlindBarrels() {
+    const container = document.getElementById('blindbarrels-game');
+    
+    // Configuration from data attributes
+    window.blindbarrelsConfig = {
+      theme: container.getAttribute('data-theme') || 'light',
+      containerHeight: container.getAttribute('data-height') || '600px',
+      allowFullscreen: true,
+      customStyles: {
+        borderRadius: '8px',
+        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+      }
+    };
+
+    // Load the game
+    const script = document.createElement('script');
+    script.src = 'https://app.blindbarrels.com/embed.js';
+    script.async = true;
+    document.head.appendChild(script);
+
+    // Optional: Track game completion
+    window.addEventListener('blindbarrels:completed', function(event) {
+      console.log('Game completed', event.detail.score);
+    });
+  })();
+</script>
+```
+
+### Customization Options
+
+Customize using data attributes on the container:
+
+```html
+<div 
+  id="blindbarrels-game"
+  data-theme="dark"           <!-- 'light' or 'dark' -->
+  data-height="800px"         <!-- any valid CSS height -->
+  data-fullscreen="false"     <!-- allow fullscreen mode -->
+  data-border-radius="12px"   <!-- rounded corners -->
+  data-shadow="none"         <!-- remove shadow -->
+></div>
+```
+
+### Need Help?
+Contact support@blindbarrels.com
+
+## For Developers
+
+### Local Development
 ```bash
+# Clone the repository
+git clone https://github.com/nuwud/whiskey-wiz-react.git
+cd whiskey-wiz-react
+
 # Install dependencies
 npm install
 
-# Run development server
+# Start development server
 npm run dev
+```
 
+### Environment Setup
+Create `.env.local` with:
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=xxx
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=xxx
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=xxx
+```
+
+### Deployment
+```bash
 # Build for production
 npm run build
 
-# Start production server
-npm start
-```
+# Test production build locally
+npm run start
 
-## Environment Setup
-Create a `.env.local` file:
-```env
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_domain
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_bucket
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-```
-
-## Feature Management
-The admin interface allows toggling various features:
-
-### Essential Features (Always On)
-- Core game mechanics
-- Basic authentication
-- Admin controls
-
-### Optional Features
-- Advanced Statistics
-- Social Sharing
-- Achievements System
-- Leaderboards
-- Practice Mode
-- Seasonal Events
-
-## Documentation
-- [Development Guide](docs/DEVELOPMENT.md)
-- [Feature Toggle System](docs/FEATURE_TOGGLES.md)
-- [Deployment Guide](docs/DEPLOYMENT.md)
-
-## Local Development
-```bash
-# Start development server
-npm run dev
-
-# Run tests
-npm test
-
-# Lint code
-npm run lint
-```
-
-## Deployment
-
-### Production Deployment
-```bash
-# Build the application
-npm run build
-
-# Start production server
-npm start
-```
-
-### Firebase Deployment
-```bash
 # Deploy to Firebase
 firebase deploy
 ```
 
-## Project Structure
-```
-blindbarrels/
-├── app/                  # Next.js app directory
-├── components/           # React components
-├── contexts/            # React contexts
-├── hooks/               # Custom hooks
-├── lib/                 # Utility functions
-├── public/              # Static assets
-└── styles/              # Global styles
-```
-
 ## License
-Proprietary - All Rights Reserved
-
-## Contact
-Bobbie DeMars - BlindBarrels.com
+Proprietary - All Rights Reserved © BlindBarrels.com
+</content>
