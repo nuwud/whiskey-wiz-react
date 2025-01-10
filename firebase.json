@@ -1,13 +1,29 @@
 {
   "hosting": {
-    "source": ".",
+    "public": ".next",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
     ],
-    "frameworksBackend": {
-      "region": "us-central1"
-    }
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "/embed.js",
+        "headers": [{
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }]
+      }
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   }
 }
