@@ -1,3 +1,5 @@
+"use client";
+
 import { FeatureToggleAdmin } from './FeatureToggleAdmin'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
