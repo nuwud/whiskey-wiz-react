@@ -1,20 +1,19 @@
-import { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import { AuthProvider } from '@/contexts/AuthContext';
-import { FeatureProvider } from '@/contexts/FeatureContext';
-import './globals.css';
+import { Inter } from 'next/font/google'
+import './globals.css'
+import { AuthProvider } from '@/contexts/AuthContext'
+import { FeatureProvider } from '@/contexts/FeatureContext'
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ['latin'] })
 
-export const metadata: Metadata = {
-  title: 'BlindBarrels.com - Whiskey Tasting Game',
-  description: 'Test your whiskey knowledge in this exciting tasting game',
-};
+export const metadata = {
+  title: 'BlindBarrels.com',
+  description: 'Whiskey Tasting Game',
+}
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
   return (
     <html lang="en">
@@ -26,5 +25,5 @@ export default function RootLayout({
         </AuthProvider>
       </body>
     </html>
-  );
+  )
 }
