@@ -1,19 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
   experimental: {
-    serverActions: true,
-    appDir: true,
+    serverActions: {
+      allowedOrigins: ['whiskeywiz2.web.app']
+    }
   },
-  typescript: {
-    ignoreBuildErrors: false,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  poweredByHeader: false,
-  compress: true,
+  images: {
+    unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com'
+      }
+    ]
+  }
 }
-
-module.exports = nextConfig
