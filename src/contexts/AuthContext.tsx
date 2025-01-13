@@ -1,16 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import {
-  Auth,
-  User,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  GoogleAuthProvider,
-  signInWithPopup,
-} from 'firebase/auth';
+import { User, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, firestore } from '../firebaseConfig';
+import { auth, db } from '../lib/firebase';
 
 interface UserRole {
   admin: boolean;
@@ -33,35 +24,37 @@ interface AuthContextType {
   loading: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({
+  currentUser: null,
+  isAdmin: false,
+  isModerator: false,
+  login: async () => {},
+  signup: async () => {},
+  logout: async () => {},
+  googleSignIn: async () => {},
+  loading: true,
+});
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  return useContext(AuthContext);
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-
-  async function getUserRoles(uid: string): Promise<UserRole> {
-    const userDoc = await getDoc(doc(firestore, 'users', uid));
-    if (userDoc.exists()) {
-      return userDoc.data().roles || { admin: false, player: true, moderator: false };
-    }
-    return { admin: false, player: true, moderator: false };
-  }
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isModerator, setIsModerator] = useState(false);
 
   async function signup(email: string, password: string, displayName: string) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    await setDoc(doc(firestore, 'users', userCredential.user.uid), {
-      email,
+    await setDoc(doc(db, 'users', userCredential.user.uid), {
       displayName,
-      roles: { admin: false, player: true, moderator: false },
-      createdAt: new Date().toISOString()
+      email,
+      roles: {
+        player: true,
+        admin: false,
+        moderator: false
+      }
     });
   }
 
@@ -72,14 +65,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function googleSignIn() {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
-    const userDoc = await getDoc(doc(firestore, 'users', result.user.uid));
-    
+    const userDoc = await getDoc(doc(db, 'users', result.user.uid));
+
     if (!userDoc.exists()) {
-      await setDoc(doc(firestore, 'users', result.user.uid), {
-        email: result.user.email,
+      await setDoc(doc(db, 'users', result.user.uid), {
         displayName: result.user.displayName,
-        roles: { admin: false, player: true, moderator: false },
-        createdAt: new Date().toISOString()
+        email: result.user.email,
+        roles: {
+          player: true,
+          admin: false,
+          moderator: false
+        }
       });
     }
   }
@@ -91,11 +87,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        const roles = await getUserRoles(user.uid);
-        setCurrentUser({ ...user, roles });
-      } else {
-        setCurrentUser(null);
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const roles = userData.roles || { player: true, admin: false, moderator: false };
+          (user as AuthUser).roles = roles;
+          setIsAdmin(roles.admin);
+          setIsModerator(roles.moderator);
+        }
       }
+      setCurrentUser(user as AuthUser);
       setLoading(false);
     });
 
@@ -104,8 +105,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = {
     currentUser,
-    isAdmin: currentUser?.roles?.admin || false,
-    isModerator: currentUser?.roles?.moderator || false,
+    isAdmin,
+    isModerator,
     login,
     signup,
     logout,
