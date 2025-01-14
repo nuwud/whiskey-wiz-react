@@ -1,67 +1,121 @@
-import { db } from '../config/firebase';
-import { 
-  collection, 
-  getDocs, 
-  query, 
-  where, 
-  addDoc, 
-  updateDoc, 
-  doc, 
-  serverTimestamp,
-  orderBy
-} from 'firebase/firestore';
-import { Quarter } from '../models/Quarter';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy, limit, getDoc } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
 
-export const quarterService = {
-  async getActiveQuarters(): Promise<Quarter[]> {
-    const q = query(
-      collection(db, 'quarters'), 
-      where('active', '==', true),
-      orderBy('createdAt', 'desc')
-    );
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as Quarter));
-  },
+export interface Quarter {
+  id?: string;
+  name: string;
+  startDate: Date;
+  endDate: Date;
+  whiskeySamples: WhiskeySample[];
+  active: boolean;
+}
 
-  async getAllQuarters(): Promise<Quarter[]> {
-    const q = query(collection(db, 'quarters'), orderBy('createdAt', 'desc'));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as Quarter));
-  },
+export interface WhiskeySample {
+  id: string;
+  name: string;
+  age: number;
+  proof: number;
+  mashbillType: string;
+  challengeQuestions: ChallengeQuestion[];
+}
 
-  async createQuarter(quarter: Omit<Quarter, 'id'>): Promise<string> {
-    const quarterWithTimestamp = {
-      ...quarter,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    };
+export interface ChallengeQuestion {
+  id: string;
+  question: string;
+  possibleAnswers: string[];
+  correctAnswer: string;
+  points: number;
+}
 
-    const docRef = await addDoc(collection(db, 'quarters'), quarterWithTimestamp);
-    return docRef.id;
-  },
+export class QuarterService {
+  private quartersCollection = collection(db, 'quarters');
 
-  async updateQuarter(quarterId: string, updates: Partial<Quarter>): Promise<void> {
-    const quarterRef = doc(db, 'quarters', quarterId);
-    await updateDoc(quarterRef, {
-      ...updates,
-      updatedAt: serverTimestamp()
-    });
-  },
-
-  async getGameConfiguration() {
-    const configRef = doc(db, 'game_configurations', 'default');
-    const configSnap = await getDocs(query(collection(db, 'game_configurations')));
-    
-    if (configSnap.empty) {
-      throw new Error('No game configuration found');
+  async createQuarter(quarterData: Quarter): Promise<string> {
+    try {
+      const docRef = await addDoc(this.quartersCollection, quarterData);
+      return docRef.id;
+    } catch (error) {
+      console.error('Error creating quarter', error);
+      throw error;
     }
-
-    return configSnap.docs[0].data();
   }
-};
+
+  async getCurrentQuarter(): Promise<Quarter | null> {
+    try {
+      const querySnapshot = await getDocs(
+        query(
+          this.quartersCollection, 
+          where('active', '==', true), 
+          orderBy('startDate', 'desc'), 
+          limit(1)
+        )
+      );
+      
+      if (!querySnapshot.empty) {
+        const quarterDoc = querySnapshot.docs[0];
+        return { 
+          id: quarterDoc.id, 
+          ...quarterDoc.data() 
+        } as Quarter;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error fetching current quarter', error);
+      throw error;
+    }
+  }
+
+  async getQuarterById(quarterId: string): Promise<Quarter | null> {
+    try {
+      const quarterDoc = await getDoc(doc(db, 'quarters', quarterId));
+      return quarterDoc.exists() 
+        ? { id: quarterDoc.id, ...quarterDoc.data() } as Quarter 
+        : null;
+    } catch (error) {
+      console.error('Error fetching quarter', error);
+      throw error;
+    }
+  }
+
+  async updateQuarter(quarterId: string, quarterData: Partial<Quarter>): Promise<void> {
+    try {
+      const quarterRef = doc(db, 'quarters', quarterId);
+      await updateDoc(quarterRef, quarterData);
+    } catch (error) {
+      console.error('Error updating quarter', error);
+      throw error;
+    }
+  }
+
+  async deleteQuarter(quarterId: string): Promise<void> {
+    try {
+      const quarterRef = doc(db, 'quarters', quarterId);
+      await deleteDoc(quarterRef);
+    } catch (error) {
+      console.error('Error deleting quarter', error);
+      throw error;
+    }
+  }
+
+  // Dynamic Quarter Component Generation
+  generateQuarterComponent(quarter: Quarter) {
+    const componentTemplate = `
+      import React from 'react';
+      import { BaseQuarterComponent } from './BaseQuarterComponent';
+
+      export const Quarter${quarter.id}Component: React.FC = () => {
+        return (
+          <BaseQuarterComponent 
+            quarterId="${quarter.id}"
+            quarterName="${quarter.name}"
+          >
+            {/* Quarter ${quarter.name} Specific Rendering */}
+          </BaseQuarterComponent>
+        );
+      };
+    `;
+
+    return componentTemplate;
+  }
+}
