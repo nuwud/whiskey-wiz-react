@@ -1,140 +1,133 @@
-"use client";
-
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
-import { Progress } from '@/components/ui/progress';
+import { useGameStore } from '../../store/gameStore';
 
-interface GuessData {
+const MASHBILL_TYPES = [
+  'Bourbon',
+  'Rye',
+  'Wheat',
+  'Corn',
+  'Malted Barley',
+  'Single Malt'
+];
+
+interface GuessFormData {
   age: number;
   proof: number;
   mashbill: string;
 }
 
-interface SampleGuessingProps {
-  currentSample: string;
-  onSubmitGuess: (guess: GuessData) => void;
-  onNavigate: (direction: 'next' | 'previous') => void;
-  isFirstSample: boolean;
-  isLastSample: boolean;
-  progress: number;
-}
-
-const MASHBILL_OPTIONS = [
-  { value: 'bourbon', label: 'Bourbon' },
-  { value: 'rye', label: 'Rye' },
-  { value: 'wheat', label: 'Wheat' },
-  { value: 'single-malt', label: 'Single Malt' },
-  { value: 'corn', label: 'Corn' },
-];
-
-export function SampleGuessing({
-  currentSample,
-  onSubmitGuess,
-  onNavigate,
-  isFirstSample,
-  isLastSample,
-  progress,
-}: SampleGuessingProps) {
-  const [guess, setGuess] = useState<GuessData>({
+export const SampleGuessing = () => {
+  const { currentSample, submitSampleGuess, navigateSample } = useGameStore();
+  
+  const [guessData, setGuessData] = useState<GuessFormData>({
     age: 0,
     proof: 0,
-    mashbill: '',
+    mashbill: ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmitGuess(guess);
+    submitSampleGuess(currentSample, guessData);
+    navigateSample('next');
+  };
+
+  const handleInputChange = (field: keyof GuessFormData) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    let value: string | number = e.target.value;
+    if (field === 'age' || field === 'proof') {
+      value = Number(value) || 0;
+    }
+    setGuessData(prev => ({ ...prev, [field]: value }));
   };
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Sample {currentSample}</CardTitle>
-          <Progress value={progress} className="h-2" />
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Age (Years)
-                </label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={50}
-                  value={guess.age}
-                  onChange={(e) => 
-                    setGuess((prev) => ({ ...prev, age: Number(e.target.value) }))
-                  }
-                  className="w-full"
-                />
-              </div>
+    <div className="bg-white rounded-lg shadow-lg p-6">
+      <h2 className="text-xl font-bold mb-4">Sample {currentSample}</h2>
+      
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Age Input */}
+        <div>
+          <label 
+            htmlFor="age" 
+            className="block text-sm font-medium text-gray-700"
+          >
+            Age (Years)
+          </label>
+          <input
+            type="number"
+            id="age"
+            name="age"
+            min="0"
+            max="50"
+            value={guessData.age}
+            onChange={handleInputChange('age')}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"
+          />
+        </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">Proof</label>
-                <Input
-                  type="number"
-                  min={80}
-                  max={160}
-                  value={guess.proof}
-                  onChange={(e) =>
-                    setGuess((prev) => ({ ...prev, proof: Number(e.target.value) }))
-                  }
-                  className="w-full"
-                />
-              </div>
+        {/* Proof Input */}
+        <div>
+          <label 
+            htmlFor="proof" 
+            className="block text-sm font-medium text-gray-700"
+          >
+            Proof
+          </label>
+          <input
+            type="number"
+            id="proof"
+            name="proof"
+            min="80"
+            max="160"
+            step="0.1"
+            value={guessData.proof}
+            onChange={handleInputChange('proof')}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"
+          />
+        </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Mashbill Type
-                </label>
-                <Select
-                  value={guess.mashbill}
-                  onValueChange={(value) =>
-                    setGuess((prev) => ({ ...prev, mashbill: value }))
-                  }
-                >
-                  <option value="">Select Mashbill Type</option>
-                  {MASHBILL_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-            </div>
+        {/* Mashbill Selection */}
+        <div>
+          <label 
+            htmlFor="mashbill" 
+            className="block text-sm font-medium text-gray-700"
+          >
+            Mashbill Type
+          </label>
+          <select
+            id="mashbill"
+            name="mashbill"
+            value={guessData.mashbill}
+            onChange={handleInputChange('mashbill')}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"
+          >
+            <option value="">Select Mashbill</option>
+            {MASHBILL_TYPES.map(type => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+        </div>
 
-            <div className="flex justify-between pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onNavigate('previous')}
-                disabled={isFirstSample}
-              >
-                Previous Sample
-              </Button>
-              <Button
-                type="button"
-                onClick={() => onNavigate('next')}
-                disabled={isLastSample}
-              >
-                Next Sample
-              </Button>
-            </div>
+        {/* Navigation Buttons */}
+        <div className="flex justify-between pt-4">
+          <button
+            type="button"
+            onClick={() => navigateSample('previous')}
+            className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+          >
+            Previous Sample
+          </button>
 
-            {isLastSample && (
-              <Button type="submit" className="w-full mt-4">
-                Submit Final Guesses
-              </Button>
-            )}
-          </form>
-        </CardContent>
-      </Card>
+          <button
+            type="submit"
+            disabled={!guessData.age || !guessData.proof || !guessData.mashbill}
+            className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Submit & Next
+          </button>
+        </div>
+      </form>
     </div>
   );
-}
+};

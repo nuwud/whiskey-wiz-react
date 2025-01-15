@@ -1,0 +1,54 @@
+name: Feature Migration
+description: Track migration of features from Angular/Next.js versions
+title: "[Migration] "
+labels: ["migration", "tracking"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Track the migration of existing features to the Vite version
+  - type: input
+    id: feature-name
+    attributes:
+      label: Feature Name
+      description: Name of the feature being migrated
+      placeholder: "e.g., Quarter Analytics"
+    validations:
+      required: true
+  - type: dropdown
+    id: source-version
+    attributes:
+      label: Source Version
+      description: Which version is this feature from?
+      options:
+        - Angular (Original)
+        - Next.js
+        - React (Pre-Vite)
+    validations:
+      required: true
+  - type: textarea
+    id: original-location
+    attributes:
+      label: Original Location
+      description: Where was this feature located in the source codebase?
+      placeholder: "e.g., src/components/analytics/QuarterAnalytics.ts"
+  - type: textarea
+    id: key-functionality
+    attributes:
+      label: Key Functionality
+      description: What are the core features that need to be migrated?
+  - type: checkboxes
+    id: migration-tasks
+    attributes:
+      label: Migration Tasks
+      options:
+        - label: Component Migration
+        - label: Service Layer Updates
+        - label: Type Definitions
+        - label: Testing
+        - label: Documentation
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: List any dependencies or related features needed

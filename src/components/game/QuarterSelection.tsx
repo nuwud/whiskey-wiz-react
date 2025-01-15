@@ -1,111 +1,115 @@
-"use client";
-
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-
-interface Quarter {
-  id: string;
-  name: string;
-  active: boolean;
-  startDate: string;
-  endDate: string;
-  difficulty: 'Easy' | 'Medium' | 'Hard';
-  completedBy: number;
-  averageScore: number;
-}
+import React, { useEffect, useState } from 'react';
+import { Quarter } from '../../types/game';
+import { quarterService } from '../../services/quarterService';
 
 interface QuarterSelectionProps {
-  quarters: Quarter[];
-  onSelectQuarter: (quarterId: string) => void;
-  userProgress: Record<string, {
-    completed: boolean;
-    score?: number;
-    attempts: number;
-  }>;
+  onSelect: (quarter: Quarter) => void;
+  showInactive?: boolean;
 }
 
-export function QuarterSelection({
-  quarters,
-  onSelectQuarter,
-  userProgress,
-}: QuarterSelectionProps) {
-  const getDifficultyColor = (difficulty: Quarter['difficulty']) => {
-    switch (difficulty) {
-      case 'Easy':
-        return 'bg-green-100 text-green-800';
-      case 'Medium':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'Hard':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
+export const QuarterSelection = ({ 
+  onSelect,
+  showInactive = false 
+}: QuarterSelectionProps) => {
+  const [quarters, setQuarters] = useState<Quarter[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchQuarters = async () => {
+      try {
+        const fetchedQuarters = showInactive 
+          ? await quarterService.getAllQuarters()
+          : await quarterService.getActiveQuarters();
+        setQuarters(fetchedQuarters);
+      } catch (err) {
+        setError('Failed to load quarters. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuarters();
+  }, [showInactive]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-32">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center text-red-600 p-4">
+        {error}
+      </div>
+    );
+  }
+
+  if (quarters.length === 0) {
+    return (
+      <div className="text-center p-4">
+        <p className="text-gray-600">No quarters available.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Available Quarters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {quarters.map((quarter) => {
-              const progress = userProgress[quarter.id];
-              return (
-                <Card key={quarter.id} className="relative">
-                  {!quarter.active && (
-                    <div className="absolute inset-0 bg-gray-500/50 flex items-center justify-center rounded-lg">
-                      <p className="text-white font-medium">Coming Soon</p>
-                    </div>
-                  )}
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="font-medium">{quarter.name}</h3>
-                        <p className="text-sm text-gray-500">
-                          {new Date(quarter.startDate).toLocaleDateString()} -
-                          {new Date(quarter.endDate).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <Badge className={getDifficultyColor(quarter.difficulty)}>
-                        {quarter.difficulty}
-                      </Badge>
-                    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {quarters.map((quarter) => (
+        <button
+          key={quarter.id}
+          onClick={() => onSelect(quarter)}
+          className={`p-6 rounded-lg shadow-lg text-left transition-transform hover:scale-105 ${
+            quarter.isActive
+              ? 'bg-white hover:shadow-xl'
+              : 'bg-gray-50 hover:shadow-lg'
+          }`}
+        >
+          <h3 className="text-lg font-bold text-gray-900 mb-2">
+            {quarter.name}
+          </h3>
+          
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Start Date:</span>
+              <span className="text-gray-900">
+                {quarter.startDate.toLocaleDateString()}
+              </span>
+            </div>
+            
+            <div className="flex justify-between">
+              <span className="text-gray-600">End Date:</span>
+              <span className="text-gray-900">
+                {quarter.endDate.toLocaleDateString()}
+              </span>
+            </div>
+            
+            <div className="flex justify-between">
+              <span className="text-gray-600">Difficulty:</span>
+              <span className={`font-medium ${
+                quarter.difficulty === 'beginner'
+                  ? 'text-green-600'
+                  : quarter.difficulty === 'intermediate'
+                  ? 'text-amber-600'
+                  : 'text-red-600'
+              }`}>
+                {quarter.difficulty.charAt(0).toUpperCase() + quarter.difficulty.slice(1)}
+              </span>
+            </div>
 
-                    <div className="space-y-2 mb-4">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Times Played:</span>
-                        <span>{progress?.attempts || 0}</span>
-                      </div>
-                      {progress?.completed && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Your Score:</span>
-                          <span>{progress.score}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Global Average:</span>
-                        <span>{quarter.averageScore}</span>
-                      </div>
-                    </div>
-
-                    <Button 
-                      className="w-full"
-                      onClick={() => onSelectQuarter(quarter.id)}
-                      disabled={!quarter.active}
-                    >
-                      {progress?.completed ? 'Play Again' : 'Start Quarter'}
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
+            {quarter.isActive && (
+              <div className="mt-4">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  Active
+                </span>
+              </div>
+            )}
           </div>
-        </CardContent>
-      </Card>
+        </button>
+      ))}
     </div>
   );
-}
+};

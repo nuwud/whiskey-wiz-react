@@ -1,10 +1,17 @@
-<<<<<<< HEAD
 import { createContext, useContext, useEffect, useState } from 'react';
-import { User, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../firebase';
+import { 
+  User, 
+  signInWithEmailAndPassword, 
+  signOut, 
+  createUserWithEmailAndPassword, 
+  sendPasswordResetEmail 
+} from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase';
 
 interface AuthContextType {
   currentUser: User | null;
+  isAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -24,11 +31,19 @@ export function useAuth() {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(user => {
+    const unsubscribe = auth.onAuthStateChanged(async user => {
       setCurrentUser(user);
+      if (user) {
+        // Check if user is admin
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        setIsAdmin(userDoc.data()?.role === 'admin' || false);
+      } else {
+        setIsAdmin(false);
+      }
       setLoading(false);
     });
 
@@ -53,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = {
     currentUser,
+    isAdmin,
     login,
     signup,
     logout,
@@ -66,56 +82,3 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     </AuthContext.Provider>
   );
 }
-||||||| empty tree
-=======
-
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-
-
-
-interface AuthContextType {
-
-    isAdmin: boolean;
-
-}
-
-
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-
-
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-
-    const [isAdmin, setIsAdmin] = useState(false);
-
-
-
-    return (
-
-        <AuthContext.Provider value={{ isAdmin }}>
-
-            {children}
-
-        </AuthContext.Provider>
-
-    );
-
-};
-
-
-
-export const useAuth = (): AuthContextType => {
-
-    const context = useContext(AuthContext);
-
-    if (!context) {
-
-        throw new Error('useAuth must be used within an AuthProvider');
-
-    }
-
-    return context;
-
-};
->>>>>>> 8178bd0910923a70f68e906db6195c9b7ffedd35
