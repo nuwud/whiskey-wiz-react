@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -65,3 +66,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     </AuthContext.Provider>
   );
 }
+||||||| empty tree
+=======
+
+import React, { createContext, useContext, useState, ReactNode } from 'react';
+
+
+
+interface AuthContextType {
+
+    isAdmin: boolean;
+
+}
+
+
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+
+
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+
+    const [isAdmin, setIsAdmin] = useState(false);
+
+
+
+    return (
+
+        <AuthContext.Provider value={{ isAdmin }}>
+
+            {children}
+
+        </AuthContext.Provider>
+
+    );
+
+};
+
+
+
+export const useAuth = (): AuthContextType => {
+
+    const context = useContext(AuthContext);
+
+    if (!context) {
+
+        throw new Error('useAuth must be used within an AuthProvider');
+
+    }
+
+    return context;
+
+};
+>>>>>>> 8178bd0910923a70f68e906db6195c9b7ffedd35

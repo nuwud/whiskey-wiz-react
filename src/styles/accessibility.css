@@ -1,0 +1,53 @@
+/* Accessibility Styles */
+
+/* High Contrast Mode */
+body.high-contrast {
+  background-color: #000 !important;
+  color: #fff !important;
+}
+
+.high-contrast a {
+  color: #ffff00 !important;
+}
+
+.high-contrast .button {
+  border: 2px solid #fff !important;
+}
+
+/* Reduced Motion */
+.reduced-motion * {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Font Sizes */
+body {
+  font-size: 1rem;
+}
+
+body.font-small {
+  font-size: 0.8rem;
+}
+
+body.font-large {
+  font-size: 1.2rem;
+}
+
+/* Screen Reader Optimizations */
+.screen-reader-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Keyboard Navigation */
+*:focus {
+  outline: 3px solid #4A90E2;
+  outline-offset: 2px;
+}

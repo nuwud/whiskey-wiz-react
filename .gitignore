@@ -1,41 +1,61 @@
 # Dependencies
-node_modules
+node_modules/
+npm-modules/
+jspm_packages/
 .pnp
 .pnp.js
 
-# Testing
-coverage
+# Build output directories
+build/
+dist/
+out/
 
-# Production
-dist
-build
-
-# Misc
-.DS_Store
-*.pem
+# Environment files
+.env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# Debug
+# Logs
+logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Local env files
-.env*.local
-
-# Firebase
-.firebase
-.firebaserc
+# Lock files
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
 
 # Editor directories and files
+.idea/
 .vscode/*
 !.vscode/extensions.json
-.idea
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# Specific to React/Firebase project
+.firebase/
+.firebaserc
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
