@@ -4,14 +4,14 @@ import { getFirestore } from 'firebase/firestore';
 import { getAnalytics } from 'firebase/analytics';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCqZMaGpJGf5veYgTXmytg1bLerva-of0U",
-  authDomain: "whiskeywiz2.firebaseapp.com",
-  projectId: "whiskeywiz2",
-  storageBucket: "whiskeywiz2.appspot.com",
-  messagingSenderId: "555320797929",
-  appId: "1:555320797929:web:0d4b062d7f2ab330fc1e78",
-  measurementId: "G-SK0TJJEPF5",
-  databaseURL: "https://whiskeywiz2-default-rtdb.firebaseio.com",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
 };
 
 const app = initializeApp(firebaseConfig);
