@@ -1,39 +1,61 @@
-import React, { ErrorInfo } from 'react';
+import React, { Component, ErrorInfo } from 'react';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { AlertCircle } from "lucide-react";
 
-interface ErrorBoundaryState {
-  hasError: boolean;
-    error?: Error;
-    errorInfo?: ErrorInfo;
+interface Props {
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
 }
 
-class ErrorBoundary extends React.Component<{children: React.ReactNode}, ErrorBoundaryState> {
-  constructor(props: {children: React.ReactNode}) {
+interface State {
+  hasError: boolean;
+  error: Error | null;
+}
+
+export class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(error: Error) {
+  static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log error to analytics service
-    console.error('Uncaught error:', error, errorInfo);
+    console.error('Error caught by boundary:', error, errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
+      if (this.props.fallback) {
+        return this.props.fallback;
+      }
+
       return (
-        <div className="error-fallback">
-          <h1>Something went wrong</h1>
-          <p>We're sorry, but an unexpected error occurred.</p>
-          <button onClick={() => window.location.reload()}>Reload Page</button>
-        </div>
+        <Alert variant="destructive" className="my-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Something went wrong</AlertTitle>
+          <AlertDescription>
+            <p className="mt-2">
+              {this.state.error?.message || 'An unexpected error occurred'}
+            </p>
+            <Button
+              variant="outline"
+              className="mt-4"
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.reload();
+              }}
+            >
+              Try Again
+            </Button>
+          </AlertDescription>
+        </Alert>
       );
     }
 
     return this.props.children;
   }
 }
-
-export default ErrorBoundary;
