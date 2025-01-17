@@ -29,18 +29,14 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
-      if (this.props.fallback) {
-        return this.props.fallback;
-      }
+      if (this.props.fallback) return this.props.fallback;
 
       return (
         <Alert variant="destructive" className="my-4">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Something went wrong</AlertTitle>
           <AlertDescription>
-            <p className="mt-2">
-              {this.state.error?.message || 'An unexpected error occurred'}
-            </p>
+            <p className="mt-2">{this.state.error?.message || 'An unexpected error occurred'}</p>
             <Button
               variant="outline"
               className="mt-4"
