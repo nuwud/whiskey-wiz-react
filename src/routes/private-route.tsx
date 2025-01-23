@@ -1,27 +1,37 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/contexts/auth.context';
+import { UserRole } from '@/types/firebase.types';
+import { Spinner } from '@/components/ui/spinner-ui.component';
 
 interface PrivateRouteProps {
+  allowedRoles?: UserRole[];
   adminOnly?: boolean;
+  children?: React.ReactNode;
 }
 
-const PrivateRoute: React.FC<PrivateRouteProps> = ({ adminOnly = false }) => {
-  const { currentUser, isAdmin, loading } = useAuth();
+export const PrivateRoute: React.FC<PrivateRouteProps> = ({ 
+  allowedRoles = [], 
+  adminOnly = false,
+  children 
+}) => {
+  const { user, loading } = useAuth();
 
   if (loading) {
-    return <div>Loading...</div>; // Or a spinner
+    return <div className="flex justify-center items-center h-screen"><Spinner /></div>;
   }
 
-  if (!currentUser) {
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  if (adminOnly && !isAdmin) {
+  if (adminOnly && user.role !== UserRole.ADMIN) {
     return <Navigate to="/" replace />;
   }
 
-  return <Outlet />;
-};
+  if (allowedRoles.length > 0 && user.role && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/" replace />;
+  }
 
-export default PrivateRoute;
+  return children ? <>{children}</> : <Outlet />;
+};
