@@ -1,0 +1,51 @@
+/* Existing styles... (previous implementation) */
+
+/* Loading Spinner Styles */
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: var(--background-dark);
+  color: var(--primary-gold);
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid var(--accent-dark);
+  border-top: 5px solid var(--primary-gold);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Error Boundary Styles */
+.error-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: var(--background-dark);
+  color: var(--text-light);
+  text-align: center;
+  padding: 2rem;
+}
+
+.error-fallback h1 {
+  color: #ff4136; /* Bright red for error */
+  margin-bottom: 1rem;
+}
+
+.error-fallback button {
+  margin-top: 1rem;
+  background-color: var(--primary-gold);
+  color: var(--background-dark);
+}

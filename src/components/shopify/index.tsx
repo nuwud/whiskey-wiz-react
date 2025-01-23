@@ -1,0 +1,1 @@
+export * from './whiskey-wiz-embed.component';

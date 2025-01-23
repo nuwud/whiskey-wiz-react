@@ -1,0 +1,52 @@
+name: Shopify Integration
+description: Track Shopify integration features and requirements
+title: "[Shopify] "
+labels: ["shopify", "integration"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Track Shopify integration features and requirements
+  - type: dropdown
+    id: integration-type
+    attributes:
+      label: Integration Type
+      description: What type of Shopify integration is this?
+      options:
+        - Page Embedding
+        - Product Sync
+        - Quarter Integration
+        - Authentication
+        - Theme Customization
+        - API Integration
+    validations:
+      required: true
+  - type: input
+    id: feature-name
+    attributes:
+      label: Feature Name
+      description: Specific feature being integrated
+      placeholder: "e.g., Product Metafield Sync"
+    validations:
+      required: true
+  - type: textarea
+    id: shopify-requirements
+    attributes:
+      label: Shopify Requirements
+      description: Required Shopify setup or configurations
+      placeholder: "e.g., Required metafields, API scopes, etc."
+  - type: textarea
+    id: implementation-details
+    attributes:
+      label: Implementation Details
+      description: Technical implementation requirements
+  - type: checkboxes
+    id: testing-requirements
+    attributes:
+      label: Testing Requirements
+      options:
+        - label: Local Development Store
+        - label: Theme Customization
+        - label: Product Configuration
+        - label: API Testing
+        - label: Performance Testing
