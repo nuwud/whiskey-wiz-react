@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { SeasonalTrend } from 'src/services/seasonal-trends.service';
+import { SeasonalTrendsService } from 'src/services/seasonal-trends.service';
 
 interface SeasonalTrend {
   season: string;
@@ -7,7 +7,7 @@ interface SeasonalTrend {
   popularWhiskeyTypes: string[];
 }
 
-const SeasonalTrends: React.FC = () => {
+const SeasonalTrendsService: React.FC = () => {
   const [trends, setTrends] = useState<SeasonalTrend[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -15,7 +15,7 @@ const SeasonalTrends: React.FC = () => {
   useEffect(() => {
     const loadTrends = async () => {
       try {
-        const seasonalData = await fetchSeasonalTrends();
+        const seasonalData = await fetch SeasonalTrendsService ();
         setTrends(seasonalData);
         setLoading(false);
       } catch (err) {

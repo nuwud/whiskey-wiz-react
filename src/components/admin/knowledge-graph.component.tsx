@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card-ui.component';
-import { whiskeyKnowledgeService, KnowledgeNode } from '@/services/whiskey-knowledge.service';
+import { whiskeyKnowledgeService, KnowledgeNode } from 'src/services/whiskey-knowledge.service';
 import { analyticsService } from '@/services/analytics.service';
 import { useAuth } from '@/contexts/auth.context';
 

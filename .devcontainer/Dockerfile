@@ -1,4 +1,4 @@
-FROM node:18-bullseye
+FROM node:16-buster
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -16,7 +16,6 @@ COPY package*.json ./
 # Install global packages
 RUN npm install -g npm@latest \
     npm install -g typescript \
-    npm install -g eslint \
     npm install -g @types/react
 
 # Set the default shell to bash

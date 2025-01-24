@@ -47,7 +47,9 @@ const ShopifyIntegration: React.FC = () => {
     }
 
     return () => {
+      // Cleanup custom element when component is unmounted
       customElements.delete('whiskey-wiz');
+      // Cleanup logic when component is unmounted
     };
   }, []);
 

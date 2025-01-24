@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/auth.context';
 import { recommendationService } from '@/services/recommendation.service';
 import { analyticsService } from '@/services/analytics.service';
 import { WhiskeySample } from '@/types';
-import { Dram } from 'lucide-react';
+import { Drama } from 'lucide-react';
 
 interface WhiskeyRecommendation extends WhiskeySample {
   matchScore: number;
@@ -88,7 +88,7 @@ export const WhiskeyRecommendations: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Dram className="h-5 w-5" />
+            <Drama className="h-5 w-5" />
             Your Whiskey Recommendations
           </CardTitle>
         </CardHeader>
@@ -99,18 +99,18 @@ export const WhiskeyRecommendations: React.FC = () => {
                 <CardContent className="p-4">
                   <h3 className="text-lg font-bold mb-1">{whiskey.name}</h3>
                   <p className="text-sm text-gray-600 mb-3">{whiskey.distillery}</p>
-                  
+
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Region:</span>
                       <span className="font-medium">{whiskey.mashbillType}</span>
                     </div>
-                    
+
                     <div className="flex justify-between">
                       <span className="text-gray-600">Age:</span>
                       <span className="font-medium">{whiskey.age} years</span>
                     </div>
-                    
+
                     <div className="flex justify-between">
                       <span className="text-gray-600">Proof:</span>
                       <span className="font-medium">{whiskey.proof}°</span>
@@ -148,7 +148,7 @@ export const WhiskeyRecommendations: React.FC = () => {
                     <div className="text-xs text-gray-500">
                       Match Score: {Math.round(whiskey.matchScore * 100)}%
                     </div>
-                    <button 
+                    <button
                       onClick={() => analyticsService.trackUserEngagement('recommendation_saved', {
                         userId: user.uid,
                         whiskeyId: whiskey.id

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Quarter, Sample } from '../../models/quarter.model';
-import { ScoreSubmission } from '../../services/scoreService';
-import { useAuth } from '../../contexts/AuthContext';
+import { ScoreSubmission } from '../../services/score.service';
+import { useAuth } from '../../contexts/auth.context';
 
 interface ResultsViewProps {
   quarter: Quarter;
