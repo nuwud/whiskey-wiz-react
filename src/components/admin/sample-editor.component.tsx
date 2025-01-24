@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { WhiskeySample } from '../../types/game.types';
 import { Dialog } from '@/components/ui/dialog';
-import { shopifyService } from '../../services/shopifyService';
+import { shopifyService } from 'src/services/shopify-integration.service';
 
 interface ShopifyProduct {
   id: string;
@@ -112,7 +112,7 @@ export const SampleEditor = ({ samples, onUpdate, onClose }: SampleEditorProps) 
             </div>
 
             {/* ... keep existing sample form ... */}
-            
+
             {/* ... keep existing samples list ... */}
           </div>
         </div>

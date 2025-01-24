@@ -1,8 +1,8 @@
 import React, { lazy, Suspense } from 'react';
-import { QuarterService, Quarter } from '../../services/QuarterService';
+import { QuarterService, Quarter } from 'src/services/quarter.service';
 import { ErrorBoundary } from '../error-boundary.component';
-import { AnalyticsService } from '../../services/AnalyticsService';
-import { MonitoringService } from '../../services/MonitoringService';
+import { AnalyticsService } from 'src/services/analytics.service';
+import { MonitoringService } from 'src/services/monitoring.service';
 
 interface QuarterFactoryProps {
   quarterId: string;
@@ -22,7 +22,7 @@ export const QuarterFactory: React.FC<QuarterFactoryProps> = ({ quarterId }) => 
         // Fetch quarter data
         const quarterService = new QuarterService();
         const quarter = await quarterService.getQuarterById(quarterId);
-        
+
         if (!quarter) {
           throw new Error(`Quarter ${quarterId} not found`);
         }
@@ -80,7 +80,7 @@ export const QuarterFactory: React.FC<QuarterFactoryProps> = ({ quarterId }) => 
       </div>
     }>
       <Suspense fallback={<div>Loading Quarter Components...</div>}>
-        <QuarterComponent 
+        <QuarterComponent
           quarterId={quarterId}
           quarterData={quarterData}
         />

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { PrivateRoute } from './private-route';
-import { UserRole } from '@/types/firebase.types';
+import { privateRoute } from 'src/components/private-route.component';
+import { UserRole } from '@/types';
 
 // Auth Components
 import { Login } from '@/components/auth/login.component';

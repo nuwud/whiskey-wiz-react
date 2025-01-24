@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AccessibilityManager } from '../utils/AccessibilityManager';
+import { AccessibilityManager } from 'src/services/accessibility.service';
 
 export const useAccessibility = () => {
   const accessibilityManager = AccessibilityManager.getInstance();

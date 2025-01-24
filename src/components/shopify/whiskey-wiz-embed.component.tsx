@@ -1,14 +1,33 @@
 import React, { useEffect, useState } from 'react';
-import { shopifyService } from 'src/services/shopify-integration.service';
-import { QuarterProvider } from 'src/contexts/quarter.context';
-import { AuthProvider } from 'src/contexts/auth.context';
-import { FeatureProvider } from 'src/contexts/feature.context';
-import { GameBoard } from '../game/game-board.component';
+import { createRoot } from 'react-dom/client';
+import { shopifyService } from '@/services/shopify-integration.service';
+import { QuarterProvider } from '@/contexts/quarter.context';
+import { AuthProvider } from '@/contexts/auth.context';
+import { FeatureProvider } from '@/contexts/feature.context';
+import { GameBoard } from '@/components/game/game-board.component';
+import { analyticsService } from '@/services/analytics.service';
+
+type Theme = 'light' | 'dark';
+type PageType = 'product' | 'collection' | 'page';
+
+interface WhiskeyWizEmbedOptions {
+  quarterId?: string;
+  theme?: Theme;
+  width?: string;
+  height?: string;
+  containerStyle?: React.CSSProperties;
+}
+
+interface PageInfo {
+  quarterId: string;
+  pageType: PageType;
+  productId?: string;
+}
 
 declare global {
   interface Window {
     WhiskeyWizEmbed?: {
-      mount: (el: HTMLElement, options?: WhiskeyWizEmbedOptions) => void;
+      mount: (el: HTMLElement, options?: WhiskeyWizEmbedOptions) => () => void;
     };
     Shopify?: {
       shop: string;
@@ -20,91 +39,131 @@ declare global {
   }
 }
 
-interface WhiskeyWizEmbedOptions {
-  quarterCode?: string;
-  theme?: 'light' | 'dark';
-  width?: string;
-  height?: string;
-}
+const DEFAULT_CONFIG = {
+  theme: 'light' as Theme,
+  width: '100%',
+  height: 'auto',
+  maxWidth: '1200px',
+};
 
-function WhiskeyWizEmbed({ options = {} }: { options: WhiskeyWizEmbedOptions }) {
-  const [pageInfo, setPageInfo] = useState<{
-    quarterCode: string | null;
-    pageType: 'product' | 'collection' | 'page';
-  } | null>(null);
+const WhiskeyWizEmbed: React.FC<{ options: WhiskeyWizEmbedOptions }> = ({ options }) => {
+  const [pageInfo, setPageInfo] = useState<PageInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const initializeEmbed = async () => {
       try {
+        setIsLoading(true);
+
         // Get page info from Shopify
-        const info = await shopifyService.getEmbedLocation();
+        if (!options.quarterId) {
+          throw new Error('No quarter ID specified');
+        }
+
+        const productId = new URLSearchParams(window.location.search).get('product_id');
+        const pageType: PageType = productId ? 'product' : 'page';
+
+        // If on product page, check for existing challenge
+        if (pageType === 'product' && productId) {
+          const hasChallenge = shopifyService.hasEmbeddedChallenge(productId);
+          if (hasChallenge) {
+            throw new Error('Challenge already embedded in this product');
+          }
+        }
+
         setPageInfo({
-          quarterCode: options.quarterCode || info.quarterCode,
-          pageType: info.pageType
+          quarterId: options.quarterId,
+          pageType,
+          productId
         });
+
+        analyticsService.trackError('Shopify embed initialized', 'shopify_embed', productId);
       } catch (err) {
-        setError('Failed to initialize game');
-        console.error('Initialization error:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to initialize game';
+        setError(errorMessage);
+        analyticsService.trackError(errorMessage, 'shopify_embed');
+      } finally {
+        setIsLoading(false);
       }
     };
 
     initializeEmbed();
-  }, [options.quarterCode]);
+    
+    return () => {
+      // Cleanup if needed
+      const { productId } = pageInfo || {};
+      if (productId) {
+        shopifyService.removeChallengeFromProduct(productId);
+      }
+    };
+  }, [options.quarterId]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (error) {
     return (
-      <div className="text-red-600 text-center p-4">
-        {error}
+      <div className="rounded-lg bg-red-50 p-4">
+        <div className="text-sm text-red-700 text-center">{error}</div>
       </div>
     );
   }
 
-  if (!pageInfo?.quarterCode) {
+  if (!pageInfo?.quarterId) {
     return (
-      <div className="text-amber-600 text-center p-4">
-        No quarter code specified for this game.
+      <div className="rounded-lg bg-amber-50 p-4">
+        <div className="text-sm text-amber-700 text-center">
+          No quarter ID specified for this game.
+        </div>
       </div>
     );
   }
+
+  const containerStyles: React.CSSProperties = {
+    width: options.width || DEFAULT_CONFIG.width,
+    height: options.height || DEFAULT_CONFIG.height,
+    maxWidth: DEFAULT_CONFIG.maxWidth,
+    margin: '0 auto',
+    ...(options.containerStyle || {})
+  };
 
   return (
-    <div className={`whiskey-wiz-embed ${options.theme || 'light'}`}
-      style={{
-        width: options.width || '100%',
-        height: options.height || 'auto',
-        maxWidth: '1200px',
-        margin: '0 auto'
-      }}>
+    <div 
+      className={`whiskey-wiz-embed ${options.theme || DEFAULT_CONFIG.theme}`}
+      style={containerStyles}
+    >
       <AuthProvider>
         <FeatureProvider>
-          <QuarterProvider code={pageInfo.quarterCode}>
+          <QuarterProvider quarterId={pageInfo.quarterId}>
             <GameBoard />
           </QuarterProvider>
         </FeatureProvider>
       </AuthProvider>
     </div>
   );
-}
+};
 
 // Mount function for Shopify liquid
-function mountEmbed(el: HTMLElement, options: WhiskeyWizEmbedOptions = {}) {
-  const root = document.createElement('div');
-  el.appendChild(root);
+const mountEmbed = (el: HTMLElement, options: WhiskeyWizEmbedOptions = {}): (() => void) => {
+  const container = document.createElement('div');
+  container.className = 'whiskey-wiz-embed-container';
+  el.appendChild(container);
 
-  // Create and render the React component
-  const ReactDOM = require('react-dom');
-  ReactDOM.render(
-    <WhiskeyWizEmbed options={options} />,
-    root
-  );
+  const root = createRoot(container);
+  root.render(<WhiskeyWizEmbed options={options} />);
 
   // Return cleanup function
   return () => {
-    ReactDOM.unmountComponentAtNode(root);
-    el.removeChild(root);
+    root.unmount();
+    el.removeChild(container);
   };
-}
+};
 
 // Export for Shopify liquid usage
 if (typeof window !== 'undefined') {

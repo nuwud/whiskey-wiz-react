@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchSeasonalTrends } from '../services/seasonalTrendsService';
+import { SeasonalTrend } from 'src/services/seasonal-trends.service';
 
 interface SeasonalTrend {
   season: string;

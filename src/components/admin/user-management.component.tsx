@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card-ui.component';
-import { PlayerTrackingService } from '@/services/PlayerTrackingService';
+import { PlayerTrackingService } from 'src/services/player-tracking.service';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface User {

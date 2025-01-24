@@ -1,6 +1,6 @@
-import { db, auth } from '../firebaseConfig';
+import { db, auth } from '../firebase';
 import { collection, doc, setDoc, updateDoc, getDoc, addDoc, query, where, getDocs } from 'firebase/firestore';
-import { AnalyticsService } from './AnalyticsService';
+import { analyticsService } from 'src/services/analytics.service';
 
 export interface PlayerProfile {
   userId: string;
@@ -52,25 +52,25 @@ export class PlayerTrackingService {
 
     try {
       const profileRef = doc(this.playerProfileCollection, currentUser.uid);
-      
+
       // Fetch existing profile
       const existingProfile = await getDoc(profileRef);
-      
-      const updatedProfile: PlayerProfile = existingProfile.exists() 
-        ? { 
-            ...existingProfile.data() as PlayerProfile,
-            ...profileData 
-          }
+
+      const updatedProfile: PlayerProfile = existingProfile.exists()
+        ? {
+          ...existingProfile.data() as PlayerProfile,
+          ...profileData
+        }
         : {
-            userId: currentUser.uid,
-            email: currentUser.email || '',
-            displayName: currentUser.displayName || '',
-            totalQuartersPlayed: 0,
-            lifetimeScore: 0,
-            quarterPerformance: {},
-            registrationType: 'email',
-            ...profileData
-          };
+          userId: currentUser.uid,
+          email: currentUser.email || '',
+          displayName: currentUser.displayName || '',
+          totalQuartersPlayed: 0,
+          lifetimeScore: 0,
+          quarterPerformance: {},
+          registrationType: 'email',
+          ...profileData
+        };
 
       // Update profile
       await setDoc(profileRef, updatedProfile, { merge: true });
@@ -116,7 +116,7 @@ export class PlayerTrackingService {
 
   private calculateAccuracy(attempt: SampleAttempt): number {
     const { age, proof, mashbillType } = attempt.guesses;
-    
+
     const ageAccuracy = 100 - Math.abs(age.accuracy);
     const proofAccuracy = 100 - Math.abs(proof.accuracy);
     const mashbillAccuracy = mashbillType.correct ? 100 : 0;

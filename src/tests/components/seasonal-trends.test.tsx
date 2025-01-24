@@ -2,9 +2,6 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import SeasonalTrends from '../../components/seasonal-trends.component';
 
-// Mock the service
-jest.mock('../../services/seasonalTrendsService');
-
 describe('SeasonalTrends Component', () => {
   const mockTrends = [
     {

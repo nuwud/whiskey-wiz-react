@@ -11,15 +11,17 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "strict": false,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
+    "strict": true,
+    "strictNullChecks": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     },
-    "types": ["node", "jest"],
+    "types": ["node", "vite/client"],
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true
   },

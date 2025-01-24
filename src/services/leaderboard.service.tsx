@@ -1,14 +1,14 @@
-import { db } from '@/lib/firebase';
-import { 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
-  limit, 
+import { db } from '../firebase';
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
   getDocs,
   doc,
   updateDoc,
-  serverTimestamp 
+  serverTimestamp
 } from 'firebase/firestore';
 
 export interface LeaderboardEntry {

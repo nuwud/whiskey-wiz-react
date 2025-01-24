@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Quarter } from '../../types/game.types';
-import { quarterService } from '../../services/quarterService';
+import { quarterService } from 'src/services/quarter.service';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 interface QuarterStats {
@@ -27,7 +27,7 @@ interface DailyStats {
   completionRate: number;
 }
 
-export const QuarterAnalytics = () => {
+export const quarterAnalytics = () => {
   const [selectedQuarter, setSelectedQuarter] = useState<Quarter | null>(null);
   const [quarters, setQuarters] = useState<Quarter[]>([]);
   const [stats, setStats] = useState<QuarterStats | null>(null);

@@ -22,6 +22,9 @@ class AnalyticsService {
   private analytics: Analytics;
 
   constructor() {
+    if (!analytics) {
+      throw new Error('Firebase analytics is not initialized');
+    }
     this.analytics = analytics;
   }
 
@@ -142,6 +145,10 @@ class AnalyticsService {
       console.error('Analytics error - setUserRole:', error);
     }
   }
+
+  // Other methods...
+  // ...
+
 }
 
 export const analyticsService = new AnalyticsService();

@@ -2,15 +2,15 @@ import React from 'react';
 import { useAccessibility } from '../hooks/use-accessibility.hook';
 
 export const AccessibilitySettings: React.FC = () => {
-  const { 
-    accessibilityPreferences, 
-    updateAccessibilityPreferences 
+  const {
+    accessibilityPreferences,
+    updateAccessibilityPreferences
   } = useAccessibility();
 
   return (
     <div className="accessibility-settings">
       <h2>Accessibility Preferences</h2>
-      
+
       <div className="setting">
         <label>
           <input

@@ -1,6 +1,6 @@
 import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
-import { AnalyticsService } from './AnalyticsService';
+import { db } from '../firebase';
+import { analyticsService } from 'src/services/analytics.service';
 
 export interface QuarterTemplate {
   id: string;
@@ -39,7 +39,7 @@ export class QuarterTemplateService {
   async createQuarterTemplate(template: QuarterTemplate): Promise<string> {
     try {
       const docRef = await addDoc(this.templateCollection, template);
-      
+
       AnalyticsService.trackUserEngagement('quarter_template_created', {
         templateId: docRef.id,
         difficulty: template.difficulty
@@ -89,14 +89,14 @@ export class QuarterTemplateService {
   async generateDynamicQuarters(): Promise<void> {
     try {
       const difficulties = ['easy', 'medium', 'hard'];
-      
+
       for (const difficulty of difficulties) {
         const templates = await this.getTemplatesByDifficulty(difficulty as 'easy' | 'medium' | 'hard');
-        
+
         templates.forEach(template => {
           // Generate component files or register dynamically
           const componentCode = this.generateQuarterComponent(template);
-          
+
           AnalyticsService.trackUserEngagement('dynamic_quarter_generated', {
             templateId: template.id,
             difficulty: template.difficulty

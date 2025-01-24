@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { StateRecoveryService } from '../services/StateRecoveryService';
-import { useAuth } from '../services/AuthContext';
+import { StateRecoveryService } from 'src/services/state-recovery.service';
+import { useAuth } from 'src/contexts/auth.context';
 
 export const useStateRecovery = (quarterId: string) => {
   const { user } = useAuth();
@@ -13,7 +13,7 @@ export const useStateRecovery = (quarterId: string) => {
 
       try {
         const recoveryState = await stateRecoveryService.recoverGameState(user.uid);
-        
+
         if (recoveryState && recoveryState.quarterId === quarterId) {
           setRecoveredState(recoveryState.lastSavedState);
         }

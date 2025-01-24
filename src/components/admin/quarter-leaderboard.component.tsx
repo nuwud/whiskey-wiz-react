@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { quarterService } from '../../services/quarterService';
+import { quarterService } from 'src/services/quarter.service';
 
 interface LeaderboardEntry {
   userId: string;
@@ -79,12 +79,11 @@ export const QuarterLeaderboard = ({ quarterId }: { quarterId: string }) => {
             {entries.map((entry, index) => (
               <tr key={entry.userId} className={index < 3 ? 'bg-amber-50' : ''}>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className={`text-sm ${
-                    index === 0 ? 'text-amber-600 font-bold' :
-                    index === 1 ? 'text-gray-600 font-bold' :
-                    index === 2 ? 'text-amber-800 font-bold' :
-                    'text-gray-900'
-                  }`}>
+                  <div className={`text-sm ${index === 0 ? 'text-amber-600 font-bold' :
+                      index === 1 ? 'text-gray-600 font-bold' :
+                        index === 2 ? 'text-amber-800 font-bold' :
+                          'text-gray-900'
+                    }`}>
                     #{index + 1}
                   </div>
                 </td>

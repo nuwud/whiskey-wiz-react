@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card-ui.component';
-import { AdminDashboardService, AdminDashboardMetrics } from 'src/services/admin-dashboard.service';
+import { AdminDashboardMetrics, AdminDashboardService, } from 'src/services/admin-dashboard.service';
 
 export function AdminMetricsPanel() {
   const [metrics, setMetrics] = useState<AdminDashboardMetrics | null>(null);

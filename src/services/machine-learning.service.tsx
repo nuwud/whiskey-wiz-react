@@ -1,6 +1,6 @@
-import { db } from '../firebaseConfig';
+import { db } from '../firebase';
 import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
-import { AnalyticsService } from './AnalyticsService';
+import { analyticsService } from 'src/services/analytics.service';
 
 interface MLTrainingData {
   userId: string;
@@ -34,8 +34,8 @@ export class MachineLearningService {
   async recordTrainingData(data: MLTrainingData): Promise<void> {
     try {
       await addDoc(this.trainingDataCollection, data);
-      
-      AnalyticsService.trackUserEngagement('ml_training_data_recorded', {
+
+      analyticsService.trackUserEngagement('ml_training_data_recorded', {
         userId: data.userId,
         quarterId: data.quarterId,
         challengeType: data.challengeType
@@ -50,7 +50,7 @@ export class MachineLearningService {
       // Fetch user's training data
       const q = query(this.trainingDataCollection, where('userId', '==', userId));
       const snapshot = await getDocs(q);
-      
+
       const trainingData = snapshot.docs.map(doc => doc.data() as MLTrainingData);
 
       if (trainingData.length === 0) {
@@ -93,10 +93,10 @@ export class MachineLearningService {
 
   private identifyStrengths(trainingData: MLTrainingData[]): string[] {
     const strengthAnalysis: Record<string, number> = {};
-    
+
     trainingData.forEach(data => {
       if (data.userPerformance.correctAnswers / data.userPerformance.questionsAttempted > 0.8) {
-        strengthAnalysis[data.challengeType] = 
+        strengthAnalysis[data.challengeType] =
           (strengthAnalysis[data.challengeType] || 0) + 1;
       }
     });
@@ -108,10 +108,10 @@ export class MachineLearningService {
 
   private identifyWeaknesses(trainingData: MLTrainingData[]): string[] {
     const weaknessAnalysis: Record<string, number> = {};
-    
+
     trainingData.forEach(data => {
       if (data.userPerformance.correctAnswers / data.userPerformance.questionsAttempted < 0.5) {
-        weaknessAnalysis[data.challengeType] = 
+        weaknessAnalysis[data.challengeType] =
           (weaknessAnalysis[data.challengeType] || 0) + 1;
       }
     });
@@ -123,9 +123,9 @@ export class MachineLearningService {
 
   private determinePreferredChallengeTypes(trainingData: MLTrainingData[]): string[] {
     const challengeTypeScores: Record<string, number> = {};
-    
+
     trainingData.forEach(data => {
-      challengeTypeScores[data.challengeType] = 
+      challengeTypeScores[data.challengeType] =
         (challengeTypeScores[data.challengeType] || 0) + data.userPerformance.totalScore;
     });
 
@@ -137,7 +137,7 @@ export class MachineLearningService {
 
   private calculateAveragePerformance(trainingData: MLTrainingData[]): number {
     const totalPerformance = trainingData.reduce(
-      (sum, data) => sum + data.userPerformance.totalScore, 
+      (sum, data) => sum + data.userPerformance.totalScore,
       0
     );
     return totalPerformance / trainingData.length || 50;

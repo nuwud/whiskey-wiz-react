@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useAuth } from '../services/AuthContext';
+import { useAuth } from 'src/contexts/auth.context';
 
 // Advanced Shopify Web Component Wrapper
 const ShopifyIntegration: React.FC = () => {

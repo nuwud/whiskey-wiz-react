@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { WhiskeyKnowledgeGraphService, WhiskeyNode } from 'src/services/whiskey-knowledge.service';
+import { whiskeyKnowledgeService } from 'src/services/whiskey-knowledge.service';
+import { WhiskeyNode } from 'src/models/whiskey-node.model';
 
 export const useWhiskeyKnowledge = (initialNodeId?: string) => {
   const [currentNode, setCurrentNode] = useState<WhiskeyNode | null>(null);

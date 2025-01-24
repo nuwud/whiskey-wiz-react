@@ -2,12 +2,7 @@ import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth.context';
 import { Spinner } from '@/components/ui/spinner-ui.component';
-
-export enum UserRole {
-  USER = 'user',
-  ADMIN = 'admin',
-  MODERATOR = 'moderator'
-}
+import { UserRole } from '@/types';
 
 interface ProtectedRouteProps {
   allowedRoles?: UserRole[];
@@ -28,17 +23,14 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   const userRole = user?.role as UserRole | undefined;
 
-  // If auth is required and user isn't logged in, redirect to login
   if (requireAuth && !user) {
     return <Navigate to="/login" replace />;
   }
 
-  // If there are allowed roles and user's role isn't in them, redirect to home
   if (allowedRoles.length > 0 && userRole && !allowedRoles.includes(userRole)) {
     return <Navigate to="/" replace />;
   }
 
-  // If user is logged in but accessing auth pages, redirect to home
   if (!requireAuth && user) {
     return <Navigate to="/" replace />;
   }

@@ -1,6 +1,6 @@
-import { db } from '../firebaseConfig';
+import { db } from 'src/firebase';
 import { doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { AnalyticsService } from './AnalyticsService';
+import { analyticsService } from 'src/services/analytics.service';
 
 export interface GameStateRecovery {
   userId: string;
@@ -16,7 +16,7 @@ export class StateRecoveryService {
   async savePartialState(userId: string, quarterId: string, partialState: any): Promise<void> {
     try {
       const recoveryRef = doc(db, this.recoveryCollection, userId);
-      
+
       await setDoc(recoveryRef, {
         userId,
         quarterId,
@@ -25,7 +25,7 @@ export class StateRecoveryService {
         recoveryAttempts: 0
       }, { merge: true });
 
-      AnalyticsService.trackUserEngagement('state_partially_saved', {
+      analyticsService.trackUserEngagement('state_partially_saved', {
         userId,
         quarterId
       });

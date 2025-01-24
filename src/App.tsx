@@ -1,19 +1,15 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/auth.context';
 import { FeatureProvider } from '@/contexts/feature.context';
 import { Layout } from '@/components/layout/layout.component';
+import { AppRoutes } from '@/routes';
 
 const App: React.FC = () => {
   return (
     <AuthProvider>
       <FeatureProvider>
         <Layout>
-          <Routes>
-            {/* Define your routes here */}
-            <Route path="/" element={<div>Home Page</div>} />
-            {/* Add more routes as needed */}
-          </Routes>
+          <AppRoutes />
         </Layout>
       </FeatureProvider>
     </AuthProvider>

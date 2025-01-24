@@ -1,6 +1,6 @@
 import { collection, addDoc, getDocs, query, where, updateDoc, doc } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
-import { AnalyticsService } from './AnalyticsService';
+import { db } from '../firebase';
+import { analyticsService } from 'src/services/analytics.service';
 
 export interface GameChallenge {
   id: string;
@@ -45,8 +45,8 @@ export class GameChallengeService {
   async createChallenge(challenge: GameChallenge): Promise<string> {
     try {
       const docRef = await addDoc(this.challengeCollection, challenge);
-      
-      AnalyticsService.trackUserEngagement('challenge_created', {
+
+      analyticsService.trackUserEngagement('challenge_created', {
         challengeId: docRef.id,
         type: challenge.challengeType,
         difficulty: challenge.difficulty
@@ -95,12 +95,12 @@ export class GameChallengeService {
       case 'multiple_choice':
       case 'true_false':
         return userAnswer === question.correctAnswer ? question.points : 0;
-      
+
       case 'open_ended':
         // More complex scoring for open-ended questions
         const similarity = this.calculateStringSimilarity(userAnswer, question.correctAnswer);
         return Math.round(question.points * similarity);
-      
+
       default:
         return 0;
     }
@@ -111,7 +111,7 @@ export class GameChallengeService {
     const len1 = str1.length;
     const len2 = str2.length;
     const editDistance = this.levenshteinDistance(str1, str2);
-    
+
     // Calculate similarity as a percentage
     const maxLen = Math.max(len1, len2);
     return 1 - editDistance / maxLen;
@@ -152,13 +152,13 @@ export class GameChallengeService {
     try {
       // Fetch user's previous performance
       const userPreviousAttempts = await this.getUserPerformanceHistory(userId, quarterId);
-      
+
       // Determine appropriate difficulty
       const recommendedDifficulty = this.calculateRecommendedDifficulty(userPreviousAttempts);
 
       // Fetch challenges matching the recommended difficulty
       const q = query(
-        this.challengeCollection, 
+        this.challengeCollection,
         where('quarterId', '==', quarterId),
         where('difficulty', '==', recommendedDifficulty)
       );
@@ -189,7 +189,7 @@ export class GameChallengeService {
     if (attempts.length === 0) return 'easy';
 
     const averageScore = attempts.reduce((sum, attempt) => sum + attempt.totalScore, 0) / attempts.length;
-    
+
     if (averageScore > 80) return 'hard';
     if (averageScore > 50) return 'medium';
     return 'easy';

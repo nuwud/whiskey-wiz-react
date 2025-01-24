@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { QuarterTemplate } from '../services/QuarterTemplateService';
+import { QuarterTemplate } from 'src/services/quarter-template.service';
 
 export class QuarterComponentGenerator {
   private static COMPONENT_TEMPLATE = (template: QuarterTemplate) => `

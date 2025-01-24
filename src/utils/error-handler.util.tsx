@@ -1,4 +1,4 @@
-import { AnalyticsService } from '../services/AnalyticsService';
+import { analyticsService } from 'src/services/analytics.service';
 
 export class ErrorHandler {
   static handleError(error: Error, context?: string) {
@@ -6,7 +6,7 @@ export class ErrorHandler {
     console.error(`Error in ${context}:`, error);
 
     // Track in analytics
-    AnalyticsService.logError({
+    analyticsService.logError({
       type: 'application_error',
       message: error.message,
       stack: error.stack,
@@ -24,7 +24,7 @@ export class ErrorHandler {
   }
 
   static async safeAsyncCall<T>(
-    asyncFn: () => Promise<T>, 
+    asyncFn: () => Promise<T>,
     context?: string
   ): Promise<T | null> {
     try {

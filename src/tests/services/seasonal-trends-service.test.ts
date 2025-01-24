@@ -1,13 +1,6 @@
 import { fetchSeasonalTrends } from '../../services/seasonalTrendsService';
 import { firestore } from '../../config/firebaseConfig';
 
-// Mock Firestore
-jest.mock('../../config/firebaseConfig', () => ({
-  firestore: {
-    collection: jest.fn()
-  }
-}));
-
 describe('Seasonal Trends Service', () => {
   it('fetches seasonal trends from Firestore', async () => {
     const mockSnapshot = {

@@ -2,11 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import AchievementBadges from '../../components/AchievementBadges';
 import { fetchUserAchievements, unlockAchievement } from '../../services/achievementService';
-import { AuthContext } from '../../contexts/AuthContext';
-
-// Mock the services and context
-jest.mock('../../services/achievementService');
-jest.mock('../../contexts/AuthContext');
+import { authContext } from 'src/contexts/auth.context';
 
 describe('AchievementBadges Component', () => {
   const mockCurrentUser = { uid: 'test-user' };

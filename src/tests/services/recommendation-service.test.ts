@@ -1,8 +1,6 @@
 import { fetchRecommendations } from '../../services/recommendationService';
 import { firestore } from '../../config/firebaseConfig';
 
-jest.mock('../../config/firebaseConfig');
-
 describe('Recommendation Service', () => {
   const mockUserId = 'test-user-123';
   const mockTastingHistory = [
