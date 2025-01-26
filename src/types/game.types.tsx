@@ -56,6 +56,8 @@ export interface Quarter {
   difficulty: 'easy' | 'medium' | 'hard';
   isActive: boolean;
   scoringRules: ScoringRules;
+  challenges: ScoringRules;
+  samples: ScoringRules;
   description: string;
   createdAt: Date;
   updatedAt: Date;

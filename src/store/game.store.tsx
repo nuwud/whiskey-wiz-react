@@ -35,8 +35,8 @@ const calculateScore = (
   }
 
   // Mashbill scoring
-  if (sample.mashbill === guess.mashbill) {
-    score += rules.mashbill.correctGuessPoints;
+  if (sample.mashbillType === guess.mashbill) {
+    score += rules.mashbill.exactMatchBonus;
   }
 
   return score;
