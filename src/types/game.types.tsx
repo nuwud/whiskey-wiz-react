@@ -1,3 +1,4 @@
+
 export interface ScoringRules {
   age: {
     maxPoints: number;
