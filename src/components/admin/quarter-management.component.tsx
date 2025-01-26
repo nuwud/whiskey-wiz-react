@@ -87,6 +87,8 @@ export const QuarterManagement: React.FC = () => {
 
     void loadQuarters();
   }, [user]);
+
+
   const handleQuarterSelect = (quarter: Quarter) => {
     setSelectedQuarter(quarter);
     setFormData({
@@ -126,26 +128,19 @@ export const QuarterManagement: React.FC = () => {
       ...prev,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
     }));
-    const quarterData: Omit<Quarter, 'id'> = {
-      ...formData,
-      startDate: new Date(formData.startDate),
-      endDate: new Date(formData.endDate),
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    if (selectedQuarter) {
-      await quarterService.updateQuarter(selectedQuarter.id, quarterData);
-    } else {
-      await quarterService.createQuarter(quarterData);
-    }
     e.preventDefault();
     try {
       const quarterData: Omit<Quarter, 'id'> = {
-        ...formData,
+        name: formData.name,
         startDate: new Date(formData.startDate),
         endDate: new Date(formData.endDate),
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        difficulty: formData.difficulty,
+        isActive: formData.isActive,
+        description: formData.description,
+        samples: formData.samples,
+        scoringRules: formData.scoringRules
       };
       if (selectedQuarter) {
         await quarterService.updateQuarter(selectedQuarter.id, quarterData);
@@ -376,7 +371,7 @@ export const QuarterManagement: React.FC = () => {
                       <div className="flex justify-between">
                         <span className="font-medium">{sample.name}</span>
                         <span className="text-gray-500">
-                          {sample.age}yr • {sample.proof}° • {sample.mashbill}
+                          {sample.age}yr • {sample.proof}° • {sample.mashbillType}
                         </span>
                       </div>
                     </li>
@@ -475,4 +470,4 @@ export const QuarterManagement: React.FC = () => {
       )}
     </div>
   );
-};
+}
