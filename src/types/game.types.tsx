@@ -1,1 +1,39 @@
-ZXhwb3J0IGludGVyZmFjZSBTY29yaW5nUnVsZXMgewogIGFnZTogewogICAgbWF4UG9pbnRzOiBudW1iZXI7CiAgICBwb2ludERlZHVjdGlvblBlclllYXI6IG51bWJlcjsKICAgIGV4YWN0TWF0Y2hCb251czogbnVtYmVyOwogIH07CiAgcHJvb2Y6IHsKICAgIG1heFBvaW50czogbnVtYmVyOwogICAgcG9pbnREZWR1Y3Rpb25QZXJQcm9vZjogbnVtYmVyOwogICAgZXhhY3RNYXRjaEJvbnVzOiBudW1iZXI7CiAgfTsKICBtYXNoYmlsbDogewogICAgbWF4UG9pbnRzOiBudW1iZXI7CiAgICBwb2ludERlZHVjdGlvblBlclllYXI6IG51bWJlcjsKICAgIGV4YWN0TWF0Y2hCb251czogbnVtYmVyOwogIH07Cn0KCmV4cG9ydCBpbnRlcmZhY2UgUXVhcnRlciB7CiAgaWQ6IHN0cmluZzsKICBuYW1lOiBzdHJpbmc7CiAgc3RhcnREYXRlOiBEYXRlOwogIGVuZERhdGU6IERhdGU7CiAgZGlmZmljdWx0eTogJ2Vhc3knIHwgJ21lZGl1bScgfCAnaGFyZCc7CiAgaXNBY3RpdmU6IGJvb2xlYW47CiAgc2FtcGxlczogV2hpc2tleVNhbXBsZVtdOwogIGRlc2NyaXB0aW9uOiBzdHJpbmc7CiAgc2NvcmluZ1J1bGVzOiBTY29yaW5nUnVsZXM7CiAgY3JlYXRlZEF0OiBEYXRlOwogIHVwZGF0ZWRBdDogRGF0ZTsKfQoKZXhwb3J0IGludGVyZmFjZSBXaGlza2V5U2FtcGxlIHsKICBpZDogc3RyaW5nOwogIG5hbWU6IHN0cmluZzsKICBhZ2U6IG51bWJlcjsKICBwcm9vZjogbnVtYmVyOwogIG1hc2hiaWxsOiBzdHJpbmc7Cn0=
+export interface ScoringRules {
+  age: {
+    maxPoints: number;
+    pointDeductionPerYear: number;
+    exactMatchBonus: number;
+  };
+  proof: {
+    maxPoints: number;
+    pointDeductionPerProof: number;
+    exactMatchBonus: number;
+  };
+  mashbill: {
+    maxPoints: number;
+    pointDeductionPerYear: number;
+    exactMatchBonus: number;
+  };
+}
+
+export interface Quarter {
+  id: string;
+  name: string;
+  startDate: Date;
+  endDate: Date;
+  difficulty: 'easy' | 'medium' | 'hard';
+  isActive: boolean;
+  samples: WhiskeySample[];
+  description: string;
+  scoringRules: ScoringRules;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface WhiskeySample {
+  id: string;
+  name: string;
+  age: number;
+  proof: number;
+  mashbill: string;
+}
