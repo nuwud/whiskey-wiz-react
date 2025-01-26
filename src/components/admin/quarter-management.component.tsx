@@ -4,8 +4,8 @@ import { quarterService } from '@/services/quarter.service';
 import type { Quarter, WhiskeySample } from '@/types/game.types';
 import { SampleEditor } from './sample-editor.component';
 
-type Difficulty = 'beginner' | 'intermediate' | 'advanced';
-const DIFFICULTY_OPTIONS: Difficulty[] = ['beginner', 'intermediate', 'advanced'];
+type Difficulty = 'easy' | 'medium' | 'hard';
+const DIFFICULTY_OPTIONS: Difficulty[] = ['easy', 'medium', 'hard'];
 
 interface QuarterFormData {
   name: string;
@@ -16,28 +16,57 @@ interface QuarterFormData {
   samples: WhiskeySample[];
   description: string;
   scoringRules: {
-    age: number;
-    proof: number;
-    mashbill: number;
+    age: {
+      maxPoints: number;
+      pointDeductionPerYear: number;
+      exactMatchBonus: number;
+    };
+    proof: {
+      maxPoints: number;
+      pointDeductionPerProof: number;
+      exactMatchBonus: number;
+    };
+    mashbill: {
+      maxPoints: number;
+      pointDeductionPerYear: number;
+      exactMatchBonus: number;
+    };
   };
 }
 
 export const QuarterManagement: React.FC = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [showSampleEditor, setShowSampleEditor] = useState(false);
   const { user } = useAuth();
   const { currentQuarter } = useQuarter();
   const [quarters, setQuarters] = useState<Quarter[]>([]);
+  const [selectedQuarter, setSelectedQuarter] = useState<Quarter | null>(null);
   const [formData, setFormData] = useState<QuarterFormData>({
     name: '',
     startDate: '',
     endDate: '',
-    difficulty: 'beginner',
+    difficulty: 'easy',
     isActive: true,
     samples: [],
     description: '',
     scoringRules: {
-      age: 0,
-      proof: 0,
-      mashbill: 0
+      age: {
+        maxPoints: 0,
+        pointDeductionPerYear: 0,
+        exactMatchBonus: 0
+      },
+      proof: {
+        maxPoints: 0,
+        pointDeductionPerProof: 0,
+        exactMatchBonus: 0
+      },
+      mashbill: {
+        maxPoints: 0,
+        pointDeductionPerYear: 0,
+        exactMatchBonus: 0
+      }
     }
   });
 
@@ -58,23 +87,38 @@ export const QuarterManagement: React.FC = () => {
 
     void loadQuarters();
   }, [user]);
-
   const handleQuarterSelect = (quarter: Quarter) => {
     setSelectedQuarter(quarter);
     setFormData({
       name: quarter.name,
       startDate: quarter.startDate.toISOString().split('T')[0],
       endDate: quarter.endDate.toISOString().split('T')[0],
-      difficulty: quarter.difficulty,
+      difficulty: quarter.difficulty || 'easy',
       isActive: quarter.isActive,
       samples: quarter.samples,
       description: quarter.description || '',
-      scoringRules: quarter.scoringRules || []
+      scoringRules: {
+        age: {
+          maxPoints: quarter.scoringRules?.age?.maxPoints || 0,
+          pointDeductionPerYear: quarter.scoringRules?.age?.pointDeductionPerYear || 0,
+          exactMatchBonus: quarter.scoringRules?.age?.exactMatchBonus || 0
+        },
+        proof: {
+          maxPoints: quarter.scoringRules?.proof?.maxPoints || 0,
+          pointDeductionPerProof: quarter.scoringRules?.proof?.pointDeductionPerProof || 0,
+          exactMatchBonus: quarter.scoringRules?.proof?.exactMatchBonus || 0
+        },
+        mashbill: {
+          maxPoints: quarter.scoringRules?.mashbill?.maxPoints || 0,
+          pointDeductionPerYear: quarter.scoringRules?.mashbill?.pointDeductionPerYear || 0,
+          exactMatchBonus: quarter.scoringRules?.mashbill?.exactMatchBonus || 0
+        }
+      }
     });
     setIsEditing(true);
-  }
+  };
 
-  const handleInputChange = (
+  const handleInputChange = async (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value, type } = e.target;
@@ -82,22 +126,26 @@ export const QuarterManagement: React.FC = () => {
       ...prev,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
     }));
-  };
-
-  const handleSamplesUpdate = (updatedSamples: WhiskeySample[]) => {
-    setFormData(prev => ({
-      ...prev,
-      samples: updatedSamples
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+    const quarterData: Omit<Quarter, 'id'> = {
+      ...formData,
+      startDate: new Date(formData.startDate),
+      endDate: new Date(formData.endDate),
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    if (selectedQuarter) {
+      await quarterService.updateQuarter(selectedQuarter.id, quarterData);
+    } else {
+      await quarterService.createQuarter(quarterData);
+    }
     e.preventDefault();
     try {
-      const quarterData = {
+      const quarterData: Omit<Quarter, 'id'> = {
         ...formData,
         startDate: new Date(formData.startDate),
-        endDate: new Date(formData.endDate)
+        endDate: new Date(formData.endDate),
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
       if (selectedQuarter) {
         await quarterService.updateQuarter(selectedQuarter.id, quarterData);
@@ -120,9 +168,73 @@ export const QuarterManagement: React.FC = () => {
     return <div className="p-4">You must be logged in to access this page.</div>;
   }
 
-  function setIsEditing(arg0: boolean): void {
-    throw new Error('Function not implemented.');
-  }
+  const handleNewQuarter = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setSelectedQuarter(null);
+    setFormData({
+      name: '',
+      startDate: '',
+      endDate: '',
+      difficulty: 'easy',
+      isActive: true,
+      samples: [],
+      description: '',
+      scoringRules: {
+        age: {
+          maxPoints: 0,
+          pointDeductionPerYear: 0,
+          exactMatchBonus: 0
+        },
+        proof: {
+          maxPoints: 0,
+          pointDeductionPerProof: 0,
+          exactMatchBonus: 0
+        },
+        mashbill: {
+          maxPoints: 0,
+          pointDeductionPerYear: 0,
+          exactMatchBonus: 0
+        }
+      }
+    });
+    setIsEditing(true);
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    try {
+      setLoading(true);
+      setError(null);
+      const quarterData: Omit<Quarter, 'id'> = {
+        ...formData,
+        startDate: new Date(formData.startDate),
+        endDate: new Date(formData.endDate),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      if (selectedQuarter) {
+        await quarterService.updateQuarter(selectedQuarter.id, quarterData);
+      } else {
+        await quarterService.createQuarter(quarterData);
+      }
+
+      const fetchedQuarters = await quarterService.getAllQuarters();
+      setQuarters(fetchedQuarters);
+      setIsEditing(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save quarter');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSamplesUpdate = (samples: WhiskeySample[]): void => {
+    setFormData(prev => ({
+      ...prev,
+      samples: samples
+    }));
+    setShowSampleEditor(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -136,9 +248,9 @@ export const QuarterManagement: React.FC = () => {
         </button>
       </div>
 
-      {Error && (
+      {error && (
         <div className="bg-red-50 text-red-600 p-4 rounded-md">
-          {Error}
+          {error}
         </div>
       )}
 
@@ -264,7 +376,7 @@ export const QuarterManagement: React.FC = () => {
                       <div className="flex justify-between">
                         <span className="font-medium">{sample.name}</span>
                         <span className="text-gray-500">
-                          {sample.age}yr • {sample.proof}° • {sample.mashbillType}
+                          {sample.age}yr • {sample.proof}° • {sample.mashbill}
                         </span>
                       </div>
                     </li>
@@ -319,12 +431,12 @@ export const QuarterManagement: React.FC = () => {
                     {quarter.name}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {quarter.startDate} - {quarter.endDate}
+                    {quarter.startDate.toLocaleDateString()} - {quarter.endDate.toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs rounded-full ${quarter.difficulty === 'beginner'
+                    <span className={`px-2 py-1 text-xs rounded-full ${quarter.difficulty === 'easy'
                       ? 'bg-green-100 text-green-800'
-                      : quarter.difficulty === 'intermediate'
+                      : quarter.difficulty === 'medium'
                         ? 'bg-amber-100 text-amber-800'
                         : 'bg-red-100 text-red-800'
                       }`}>
@@ -363,9 +475,4 @@ export const QuarterManagement: React.FC = () => {
       )}
     </div>
   );
-  ;
-  const [loading, setLoading] = useState(false);
-  function setError(arg0: string) {
-    throw new Error('Function not implemented.');
-  }
-}
+};

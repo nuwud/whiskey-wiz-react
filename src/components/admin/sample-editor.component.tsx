@@ -16,15 +16,29 @@ interface ShopifyProduct {
   };
 }
 
-// ... keep existing MASHBILL_TYPES ...
+interface SampleFormData {
+  name: string;
+  age: number;
+  proof: number;
+  mashbillType: string;
+  distillery: string;
+  description: string;
+}
+
+const defaultSampleData: SampleFormData = {
+  name: '',
+  age: 0,
+  proof: 80,
+  mashbillType: '',
+  distillery: '',
+  description: ''
+};
 
 interface SampleEditorProps {
   samples: WhiskeySample[];
   onUpdate: (samples: WhiskeySample[]) => void;
   onClose: () => void;
 }
-
-// ... keep existing SampleFormData and defaultSampleData ...
 
 export const SampleEditor = ({ samples, onUpdate, onClose }: SampleEditorProps) => {
   const [editingSample, setEditingSample] = useState<SampleFormData>(defaultSampleData);
@@ -78,8 +92,6 @@ export const SampleEditor = ({ samples, onUpdate, onClose }: SampleEditorProps) 
     }
   };
 
-  // ... keep existing handle functions ...
-
   return (
     <Dialog open onOpenChange={onClose}>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -111,10 +123,62 @@ export const SampleEditor = ({ samples, onUpdate, onClose }: SampleEditorProps) 
               )}
             </div>
 
-            {/* ... keep existing sample form ... */}
+            <h3 className="text-lg font-medium text-gray-900">Sample Form</h3>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const newSample: WhiskeySample = {
+                  ...editingSample,
+                  id: editingIndex?.toString() || Date.now().toString(),
+                  mashbill: editingSample.mashbillType, // using mashbillType as mashbill
+                  productId: editingIndex
+                };
+                const updatedSamples = [...samples];
+                updatedSamples[editingIndex || samples.length] = newSample;
+                setEditingSample(defaultSampleData);
+                setEditingIndex(null);
+                onClose();
+                onUpdate(updatedSamples);
+                // Save sample to Firestore
+                // await firestoreService.saveSample(newSample);
+                // Show success message or update existing sample if it already exists
+              }
+            </form>
+          {/* ... keep existing samples list ... */
+            <div className="flex flex-col space-y-4">
+              {samples.map((sample, index) => (
+                <div key={sample.id || index} className="flex items-center space-x-4">
+                  <div className="flex-1">
+                    <div className="text-lg font-medium text-gray-900">{sample.name}</div>
+                    <div className="text-sm text-gray-500">{sample.distillery}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingSample(sample);
+                      setEditingIndex(index);
+                    }}
+                    className="text-amber-600"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updatedSamples = [...samples];
+                      updatedSamples.splice(index, 1);
+                      onUpdate(updatedSamples);
+                    }
+                    className="text-red-600"
+                  >
 
-            {/* ... keep existing samples list ... */}
-          </div>
+                  </button>
+
+            }
+
+
+                  {/*... keep existing footer ... */}
+                </div>
         </div>
       </div>
     </Dialog>

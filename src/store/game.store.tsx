@@ -35,16 +35,37 @@ const calculateScore = (
   }
 
   // Mashbill scoring
-  if (sample.mashbillType === guess.mashbill) {
+  if (sample.mashbill === guess.mashbill) {
     score += rules.mashbill.correctGuessPoints;
   }
 
   return score;
 };
 
-interface GameStore extends GameState {
+interface GameStore {
+  // State properties
+  isPlaying: boolean;
   currentQuarter: Quarter | null;
   scoringRules: ScoringRules | null;
+  currentChallengeIndex: number;
+  challenges: Challenge[];
+  currentSample: string;
+  samples: WhiskeySample[];
+  guesses: Record<string, any>;
+  score: number;
+  answers: Record<string, any>;
+  timeRemaining: number;
+  lives: number;
+  hints: number;
+  isComplete: boolean;
+  userId: string;
+  quarterId: string;
+  lastUpdated: Date;
+  completedSamples: string[];
+  totalScore: number;
+  hasSubmitted: boolean;
+  progress: number;
+  totalChallenges: number;
 
   // Game actions
   startGame: () => Promise<void>;
