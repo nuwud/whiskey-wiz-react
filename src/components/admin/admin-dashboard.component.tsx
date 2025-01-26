@@ -30,31 +30,28 @@ export const AdminDashboard = () => {
           <nav className="flex space-x-8 px-6" aria-label="Tabs">
             <button
               onClick={() => setActiveTab('users')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'users'
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'users'
                   ? 'border-amber-500 text-amber-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+                }`}
             >
               Users
             </button>
             <button
               onClick={() => setActiveTab('content')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'content'
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'content'
                   ? 'border-amber-500 text-amber-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+                }`}
             >
               Content
             </button>
             <button
               onClick={() => setActiveTab('analytics')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'analytics'
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'analytics'
                   ? 'border-amber-500 text-amber-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+                }`}
             >
               Analytics
             </button>

@@ -5,16 +5,20 @@ import {
   getDocs,
   doc,
   getDoc,
-  setDoc,
-  updateDoc,
   DocumentData,
   orderBy,
   Timestamp,
-  limit
+  limit,
+  updateDoc,
+  serverTimestamp,
+  addDoc
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
-import { analyticsService } from './analytics.service';
-import { Quarter, WhiskeySample, QuarterAnalytics, TimeseriesData } from '@/types/game.types';
+import { AnalyticsService } from './analytics.service';
+import { Quarter, WhiskeySample, QuarterAnalytics } from '@/types/game.types';
+import { TimeseriesData } from '@/types/game.types';
+import { LeaderboardEntry } from './leaderboard.service';
+import { PlayerProfile } from 'src/types/auth.types';
 
 class QuarterService {
   private quartersCollection = collection(db, 'quarters');
@@ -39,8 +43,24 @@ class QuarterService {
       return this.convertToQuarter(quarterDoc.data(), quarterDoc.id);
     } catch (error) {
       console.error('Failed to fetch current quarter', error);
-      analyticsService.trackError('Failed to fetch current quarter', 'quarter_service');
+      AnalyticsService.trackError('Failed to fetch current quarter', 'quarter_service');
       return null;
+    }
+  }
+
+  async getActiveQuarters(): Promise<Quarter[]> {
+    try {
+      const q = query(
+        this.quartersCollection,
+        where('isActive', '==', true),
+        orderBy('startDate', 'desc')
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => this.convertToQuarter(doc.data(), doc.id));
+    } catch (error) {
+      console.error('Failed to fetch active quarters', error);
+      AnalyticsService.trackError('Failed to fetch active quarters', 'quarter_service');
+      return [];
     }
   }
 
@@ -54,12 +74,12 @@ class QuarterService {
       return this.convertToQuarter(quarterDoc.data(), quarterDoc.id);
     } catch (error) {
       console.error('Failed to fetch game configuration', error);
-      analyticsService.trackError('Failed to fetch game configuration', 'quarter_service');
+      AnalyticsService.trackError('Failed to fetch game configuration', 'quarter_service');
       return null;
     }
   }
 
-  async getQuarterLeaderboard(quarterId: string, top: number = 10) {
+  async getQuarterLeaderboard(quarterId: string, top: number = 10): Promise<LeaderboardEntry[]> {
     try {
       const q = query(
         collection(db, 'game_results'),
@@ -69,14 +89,238 @@ class QuarterService {
       );
 
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => ({
-        ...doc.data(),
-        id: doc.id
-      }));
+      return snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          userId: doc.id,
+          username: data.displayName,
+          displayName: data.displayName,
+          score: data.score,
+          totalScore: data.score,
+          quarterId: data.quarterId,
+          timestamp: data.completedAt.toDate(),
+          completedAt: data.completedAt.toDate(),
+          totalChallengesCompleted: data.totalChallengesCompleted || 0,
+          accuracy: {
+            age: data.accuracy?.age || 0,
+            proof: data.accuracy?.proof || 0,
+            mashbill: data.accuracy?.mashbill || 0
+          }
+        };
+      });
     } catch (error) {
       console.error('Failed to fetch quarter leaderboard', error);
-      analyticsService.trackError('Failed to fetch quarter leaderboard', 'quarter_service');
+      AnalyticsService.trackError('Failed to fetch quarter leaderboard', 'quarter_service');
       return [];
+    }
+  }
+
+
+  private async getQuarterAnalytics(quarterId: string): Promise<QuarterAnalytics | null> {
+    try {
+      const progressionStats = await this.getPlayerProgressionStats(quarterId);
+      const sampleAnalytics = await this.getDetailedSampleAnalytics(quarterId);
+      const resultsSnapshot = await getDocs(query(this.resultsCollection, where('quarterId', '==', quarterId)));
+
+      if (!progressionStats) return null;
+
+      // Calculate engagement metrics
+      const timeSpentData = await this.calculateTimeSpentMetrics(quarterId);
+
+      return {
+        playerStats: progressionStats,
+        sampleAnalytics: [...sampleAnalytics],
+        totalPlayers: progressionStats.totalGames,
+        totalGames: progressionStats.totalGames,
+        averageScore: progressionStats.averageScore,
+        completionRate: progressionStats.totalChallengesCompleted / progressionStats.totalGames,
+        averageCompletionRate: progressionStats.totalChallengesCompleted / progressionStats.totalGames,
+        dailyStats: [],
+        weeklyStats: [],
+        monthlyStats: [],
+        yearlyStats: [],
+        quarterlyStats: [],
+        playerActivity: [],
+        gameStats: {
+          totalGamesPlayed: progressionStats.totalGames,
+          uniquePlayers: resultsSnapshot.size,
+          averagePlaytime: timeSpentData.totalTimeSpent / progressionStats.totalGames || 0,
+          completionRate: progressionStats.totalChallengesCompleted / progressionStats.totalGames
+        },
+        challengeStats: {
+          totalAttempted: progressionStats.totalChallengesCompleted,
+          totalCompleted: progressionStats.correctAnswers,
+          averageTimePerChallenge: timeSpentData.totalTimeSpent / progressionStats.totalChallengesCompleted || 0,
+          successRate: progressionStats.correctAnswers / progressionStats.totalChallengesCompleted || 0
+        },
+        rewardStats: {
+          totalRewarded: 0,
+          rewardTypes: {},
+          claimRate: 0
+        },
+        sessionStats: {
+          averageLength: timeSpentData.totalTimeSpent / progressionStats.totalGames || 0,
+          totalSessions: progressionStats.totalGames,
+          bounceRate: 0,
+          returnRate: 0
+        },
+        totalChallengesCompleted: progressionStats.totalChallengesCompleted,
+        bestScore: progressionStats.bestScore,
+        correctAnswers: progressionStats.correctAnswers,
+        hintsUsed: progressionStats.hintsUsed,
+        favoriteWhiskey: progressionStats.favoriteWhiskey,
+        totalSamples: progressionStats.totalSamples,
+        perfectScores: progressionStats.perfectScores,
+        lastPlayed: progressionStats.lastPlayed,
+        quarterHistory: progressionStats.quarterHistory,
+        timeseriesData: [],
+        leaderboard: [],
+        accuracy: { age: 0, proof: 0, mashbill: 0, sampleAccuracy: { age: 0, proof: 0, mashbill: 0 }, totalAttempts: { age: 0, proof: 0, mashbill: 0 }, difficulty: { beginner: 0, intermediate: 0, advanced: 0 }, averageAttempts: 0, averageTimeToComplete: 0, completionRateByDifficulty: { beginner: 0, intermediate: 0, advanced: 0, overall: 0 }, averageCompletionRate: 0 },
+        difficultyDistribution: { beginner: 0, intermediate: 0, advanced: 0 },
+        hintUsageStats: { total: 0, averagePerGame: 0 },
+        engagement: {
+          dailyActive: 0,
+          monthlyActive: 0,
+          totalTimeSpent: timeSpentData.totalTimeSpent || 0,
+          averageTimeSpentPerGame: timeSpentData.totalTimeSpent / progressionStats.totalGames || 0
+        },
+        progression: { averageLevel: 0, levelDistribution: {} },
+        achievements: { total: 0, distribution: {} },
+        feedback: { averageRating: 0, comments: [] },
+        monetization: { revenue: 0, transactions: 0 },
+        retention: { day1: 0, day7: 0, day30: 0 },
+        socialMetrics: { shares: 0, invites: 0 },
+        technicalMetrics: { errors: 0, loadTime: 0 },
+        marketingMetrics: { acquisition: {}, conversion: 0 },
+        customEvents: [],
+        abTestResults: {},
+        seasonalTrends: { quarterly: [], monthly: [] },
+        geographicData: { regions: {}, countries: {} },
+        samplingAccuracy: {
+          age: 0,
+          proof: 0,
+          mashbill: 0,
+          ageAccuracy: 0,
+          proofAccuracy: 0,
+          mashbillAccuracy: 0
+        },
+        completionTime: {
+          min: 0,
+          max: 0,
+          average: 0
+        },
+        playerRetention: {
+          totalPlayers: 0,
+          newPlayers: 0,
+          returningPlayers: 0
+        },
+        challengeCompletion: {
+          progressionRate: progressionStats.totalChallengesCompleted / progressionStats.totalGames,
+          difficultyRating: { beginner: 0, intermediate: 0, advanced: 0 },
+          playerProgression: 0,
+          totalChallenges: progressionStats.totalChallengesCompleted,
+          totalCorrect: progressionStats.correctAnswers,
+          accuracy: progressionStats.correctAnswers / progressionStats.totalChallengesCompleted
+        },
+        difficultyRating: {
+          beginner: 0,
+          intermediate: 0,
+          advanced: 0
+        },
+        quarterPerformance: [{
+          quarterId,
+          averageScore: progressionStats.averageScore,
+          totalPlayers: progressionStats.totalGames,
+        }],
+
+        machineLearningSuggestions: {
+          recommendedMerchandise: [],
+          potentialSubscriptionTargets: [],
+          marketingSegments: []
+        },
+
+        playerDemographics: {
+          authMethodBreakdown: {},
+          ageBreakdown: {},
+          regionDistribution: {},
+          countryDistribution: {},
+          favoriteWhiskey: progressionStats.favoriteWhiskey
+        },
+
+        playerEngagement: {
+          totalTimeSpent: timeSpentData.totalTimeSpent || 0,
+          averageTimeSpentPerGame: timeSpentData.totalTimeSpent / progressionStats.totalGames || 0,
+          totalHintsUsed: progressionStats.hintsUsed,
+          averageHintsUsedPerGame: progressionStats.hintsUsed / progressionStats.totalGames,
+          averageHintsUsedPerPlayer: progressionStats.hintsUsed / progressionStats.totalGames,
+          averageHintsUsedPerChallenge: progressionStats.hintsUsed / progressionStats.totalChallengesCompleted
+        },
+
+        flavorProfile: {
+          preferredFlavors: [],
+          mostPopularFlavors: [],
+          flavorDensity: 0
+        },
+
+        samplePerformance: [],
+
+        challengePerformance: {
+          challengeId: '',
+          totalAttempts: progressionStats.totalChallengesCompleted,
+          totalCorrect: progressionStats.correctAnswers,
+          accuracy: progressionStats.correctAnswers / progressionStats.totalChallengesCompleted || 0
+        },
+
+        playerChallenges: {
+          challengeId: '',
+          totalAttempts: progressionStats.totalChallengesCompleted,
+          totalCorrect: progressionStats.correctAnswers,
+          accuracy: progressionStats.correctAnswers / progressionStats.totalChallengesCompleted || 0
+        },
+
+        playerProfile: {
+          userId: '',
+          username: '',
+          totalChallengesCompleted: progressionStats.totalChallengesCompleted,
+          totalScore: progressionStats.totalGames * progressionStats.averageScore,
+          favoriteWhiskey: progressionStats.favoriteWhiskey,
+          totalSamples: progressionStats.totalSamples,
+          perfectScores: progressionStats.perfectScores,
+          lastPlayed: progressionStats.lastPlayed
+        },
+        playerLeaderboard: {
+          global: [] as PlayerProfile[],
+          quarterly: [] as PlayerProfile[]
+        }
+      };
+    } catch (error) {
+      console.error('Failed to fetch quarter analytics', error);
+      AnalyticsService.trackError('Failed to fetch quarter analytics', 'quarter_service');
+      return null;
+    }
+  }
+
+  private async calculateTimeSpentMetrics(quarterId: string) {
+    try {
+      const q = query(
+        this.resultsCollection,
+        where('quarterId', '==', quarterId)
+      );
+
+      const snapshot = await getDocs(q);
+      let totalTimeSpent = 0;
+
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        totalTimeSpent += data.timeSpent || 0;
+      });
+
+      return {
+        totalTimeSpent
+      };
+    } catch (error) {
+      console.error('Failed to calculate time spent metrics', error);
+      return { totalTimeSpent: 0 };
     }
   }
 
@@ -94,7 +338,7 @@ class QuarterService {
       return snapshot.docs.map(doc => this.convertToQuarter(doc.data(), doc.id));
     } catch (error) {
       console.error('Failed to fetch all quarters', error);
-      analyticsService.trackError('Failed to fetch all quarters', 'quarter_service');
+      AnalyticsService.trackError('Failed to fetch all quarters', 'quarter_service');
       return [];
     }
   }
@@ -106,23 +350,24 @@ class QuarterService {
         where('quarterId', '==', quarterId),
         orderBy('completedAt', 'asc')
       );
-      
+
       const snapshot = await getDocs(q);
       const resultsByDay = new Map<string, TimeseriesData>();
-      
+
       snapshot.docs.forEach(doc => {
         const data = doc.data();
         const date = new Date(data.completedAt.toDate()).toDateString();
-        
+
         if (!resultsByDay.has(date)) {
           resultsByDay.set(date, {
+            date: date,
             timestamp: new Date(date),
             players: 0,
             averageScore: 0,
             completionRate: 0
           });
         }
-        
+
         const dayStats = resultsByDay.get(date)!;
         dayStats.players++;
         dayStats.averageScore = (dayStats.averageScore * (dayStats.players - 1) + data.score) / dayStats.players;
@@ -132,47 +377,68 @@ class QuarterService {
       return Array.from(resultsByDay.values());
     } catch (error) {
       console.error('Failed to fetch quarter timeseries', error);
-      analyticsService.trackError('Failed to fetch quarter timeseries', 'quarter_service');
+      AnalyticsService.trackError('Failed to fetch quarter timeseries', 'quarter_service');
       return [];
     }
+  }
+
+  async updateQuarter(quarterId: string, data: Partial<Quarter>): Promise<void> {
+    const docRef = doc(this.quartersCollection, quarterId);
+    await updateDoc(docRef, {
+      ...data,
+      updatedAt: serverTimestamp()
+    });
+  }
+
+  async createQuarter(data: Omit<Quarter, 'id'>): Promise<string> {
+    const docRef = await addDoc(this.quartersCollection, {
+      ...data,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    return docRef.id;
   }
 
   private async getPlayerProgressionStats(quarterId: string) {
     try {
       const q = query(this.resultsCollection, where('quarterId', '==', quarterId));
       const snapshot = await getDocs(q);
-      
+
       const stats = {
-        totalPlayers: snapshot.size,
-        averageTimeToComplete: 0,
-        averageAttempts: 0,
-        completionRateByDifficulty: {
-          beginner: 0,
-          intermediate: 0,
-          advanced: 0,
-          overall: 0
-        }
+        totalGames: snapshot.size,
+        averageScore: 0,
+        bestScore: 0,
+        totalChallengesCompleted: 0,
+        correctAnswers: 0,
+        hintsUsed: 0,
+        favoriteWhiskey: undefined,
+        totalSamples: 0,
+        perfectScores: 0,
+        lastPlayed: undefined,
+        quarterHistory: []
       };
 
-      let totalTime = 0;
-      let totalAttempts = 0;
-      let completedGames = 0;
-
+      let totalScore = 0;
       snapshot.docs.forEach(doc => {
         const data = doc.data();
-        totalTime += data.timeSpent || 0;
-        totalAttempts += data.attempts || 1;
-        if (data.completed) completedGames++;
+        totalScore += data.score || 0;
+        stats.bestScore = Math.max(stats.bestScore, data.score || 0);
+        stats.totalChallengesCompleted += data.completed ? 1 : 0;
+        stats.correctAnswers += data.correctAnswers || 0;
+        stats.hintsUsed += data.hintsUsed || 0;
+        stats.totalSamples += data.samplesAttempted || 0;
+        stats.perfectScores += data.score === 100 ? 1 : 0;
+        if (!stats.lastPlayed || data.completedAt.toDate() > stats.lastPlayed) {
+          stats.lastPlayed = data.completedAt.toDate();
+        }
       });
 
-      stats.averageTimeToComplete = totalTime / snapshot.size;
-      stats.averageAttempts = totalAttempts / snapshot.size;
-      stats.completionRateByDifficulty.overall = completedGames / snapshot.size;
+      stats.averageScore = totalScore / snapshot.size;
 
       return stats;
     } catch (error) {
       console.error('Failed to fetch player progression stats', error);
-      analyticsService.trackError('Failed to fetch player progression stats', 'quarter_service');
+      AnalyticsService.trackError('Failed to fetch player progression stats', 'quarter_service');
       return null;
     }
   }
@@ -191,17 +457,54 @@ class QuarterService {
           .filter(data => data.sampleResults?.[sample.id]);
 
         const accuracyStats = this.calculateSampleAccuracyStats(sampleResults, sample);
-        
+
         return {
           sampleId: sample.id,
           totalAttempts: sampleResults.length,
-          averageAccuracy: accuracyStats
+          averageAccuracy: accuracyStats,
+          performance: {
+            totalCorrect: sampleResults.filter(result => result.correct).length,
+            accuracy: sampleResults.length > 0 ? sampleResults.filter(result => result.correct).length / sampleResults.length : 0
+          },
+          machineLearningSuggestions: {
+            recommendedMerchandise: [''] as string[],
+            potentialSubscriptionTargets: [''] as string[],
+            marketingSegments: [''] as string[]
+          },
+          playerDemographics: { age: 0, region: '', experience: '' },
+          playerEngagement: { timeSpent: 0, retryRate: 0 },
+          flavorProfile: { primary: [], secondary: [] },
+          seasonalTrends: { popularity: 0, seasonalIndex: 0 },
+          competitorAnalysis: { ranking: 0, marketShare: 0 },
+          costAnalysis: { productionCost: 0, retailPrice: 0 },
+          qualityMetrics: { satisfaction: 0, retention: 0 },
+          supplierRelations: { reliability: 0, leadTime: 0 },
+          playerStats: { attempts: 0, successRate: 0 },
+          samplePerformance: { accuracy: 0, completion: 0 },
+          challengePerformance: { score: 0, time: 0 },
+          playerChallenges: [],
+          playerProfile: { level: 0, rank: '' },
+          playerLeaderboard: { position: 0, score: 0 }
         };
       });
     } catch (error) {
       console.error('Failed to fetch detailed sample analytics', error);
-      analyticsService.trackError('Failed to fetch detailed sample analytics', 'quarter_service');
+      AnalyticsService.trackError('Failed to fetch detailed sample analytics', 'quarter_service');
       return [];
+    }
+  }
+
+  private async getQuarterById(quarterId: string): Promise<Quarter | null> {
+    try {
+      const quarterDoc = await getDoc(doc(this.quartersCollection, quarterId));
+      if (!quarterDoc.exists()) {
+        return null;
+      }
+      return this.convertToQuarter(quarterDoc.data(), quarterDoc.id);
+    } catch (error) {
+      console.error('Failed to fetch quarter by ID', error);
+      AnalyticsService.trackError('Failed to fetch quarter by ID', 'quarter_service');
+      return null;
     }
   }
 
@@ -210,11 +513,11 @@ class QuarterService {
     if (totalResults === 0) return { age: 0, proof: 0, mashbill: 0 };
 
     return {
-      age: results.reduce((acc, result) => 
+      age: results.reduce((acc, result) =>
         acc + (result.age === sample.age ? 1 : 0), 0) / totalResults,
-      proof: results.reduce((acc, result) => 
+      proof: results.reduce((acc, result) =>
         acc + (result.proof === sample.proof ? 1 : 0), 0) / totalResults,
-      mashbill: results.reduce((acc, result) => 
+      mashbill: results.reduce((acc, result) =>
         acc + (result.mashbillType === sample.mashbillType ? 1 : 0), 0) / totalResults
     };
   }
@@ -228,7 +531,10 @@ class QuarterService {
       endDate: data.endDate.toDate(),
       isActive: data.isActive,
       samples: data.samples.map(this.convertToWhiskeySample),
-      difficulty: data.difficulty
+      difficulty: data.difficulty,
+      scoringRules: data.scoringRules || {},
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate() || new Date()
     };
   }
 
@@ -241,9 +547,12 @@ class QuarterService {
       mashbillType: data.mashbillType,
       notes: data.notes,
       hints: data.hints,
-      distillery: data.distillery || 'Unknown' // Added distillery field with default
+      distillery: data.distillery || 'Unknown', // Added distillery field with default
+      description: data.description || '' // Added description field with default
     };
   }
 }
+
+
 
 export const quarterService = new QuarterService();

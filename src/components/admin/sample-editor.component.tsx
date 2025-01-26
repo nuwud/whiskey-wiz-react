@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { WhiskeySample } from '../../types/game.types';
 import { Dialog } from '@/components/ui/dialog';
 import { shopifyService } from 'src/services/shopify-integration.service';

@@ -1,5 +1,5 @@
 export * from './dialog'
-export * from './dropdown-menu'
+export * from './dropdown-menu-ui.component'
 export * from './table'
 export * from './avatar-ui.component'
 export * from './badge-ui.component'

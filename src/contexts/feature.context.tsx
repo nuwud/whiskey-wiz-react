@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState } from 'react';
 
-interface FeatureFlags {
-  enableMachineLearning: boolean;
-  enableSocialFeatures: boolean;
-  enableShopifyIntegration: boolean;
+export interface FeatureFlags {
+  GUEST_MODE: boolean;
+  MACHINE_LEARNING: boolean;
+  SOCIAL_FEATURES: boolean;
+  SHOPIFY_INTEGRATION: boolean;
 }
 
 interface FeatureContextType {
@@ -11,10 +12,11 @@ interface FeatureContextType {
   toggleFeature: (featureName: keyof FeatureFlags) => void;
 }
 
-const defaultFeatures: FeatureFlags = {
-  enableMachineLearning: false,
-  enableSocialFeatures: true,
-  enableShopifyIntegration: false
+export const defaultFeatures: FeatureFlags = {
+  GUEST_MODE: false,
+  MACHINE_LEARNING: false,
+  SOCIAL_FEATURES: true,
+  SHOPIFY_INTEGRATION: false
 };
 
 const FeatureContext = createContext<FeatureContextType | undefined>(undefined);

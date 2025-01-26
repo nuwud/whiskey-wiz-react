@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth.context';
 import { quarterService } from '@/services/quarter.service';
-import { analyticsService } from '@/services/analytics.service';
+import { AnalyticsService } from '@/services/analytics.service';
 import { monitoringService } from '@/services/monitoring.service';
 import { FirebaseService } from '@/services/firebase.service';
 import { WhiskeySample } from '@/services/quarter.service';
@@ -68,13 +68,13 @@ export const GameContainer: React.FC = () => {
 
       try {
         monitoringService.startTrace('game_initialization');
-        
+
         // Get quarter data
         const quarter = await quarterService.getQuarterById(quarterId);
         if (!quarter) throw new Error('Quarter not found');
 
         // Initialize analytics
-        analyticsService.gameStarted({
+        AnalyticsService.gameStarted({
           quarterId,
           userId: user.uid
         });
@@ -91,7 +91,7 @@ export const GameContainer: React.FC = () => {
       } catch (error) {
         console.error('Game initialization failed:', error);
         setError('Failed to initialize game. Please try again.');
-        analyticsService.trackError('Game initialization failed', 'game_container');
+        AnalyticsService.trackError('Game initialization failed', 'game_container');
       } finally {
         monitoringService.endTrace('game_initialization');
       }
@@ -134,7 +134,7 @@ export const GameContainer: React.FC = () => {
       }));
 
       // Track guess
-      analyticsService.sampleGuessed({
+      AnalyticsService.sampleGuessed({
         quarterId,
         userId: user.uid,
         sampleId: gameState.currentSample,
@@ -152,7 +152,7 @@ export const GameContainer: React.FC = () => {
     } catch (error) {
       console.error('Guess submission failed:', error);
       setError('Failed to submit guess. Please try again.');
-      analyticsService.trackError('Guess submission failed', 'game_container');
+      AnalyticsService.trackError('Guess submission failed', 'game_container');
     } finally {
       monitoringService.endTrace('guess_submission');
     }
@@ -168,7 +168,7 @@ export const GameContainer: React.FC = () => {
       await FirebaseService.submitScore(user.uid, quarterId, gameState.totalScore);
 
       // Track completion
-      analyticsService.gameCompleted({
+      AnalyticsService.gameCompleted({
         quarterId,
         userId: user.uid,
         score: gameState.totalScore
@@ -179,7 +179,7 @@ export const GameContainer: React.FC = () => {
     } catch (error) {
       console.error('Game completion failed:', error);
       setError('Failed to complete game. Please try again.');
-      analyticsService.trackError('Game completion failed', 'game_container');
+      AnalyticsService.trackError('Game completion failed', 'game_container');
     } finally {
       monitoringService.endTrace('game_completion');
     }

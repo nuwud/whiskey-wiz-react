@@ -1,4 +1,4 @@
-import { analyticsService } from '@/services/analytics.service';
+import { AnalyticsService } from '@/services/analytics.service';
 import { WhiskeySample } from '@/types';
 
 export interface ShopifyProductMetadata {
@@ -32,17 +32,19 @@ export class ShopifyIntegrationService {
           name: challengeData.whiskeySample.name,
           age: challengeData.whiskeySample.age,
           proof: challengeData.whiskeySample.proof,
-          mashbillType: challengeData.whiskeySample.mashbillType
+          mashbillType: challengeData.whiskeySample.mashbillType,
+          distillery: '',
+          description: challengeData.whiskeySample.description
         }
       };
 
       this.shopifyMetadataCollection.set(productId, updatedMetadata);
       this.injectWebComponent(productId, challengeData);
-      
-      analyticsService.trackError('Shopify challenge embedded', 'shopify_integration');
+
+      AnalyticsService.trackError('Shopify challenge embedded', 'shopify_integration');
     } catch (error) {
       console.error('Failed to embed challenge in Shopify product:', error);
-      analyticsService.trackError('Failed to embed Shopify challenge', 'shopify_integration');
+      AnalyticsService.trackError('Failed to embed Shopify challenge', 'shopify_integration');
     }
   }
 
@@ -56,7 +58,7 @@ export class ShopifyIntegrationService {
       this.shopifyMetadataCollection.delete(productId);
     } catch (error) {
       console.error('Failed to remove Shopify challenge:', error);
-      analyticsService.trackError('Failed to remove Shopify challenge', 'shopify_integration');
+      AnalyticsService.trackError('Failed to remove Shopify challenge', 'shopify_integration');
     }
   }
 
@@ -104,9 +106,9 @@ export class ShopifyIntegrationService {
                 <h3 class="title">Whiskey Wiz Challenge</h3>
                 <p class="detail">Quarter: ${challengeData.quarterId}</p>
                 <p class="detail">Whiskey: ${challengeData.whiskeySample.name}</p>
-                ${challengeData.difficulty ? 
-                  `<p class="detail">Difficulty: ${challengeData.difficulty}</p>` : 
-                  ''}
+                ${challengeData.difficulty ?
+                `<p class="detail">Difficulty: ${challengeData.difficulty}</p>` :
+                ''}
               </div>
             `;
           }

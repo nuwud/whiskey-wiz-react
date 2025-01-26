@@ -14,11 +14,20 @@ import {
 export interface LeaderboardEntry {
   userId: string;
   username: string;
+  displayName: string;
   score: number;
   quarterId: string;
   timestamp: Date;
+  completedAt: Date;
+  totalChallengesCompleted: number;
+  totalScore: number;
   rank?: number;
   badges?: string[];
+  accuracy: {
+    age: number;
+    proof: number;
+    mashbill: number;
+  };
 }
 
 export interface LeaderboardSnapshot {

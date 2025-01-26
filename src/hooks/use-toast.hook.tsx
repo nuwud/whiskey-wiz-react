@@ -41,10 +41,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <use-ToastStore.Provider value = {{ toasts, addToast, removeToast }
-}>
-  { children }
-  </use-ToastStore.Provider>
+    <useToastStore.Provider value={{ toasts, addToast, removeToast }
+    }>
+      {children}
+    </useToastStore.Provider>
   );
 }
 

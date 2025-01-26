@@ -2,11 +2,12 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { QuarterFactory } from '../components/quarters/quarter-factory.component';
 import { useAuth } from 'src/contexts/auth.context';
-import { FeatureFlags } from '../config/featureFlags';
+import { useFeatures } from '@/contexts/feature.context';
 import { quarterService } from 'src/services/quarter.service';
 
 export const QuarterRoutes: React.FC = () => {
   const { user } = useAuth();
+  const { features } = useFeatures();
 
   // Dynamic route generation based on available quarters
   const [quarterRoutes, setQuarterRoutes] = React.useState<string[]>([]);
@@ -14,8 +15,8 @@ export const QuarterRoutes: React.FC = () => {
   React.useEffect(() => {
     const fetchAvailableQuarters = async () => {
       try {
-        const quartersService = new quarterService();
-        const quarters = await quartersService.getAvailableQuarters();
+        const quartersService = quarterService;
+        const quarters = await quartersService.getAllQuarters();
 
         // Generate routes for each quarter
         const routes: string[] = quarters.map((quarter: { id: string }) => `/quarters/${quarter.id}`);
@@ -30,7 +31,7 @@ export const QuarterRoutes: React.FC = () => {
 
   // Check if user is allowed to access quarters
   const canAccessQuarters = () => {
-    return user || FeatureFlags.isEnabled('GUEST_MODE');
+    return user || features.GUEST_MODE;
   };
 
   return (

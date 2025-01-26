@@ -1,17 +1,8 @@
 import { db } from '@/config/firebase';
 import { doc, getDoc, updateDoc, setDoc, collection } from 'firebase/firestore';
-import { analyticsService } from './analytics.service';
+import { AnalyticsService } from 'src/services/analytics.service';
 import { DocumentData } from 'firebase/firestore';
-
-export interface GameState {
-  userId: string;
-  quarterId: string;
-  currentSample: string;
-  score: number;
-  completedSamples: string[];
-  progress: number;
-  lastUpdated: Date;
-}
+import { GameState } from '@/types/game.types';
 
 export class GameStateService {
   private gameStateCollection = collection(db, 'gameStates');
@@ -20,11 +11,29 @@ export class GameStateService {
     const initialState: GameState = {
       userId,
       quarterId,
-      currentSample: '',
+      currentSample: 'A',
       score: 0,
+      totalScore: 0,
       completedSamples: [],
       progress: 0,
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
+      isPlaying: false,
+      currentChallengeIndex: 0,
+      challenges: [],
+      samples: [],
+      guesses: {
+        A: { age: 0, proof: 0, mashbill: '' },
+        B: { age: 0, proof: 0, mashbill: '' },
+        C: { age: 0, proof: 0, mashbill: '' },
+        D: { age: 0, proof: 0, mashbill: '' }
+      },
+      answers: {},
+      timeRemaining: 0,
+      lives: 0,
+      hints: 0,
+      isComplete: false,
+      totalChallenges: 0,
+      hasSubmitted: false
     };
 
     try {
@@ -34,12 +43,12 @@ export class GameStateService {
         lastUpdated: new Date().toISOString() // Ensure proper date serialization
       });
 
-      analyticsService.trackError('Game state initialized', 'game_state_service');
+      AnalyticsService.trackError('Game state initialized', 'game_state_service');
 
       return initialState;
     } catch (error) {
       console.error('Failed to initialize game state', error);
-      analyticsService.trackError('Failed to initialize game state', 'game_state_service');
+      AnalyticsService.trackError('Failed to initialize game state', 'game_state_service');
       throw error;
     }
   }
@@ -47,7 +56,7 @@ export class GameStateService {
   async updateGameState(userId: string, updates: Partial<GameState>): Promise<GameState> {
     try {
       const gameStateRef = doc(this.gameStateCollection, userId);
-      
+
       // Fetch current state to merge updates
       const currentStateDoc = await getDoc(gameStateRef);
       if (!currentStateDoc.exists()) {
@@ -69,7 +78,7 @@ export class GameStateService {
       return updatedState;
     } catch (error) {
       console.error('Failed to update game state', error);
-      analyticsService.trackError('Failed to update game state', 'game_state_service');
+      AnalyticsService.trackError('Failed to update game state', 'game_state_service');
       throw error;
     }
   }
@@ -86,8 +95,21 @@ export class GameStateService {
       return this.convertToGameState(gameStateDoc.data());
     } catch (error) {
       console.error('Failed to retrieve game state', error);
-      analyticsService.trackError('Failed to retrieve game state', 'game_state_service');
+      AnalyticsService.trackError('Failed to retrieve game state', 'game_state_service');
       return null;
+    }
+  }
+
+  async getGameEvent(userId: string): Promise<void> {
+    try {
+      const gameStateRef = doc(this.gameStateCollection, userId);
+      await updateDoc(gameStateRef, {
+        lastUpdated: new Date().toISOString() // Ensure proper date serialization
+      });
+    } catch (error) {
+      console.error('Failed to update game state', error);
+      AnalyticsService.trackError('Failed to update game state', 'game_state_service');
+      throw error;
     }
   }
 
@@ -99,7 +121,7 @@ export class GameStateService {
   async recoverIncompleteSession(userId: string): Promise<GameState | null> {
     try {
       const gameState = await this.getGameState(userId);
-      
+
       if (!gameState) {
         return null;
       }
@@ -110,27 +132,43 @@ export class GameStateService {
 
       const lastUpdated = new Date(gameState.lastUpdated);
       if (lastUpdated > staleThreshold) {
-        analyticsService.trackError('Session recovered', 'game_state_service');
+        AnalyticsService.trackError('Session recovered', 'game_state_service');
         return gameState;
       }
 
       return null;
     } catch (error) {
       console.error('Session recovery failed', error);
-      analyticsService.trackError('Session recovery failed', 'game_state_service');
+      AnalyticsService.trackError('Session recovery failed', 'game_state_service');
       return null;
     }
   }
 
   private convertToGameState(data: DocumentData): GameState {
     return {
-      userId: data.userId,
-      quarterId: data.quarterId,
-      currentSample: data.currentSample,
-      score: data.score,
-      completedSamples: data.completedSamples,
-      progress: data.progress,
-      lastUpdated: new Date(data.lastUpdated)
+      userId: data.userId || '',
+      quarterId: data.quarterId || '',
+      currentSample: data.currentSample || 'A',
+      score: data.score || 0,
+      totalScore: data.totalScore || 0,
+      completedSamples: data.completedSamples || [],
+      progress: data.progress || 0,
+      lastUpdated: new Date(data.lastUpdated || new Date()),
+      isPlaying: data.isPlaying || false,
+      currentChallengeIndex: data.currentChallengeIndex || 0,
+      challenges: data.challenges || [],
+      samples: data.samples || [],
+      guesses: data.guesses || {},
+      answers: data.answers || {},
+      timeRemaining: data.timeRemaining || 0,
+      lives: data.lives || 0,
+      hints: data.hints || 0,
+      isComplete: data.isComplete || false,
+      totalChallenges: data.totalChallenges || 0,
+      hasSubmitted: data.hasSubmitted || false
     };
   }
 }
+
+
+export type GameEvent = 'start' | 'resume' | 'complete';

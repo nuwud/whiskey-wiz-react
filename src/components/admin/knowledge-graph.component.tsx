@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card-ui.component';
-import { whiskeyKnowledgeService, KnowledgeNode } from 'src/services/whiskey-knowledge.service';
+import { whiskeyKnowledgeService, WhiskeyNode } from 'src/services/whiskey-knowledge.service';
 import { analyticsService } from '@/services/analytics.service';
 import { useAuth } from '@/contexts/auth.context';
 
-type NodeType = KnowledgeNode['type'];
+type NodeType = 'whiskey' | 'distillery' | 'region' | 'brand' | 'style';
 
 interface NodeStats {
   type: NodeType;
@@ -14,7 +14,7 @@ interface NodeStats {
 
 export const KnowledgeGraph: React.FC = () => {
   const { user } = useAuth();
-  const [nodes, setNodes] = useState<KnowledgeNode[]>([]);
+  const [nodes, setNodes] = useState<WhiskeyNode[]>([]);
   const [selectedType, setSelectedType] = useState<NodeType | 'all'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,11 +25,11 @@ export const KnowledgeGraph: React.FC = () => {
       try {
         setLoading(true);
         const data = await whiskeyKnowledgeService.getCompleteGraph();
-        setNodes(data);
+        setNodes(data.nodes);
 
         // Calculate stats
         const typeStats = new Map<NodeType, { count: number; totalConnections: number }>();
-        data.forEach(node => {
+        data.nodes.forEach(node => {
           const current = typeStats.get(node.type) || { count: 0, totalConnections: 0 };
           typeStats.set(node.type, {
             count: current.count + 1,
@@ -125,7 +125,7 @@ export const KnowledgeGraph: React.FC = () => {
                   <ul className="list-disc pl-4">
                     {Object.entries(node.properties).map(([key, value]) => (
                       <li key={key} className="text-sm">
-                        <span className="font-medium">{key}:</span> {value}
+                        <span className="font-medium">{key}:</span> {String(value)}
                       </li>
                     ))}
                   </ul>
@@ -135,7 +135,7 @@ export const KnowledgeGraph: React.FC = () => {
                     Connections ({node.connections.length}):
                   </h4>
                   <ul className="list-disc pl-4">
-                    {node.connections.map((connection) => (
+                    {node.connections.map((connection: string) => (
                       <li key={connection} className="text-sm">
                         {connection}
                       </li>

@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { AccessibilityManager } from 'src/services/accessibility.service';
+import { useState } from 'react';
+import { accessibilityManager } from 'src/components/accessibility-settings.component';
 
 export const useAccessibility = () => {
-  const accessibilityManager = AccessibilityManager.getInstance();
+  const accessibilityManager = accessibilityManager.getInstance();
   const [accessibilityPreferences, setAccessibilityPreferences] = useState(
     accessibilityManager.generateAccessibilityReport()
   );

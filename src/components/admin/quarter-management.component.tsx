@@ -14,31 +14,37 @@ interface QuarterFormData {
   difficulty: Difficulty;
   isActive: boolean;
   samples: WhiskeySample[];
+  description: string;
+  scoringRules: {
+    age: number;
+    proof: number;
+    mashbill: number;
+  };
 }
 
 export const QuarterManagement: React.FC = () => {
   const { user } = useAuth();
   const { currentQuarter } = useQuarter();
   const [quarters, setQuarters] = useState<Quarter[]>([]);
-  const [selectedQuarter, setSelectedQuarter] = useState<Quarter | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [showSampleEditor, setShowSampleEditor] = useState(false);
-
   const [formData, setFormData] = useState<QuarterFormData>({
     name: '',
     startDate: '',
     endDate: '',
     difficulty: 'beginner',
     isActive: true,
-    samples: []
+    samples: [],
+    description: '',
+    scoringRules: {
+      age: 0,
+      proof: 0,
+      mashbill: 0
+    }
   });
 
   useEffect(() => {
     const loadQuarters = async () => {
       if (!user) return;
-      
+
       try {
         setLoading(true);
         const fetchedQuarters = await quarterService.getAllQuarters();
@@ -57,27 +63,16 @@ export const QuarterManagement: React.FC = () => {
     setSelectedQuarter(quarter);
     setFormData({
       name: quarter.name,
-      startDate: quarter.startDate,
-      endDate: quarter.endDate,
+      startDate: quarter.startDate.toISOString().split('T')[0],
+      endDate: quarter.endDate.toISOString().split('T')[0],
       difficulty: quarter.difficulty,
       isActive: quarter.isActive,
-      samples: quarter.samples
+      samples: quarter.samples,
+      description: quarter.description || '',
+      scoringRules: quarter.scoringRules || []
     });
     setIsEditing(true);
-  };
-
-  const handleNewQuarter = () => {
-    setSelectedQuarter(null);
-    setFormData({
-      name: '',
-      startDate: '',
-      endDate: '',
-      difficulty: 'beginner',
-      isActive: true,
-      samples: []
-    });
-    setIsEditing(true);
-  };
+  }
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -99,10 +94,15 @@ export const QuarterManagement: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const quarterData = {
+        ...formData,
+        startDate: new Date(formData.startDate),
+        endDate: new Date(formData.endDate)
+      };
       if (selectedQuarter) {
-        await quarterService.updateQuarter(selectedQuarter.id, formData);
+        await quarterService.updateQuarter(selectedQuarter.id, quarterData);
       } else {
-        await quarterService.createQuarter(formData);
+        await quarterService.createQuarter(quarterData);
       }
       const fetchedQuarters = await quarterService.getAllQuarters();
       setQuarters(fetchedQuarters);
@@ -120,6 +120,10 @@ export const QuarterManagement: React.FC = () => {
     return <div className="p-4">You must be logged in to access this page.</div>;
   }
 
+  function setIsEditing(arg0: boolean): void {
+    throw new Error('Function not implemented.');
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -132,9 +136,9 @@ export const QuarterManagement: React.FC = () => {
         </button>
       </div>
 
-      {error && (
+      {Error && (
         <div className="bg-red-50 text-red-600 p-4 rounded-md">
-          {error}
+          {Error}
         </div>
       )}
 
@@ -155,7 +159,7 @@ export const QuarterManagement: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700">
                 Quarter Name
               </label>
-              <input 
+              <input
                 aria-label="Quarter Name"
                 type="text"
                 name="name"
@@ -171,7 +175,7 @@ export const QuarterManagement: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700">
                   Start Date
                 </label>
-                <input 
+                <input
                   aria-label="Start Date"
                   type="date"
                   name="startDate"
@@ -186,7 +190,7 @@ export const QuarterManagement: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700">
                   End Date
                 </label>
-                <input 
+                <input
                   aria-label="End Date"
                   type="date"
                   name="endDate"
@@ -318,22 +322,20 @@ export const QuarterManagement: React.FC = () => {
                     {quarter.startDate} - {quarter.endDate}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      quarter.difficulty === 'beginner'
-                        ? 'bg-green-100 text-green-800'
-                        : quarter.difficulty === 'intermediate'
+                    <span className={`px-2 py-1 text-xs rounded-full ${quarter.difficulty === 'beginner'
+                      ? 'bg-green-100 text-green-800'
+                      : quarter.difficulty === 'intermediate'
                         ? 'bg-amber-100 text-amber-800'
                         : 'bg-red-100 text-red-800'
-                    }`}>
+                      }`}>
                       {quarter.difficulty.charAt(0).toUpperCase() + quarter.difficulty.slice(1)}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      quarter.isActive
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
+                    <span className={`px-2 py-1 text-xs rounded-full ${quarter.isActive
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-gray-100 text-gray-800'
+                      }`}>
                       {quarter.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
@@ -361,4 +363,9 @@ export const QuarterManagement: React.FC = () => {
       )}
     </div>
   );
-};
+  ;
+  const [loading, setLoading] = useState(false);
+  function setError(arg0: string) {
+    throw new Error('Function not implemented.');
+  }
+}

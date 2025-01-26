@@ -16,6 +16,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const Firebase = firebaseConfig;
 
 // Initialize analytics only if it's supported (not in test environment)
 export const analytics = await isSupported() ? getAnalytics(app) : null;

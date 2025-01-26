@@ -1,7 +1,8 @@
 import { db } from '@/config/firebase';
-import { collection, query, getDocs, where, limit, orderBy, DocumentData } from 'firebase/firestore';
-import { analyticsService } from './analytics.service';
+import { collection, query, getDocs, where, limit, DocumentData } from 'firebase/firestore';
+import { AnalyticsService } from './analytics.service';
 import { WhiskeySample } from '@/types';
+import { PlayerProfile } from '@/components';
 
 interface WhiskeyRecommendation extends WhiskeySample {
   matchScore: number;
@@ -24,7 +25,7 @@ class RecommendationService {
     try {
       // Get user preferences
       const userPrefs = await this.getUserPreferences(userId);
-      
+
       // Get potential matches
       const whiskeyQuery = query(
         this.whiskeyCollection,
@@ -45,18 +46,18 @@ class RecommendationService {
         .sort((a, b) => b.matchScore - a.matchScore)
         .slice(0, this.MAX_RECOMMENDATIONS);
 
-      analyticsService.trackUserEngagement('recommendations_generated', {
+      AnalyticsService.trackUserEngagement('recommendations_generated', {
         userId,
         recommendationCount: scoredWhiskies.length
       });
-      
+
       return scoredWhiskies;
     } catch (error) {
       console.error('Failed to get recommendations:', error);
-      analyticsService.trackError(
+      AnalyticsService.trackError(
         'Failed to get recommendations',
-        'recommendation_service', 
-        { userId }
+        'recommendation_service',
+        userId
       );
       throw error;
     }
@@ -137,7 +138,7 @@ class RecommendationService {
   }
 
   private calculateFlavorScore(
-    profile: string[], 
+    profile: string[],
     preferences: Record<string, number>
   ): number {
     let score = 0;

@@ -61,7 +61,7 @@ const WhiskeyWizEmbed: React.FC<{ options: WhiskeyWizEmbedOptions }> = ({ option
           throw new Error('No quarter ID specified');
         }
 
-        const productId = new URLSearchParams(window.location.search).get('product_id');
+        const productId = new URLSearchParams(window.location.search).get('product_id') ?? undefined;
         const pageType: PageType = productId ? 'product' : 'page';
 
         // If on product page, check for existing challenge
@@ -89,7 +89,7 @@ const WhiskeyWizEmbed: React.FC<{ options: WhiskeyWizEmbedOptions }> = ({ option
     };
 
     initializeEmbed();
-    
+
     return () => {
       // Cleanup if needed
       const { productId } = pageInfo || {};
@@ -133,14 +133,12 @@ const WhiskeyWizEmbed: React.FC<{ options: WhiskeyWizEmbedOptions }> = ({ option
     ...(options.containerStyle || {})
   };
 
+  // In the return statement of WhiskeyWizEmbed
   return (
-    <div 
-      className={`whiskey-wiz-embed ${options.theme || DEFAULT_CONFIG.theme}`}
-      style={containerStyles}
-    >
+    <div className={`whiskey-wiz-embed ${options.theme || DEFAULT_CONFIG.theme}`} style={containerStyles}>
       <AuthProvider>
         <FeatureProvider>
-          <QuarterProvider quarterId={pageInfo.quarterId}>
+          <QuarterProvider>
             <GameBoard />
           </QuarterProvider>
         </FeatureProvider>

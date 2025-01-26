@@ -1,6 +1,6 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { privateRoute } from 'src/components/private-route.component';
+import { Routes, Route, Navigate, useNavigate, Outlet } from 'react-router-dom';
+import PrivateRoute from 'src/components/private-route.component';
 import { UserRole } from '@/types';
 
 // Auth Components
@@ -23,6 +23,7 @@ import { PlayerDashboard } from '@/components/player/player-dashboard.component'
 import { PlayerProfile } from '@/components/player/player-profile.component';
 
 export const AppRoutes: React.FC = () => {
+  const navigate = useNavigate();
   return (
     <Routes>
       {/* Public Routes */}
@@ -32,8 +33,13 @@ export const AppRoutes: React.FC = () => {
       <Route path="/verify-email" element={<VerifyEmail />} />
 
       {/* Game Routes */}
-      <Route element={<PrivateRoute />}>
-        <Route path="/" element={<QuarterSelection />} />
+      <Route element={<PrivateRoute allowedRoles={[UserRole.USER, UserRole.ADMIN]} />}>
+        <Outlet />
+        <Route path="/" element={<QuarterSelection onSelect={(quarter) => {
+          if (quarter?.id) {
+            navigate(`/game/${quarter.id}`);
+          }
+        }} />} />
         <Route path="/game/:quarterId" element={<GameContainer />} />
       </Route>
 

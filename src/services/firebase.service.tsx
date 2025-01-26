@@ -1,5 +1,5 @@
 import { db, auth } from '@/config/firebase';
-import { doc, getDoc, updateDoc, addDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, addDoc, collection } from 'firebase/firestore';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -9,6 +9,7 @@ import {
   User
 } from 'firebase/auth';
 import { ExtendedUser, UserRole } from '@/types';
+
 
 export const FirebaseService = {
   // Authentication methods

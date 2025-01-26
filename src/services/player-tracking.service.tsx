@@ -1,6 +1,6 @@
 import { db, auth } from '../firebase';
 import { collection, doc, setDoc, updateDoc, getDoc, addDoc, query, where, getDocs } from 'firebase/firestore';
-import { analyticsService } from 'src/services/analytics.service';
+import { AnalyticsService } from 'src/services/analytics.service';
 
 export interface PlayerProfile {
   userId: string;

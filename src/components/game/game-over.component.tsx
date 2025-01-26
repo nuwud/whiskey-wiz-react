@@ -7,8 +7,8 @@ interface GameOverProps {
 
 export const GameOver = ({ onPlayAgain }: GameOverProps) => {
   const { user } = useAuthStore();
-  const { score, guesses, samples, totalChallenges, answers, hints, lives } = useGameStore();
-  
+  const { score, guesses, samples, challenges, answers, hints, lives } = useGameStore();
+  const totalChallenges = challenges.length;
   const calculateSampleAccuracy = () => {
     if (!samples.length) return 0;
     let totalAccuracy = 0;
@@ -33,7 +33,7 @@ export const GameOver = ({ onPlayAgain }: GameOverProps) => {
   return (
     <div className="bg-white rounded-lg shadow-lg p-8 max-w-2xl mx-auto">
       <h2 className="text-3xl font-bold text-center mb-8">Game Over!</h2>
-      
+
       {/* Final Score */}
       <div className="text-center mb-8">
         <div className="text-5xl font-bold text-amber-600 mb-2">{score}</div>
@@ -48,7 +48,7 @@ export const GameOver = ({ onPlayAgain }: GameOverProps) => {
           </div>
           <div className="text-sm text-gray-600">Sample Accuracy</div>
         </div>
-        
+
         <div className="bg-gray-50 p-4 rounded-lg text-center">
           <div className="text-2xl font-bold text-gray-800">
             {challengeAccuracy.toFixed(1)}%
@@ -102,7 +102,7 @@ export const GameOver = ({ onPlayAgain }: GameOverProps) => {
         >
           Play Again
         </button>
-        
+
         <a
           href="/"
           className="block w-full px-6 py-3 text-center border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"

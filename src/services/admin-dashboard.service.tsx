@@ -129,5 +129,9 @@ export class AdminDashboardService {
   }
 
   // Remaining methods as in the previous implementation
-
+  async getComprehensiveDashboardMetrics(): Promise<AdminDashboardMetrics> {
+    // Implementation here
+    const metrics = await this.getDashboardMetrics();
+    return metrics;
+  }
 }

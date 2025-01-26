@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card-ui.component'
 import { collection, query, where, getDocs } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
-import { auth } from '@/lib/firebase'
+import { auth } from '@/config/firebase';
+import { db } from '@/config/firebase';
 
 interface GameResult {
   id: string
@@ -14,16 +14,16 @@ interface GameResult {
 
 export function PlayerStats() {
   const [stats, setStats] = useState<{
-    totalGames: number
-    averageScore: number
-    bestQuarter: string
-    results: GameResult[]
+    totalGames: number;
+    averageScore: number;
+    bestQuarter: string;
+    results: GameResult[];
   }>({
     totalGames: 0,
     averageScore: 0,
     bestQuarter: '',
     results: []
-  })
+  });
 
   useEffect(() => {
     async function fetchStats() {
@@ -33,16 +33,16 @@ export function PlayerStats() {
       const resultsRef = collection(db, 'gameResults')
       const q = query(resultsRef, where('userId', '==', user.uid))
       const querySnapshot = await getDocs(q)
-      
+
       const results = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as GameResult[]
 
       const avgScore = results.reduce((acc, game) => acc + game.score, 0) / results.length
-      const bestGame = results.reduce((best, game) => 
+      const bestGame = results.reduce((best, game) =>
         game.score > (best?.score || 0) ? game : best
-      , results[0])
+        , results[0])
 
       setStats({
         totalGames: results.length,
@@ -65,7 +65,7 @@ export function PlayerStats() {
           <div className="text-2xl font-bold">{stats.totalGames}</div>
         </CardContent>
       </Card>
-      
+
       <Card>
         <CardHeader>
           <CardTitle>Average Score</CardTitle>
@@ -76,7 +76,7 @@ export function PlayerStats() {
           </div>
         </CardContent>
       </Card>
-      
+
       <Card>
         <CardHeader>
           <CardTitle>Best Quarter</CardTitle>

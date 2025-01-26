@@ -1,17 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { quarterService } from 'src/services/quarter.service';
-
-interface LeaderboardEntry {
-  userId: string;
-  displayName: string;
-  score: number;
-  completedAt: Date;
-  accuracy: {
-    age: number;
-    proof: number;
-    mashbill: number;
-  };
-}
+import { LeaderboardEntry } from 'src/services/leaderboard.service';
 
 export const QuarterLeaderboard = ({ quarterId }: { quarterId: string }) => {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
@@ -26,7 +15,22 @@ export const QuarterLeaderboard = ({ quarterId }: { quarterId: string }) => {
     try {
       setLoading(true);
       const leaderboardData = await quarterService.getQuarterLeaderboard(quarterId);
-      setEntries(leaderboardData);
+      setEntries(leaderboardData.map(entry => ({
+        userId: entry.userId,
+        username: entry.displayName || '',
+        displayName: entry.displayName || '',
+        quarterId: quarterId,
+        score: entry.score,
+        totalScore: entry.score,
+        timestamp: new Date(entry.completedAt),
+        completedAt: new Date(entry.completedAt),
+        totalChallengesCompleted: 0,
+        accuracy: {
+          age: entry.accuracy.age,
+          proof: entry.accuracy.proof,
+          mashbill: entry.accuracy.mashbill
+        }
+      })));
     } catch (err) {
       setError('Failed to load leaderboard');
     } finally {
@@ -80,9 +84,9 @@ export const QuarterLeaderboard = ({ quarterId }: { quarterId: string }) => {
               <tr key={entry.userId} className={index < 3 ? 'bg-amber-50' : ''}>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className={`text-sm ${index === 0 ? 'text-amber-600 font-bold' :
-                      index === 1 ? 'text-gray-600 font-bold' :
-                        index === 2 ? 'text-amber-800 font-bold' :
-                          'text-gray-900'
+                    index === 1 ? 'text-gray-600 font-bold' :
+                      index === 2 ? 'text-amber-800 font-bold' :
+                        'text-gray-900'
                     }`}>
                     #{index + 1}
                   </div>

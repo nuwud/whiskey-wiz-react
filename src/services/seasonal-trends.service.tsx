@@ -1,6 +1,6 @@
 import { db } from '@/config/firebase';
 import { collection, query, getDocs, where, orderBy } from 'firebase/firestore';
-import { analyticsService } from '@/services/analytics.service';
+import { AnalyticsService } from '@/services/analytics.service';
 
 export interface SeasonalTrend {
   id: string;
@@ -34,11 +34,11 @@ class SeasonalTrendsService {
         } as SeasonalTrend);
       });
 
-      analyticsService.trackError('Seasonal trends loaded', 'seasonal_trends_service');
+      AnalyticsService.trackError('Seasonal trends loaded', 'seasonal_trends_service');
       return trends;
     } catch (error) {
       console.error('Failed to fetch current trends:', error);
-      analyticsService.trackError('Failed to fetch current trends', 'seasonal_trends_service');
+      AnalyticsService.trackError('Failed to fetch current trends', 'seasonal_trends_service');
       throw error;
     }
   }
@@ -64,7 +64,7 @@ class SeasonalTrendsService {
       return trends;
     } catch (error) {
       console.error('Failed to fetch trends by year:', error);
-      analyticsService.trackError('Failed to fetch trends by year', 'seasonal_trends_service');
+      AnalyticsService.trackError('Failed to fetch trends by year', 'seasonal_trends_service');
       throw error;
     }
   }
@@ -88,7 +88,7 @@ class SeasonalTrendsService {
       return Array.from(allFlavors);
     } catch (error) {
       console.error('Failed to fetch trending flavors:', error);
-      analyticsService.trackError('Failed to fetch trending flavors', 'seasonal_trends_service');
+      AnalyticsService.trackError('Failed to fetch trending flavors', 'seasonal_trends_service');
       return [];
     }
   }

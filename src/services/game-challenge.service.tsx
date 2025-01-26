@@ -1,6 +1,6 @@
-import { collection, addDoc, getDocs, query, where, updateDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
-import { analyticsService } from 'src/services/analytics.service';
+import { AnalyticsService } from 'src/services/analytics.service';
 
 export interface GameChallenge {
   id: string;
@@ -46,7 +46,7 @@ export class GameChallengeService {
     try {
       const docRef = await addDoc(this.challengeCollection, challenge);
 
-      analyticsService.trackUserEngagement('challenge_created', {
+      AnalyticsService.trackUserEngagement('challenge_created', {
         challengeId: docRef.id,
         type: challenge.challengeType,
         difficulty: challenge.difficulty

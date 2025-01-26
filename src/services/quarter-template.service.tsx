@@ -1,6 +1,6 @@
 import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
-import { analyticsService } from 'src/services/analytics.service';
+import { AnalyticsService } from 'src/services/analytics.service';
 
 export interface QuarterTemplate {
   id: string;

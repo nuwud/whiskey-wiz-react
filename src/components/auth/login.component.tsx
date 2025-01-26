@@ -10,7 +10,7 @@ interface LoginFormData {
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { } = useAuth();
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: ''
@@ -50,14 +50,14 @@ export const Login: React.FC = () => {
             Sign in to Whiskey Wiz
           </h2>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="mt-8 space-y-6">
           {error && (
             <div className="text-red-500 text-sm text-center">
               {error}
             </div>
           )}
-          
+
           <div className="-space-y-px rounded-md shadow-sm">
             <div>
               <label htmlFor="email" className="sr-only">
@@ -105,9 +105,8 @@ export const Login: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className={`group relative flex w-full justify-center rounded-md border border-transparent bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
-                loading ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
+              className={`group relative flex w-full justify-center rounded-md border border-transparent bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${loading ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
             >
               {loading ? 'Signing in...' : 'Sign in'}
             </button>

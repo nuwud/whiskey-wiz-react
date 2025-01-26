@@ -1,6 +1,6 @@
 import { db } from 'src/firebase';
 import { doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { analyticsService } from 'src/services/analytics.service';
+import { AnalyticsService } from 'src/services/analytics.service';
 
 export interface GameStateRecovery {
   userId: string;
@@ -25,7 +25,7 @@ export class StateRecoveryService {
         recoveryAttempts: 0
       }, { merge: true });
 
-      analyticsService.trackUserEngagement('state_partially_saved', {
+      AnalyticsService.trackUserEngagement('state_partially_saved', {
         userId,
         quarterId
       });

@@ -1,5 +1,5 @@
 // Core services
-export { adminashboardService } from './admin-dashboard.service';
+export { AdminDashboardService } from './admin-dashboard.service';
 export { analyticsService } from './analytics.service';
 export { authService } from './auth.service';
 export { FirebaseService } from './firebase.service';

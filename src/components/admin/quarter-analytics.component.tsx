@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Quarter } from '../../types/game.types';
 import { quarterService } from 'src/services/quarter.service';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 interface QuarterStats {
+  topScore: number;
   totalPlayers: number;
   averageScore: number;
-  topScore: number;
   completionRate: number;
   sampleAccuracy: {
     age: number;
@@ -61,7 +61,7 @@ export const quarterAnalytics = () => {
         quarterService.getQuarterStats(quarter.id),
         quarterService.getDailyStats(quarter.id)
       ]);
-      setStats(quarterStats as QuarterStats);
+      setStats(quarterStats as unknown as QuarterStats);
       setDailyStats(dailyData as DailyStats[]);
     } catch (err) {
       setError('Failed to load statistics');

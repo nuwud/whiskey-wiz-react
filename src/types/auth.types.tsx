@@ -1,5 +1,11 @@
 import { User as FirebaseUser } from 'firebase/auth';
 
+export enum UserType {
+  PLAYER = 'player',
+  ADMIN = 'admin',
+  GUEST = 'guest'
+}
+
 export enum UserRole {
   USER = 'user',
   ADMIN = 'admin',
@@ -21,11 +27,23 @@ export interface AuthContextType {
   updateProfile: (displayName: string) => Promise<void>;
 }
 
-export interface PlayerProfile {
+export interface BaseProfile {
   userId: string;
   displayName: string;
   email: string;
   role: UserRole;
+  isAnonymous: boolean;
+  createdAt: Date;
+  lastLoginAt: Date;
+}
+
+export interface PlayerProfile extends BaseProfile {
+  guest: boolean;
+  registrationType: 'email' | 'google' | 'facebook' | 'guest';
+  geographicData?: {
+    country?: string;
+    region?: string;
+  };
   metrics: {
     gamesPlayed: number;
     totalScore: number;
@@ -39,21 +57,48 @@ export interface PlayerProfile {
     preferredDifficulty: 'beginner' | 'intermediate' | 'advanced';
     notifications: boolean;
   };
-  createdAt: Date;
-  lastLoginAt: Date;
 }
 
-export interface AdminProfile {
-  userId: string;
-  displayName: string;
-  email: string;
-  role: UserRole;
+export interface AdminProfile extends BaseProfile {
+  adminPrivileges: string[];
   permissions: {
     canManageUsers: boolean;
     canManageContent: boolean;
     canViewAnalytics: boolean;
     canModifyGameSettings: boolean;
   };
-  createdAt: Date;
-  lastLoginAt: Date;
+}
+
+export interface GuestProfile {
+  guest: true;
+  registrationType: 'guest';
+  geographicData?: {
+    country?: string;
+    region?: string;
+  };
+  metrics: {
+    gamesPlayed: number;
+    totalScore: number;
+    averageScore: number;
+    bestScore: number;
+    badges: string[];
+    achievements: string[];
+  };
+  preferences: {
+    favoriteWhiskeys: string[];
+    preferredDifficulty: 'beginner' | 'intermediate' | 'advanced';
+    notifications: boolean;
+  };
+  invites?: {
+    email: string;
+    invitedBy: string;
+    status: 'pending' | 'accepted' | 'declined';
+    declined?: boolean;
+    declinedReason?: string;
+    expiresAt: Date;
+    code: string;
+    acceptedAt?: Date;
+    declinedAt?: Date;
+    createdAt: Date;
+  };
 }

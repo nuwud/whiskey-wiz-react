@@ -1,6 +1,7 @@
+import { PlayerProfile } from '@/components';
 import { db } from '../firebase';
-import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
-import { analyticsService } from 'src/services/analytics.service';
+import { collection, addDoc, getDocs, query, where, updateDoc as firestoreUpdateDoc } from 'firebase/firestore';
+import { AnalyticsService } from 'src/services/analytics.service';
 
 interface MLTrainingData {
   userId: string;
@@ -35,7 +36,7 @@ export class MachineLearningService {
     try {
       await addDoc(this.trainingDataCollection, data);
 
-      analyticsService.trackUserEngagement('ml_training_data_recorded', {
+      AnalyticsService.trackUserEngagement('ml_training_data_recorded', {
         userId: data.userId,
         quarterId: data.quarterId,
         challengeType: data.challengeType
@@ -152,9 +153,14 @@ export class MachineLearningService {
         // Create new profile
         await addDoc(this.learningProfileCollection, profile);
       } else {
-        // Update existing profile (simplified for this example)
+        // Update existing profile
         const docRef = snapshot.docs[0].ref;
-        await updateDoc(docRef, profile);
+        await firestoreUpdateDoc(docRef, {
+          strengths: profile.strengths,
+          weaknesses: profile.weaknesses,
+          preferredChallengeTypes: profile.preferredChallengeTypes,
+          averagePerformance: profile.averagePerformance
+        });
       }
 
       AnalyticsService.trackUserEngagement('learning_profile_updated', {
