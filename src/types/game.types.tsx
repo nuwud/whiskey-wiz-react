@@ -1,21 +1,2 @@
 
-import { PlayerProfile } from "./auth.types";
-import { LeaderboardEntry } from "@/services/leaderboard.service";
-
-// ... (keep existing types)
-
-export interface Quarter {
-  id: string;
-  name: string;
-  startDate: Date;
-  endDate: Date;
-  difficulty: 'easy' | 'medium' | 'hard';
-  isActive: boolean;
-  samples: WhiskeySample[];
-  description: string;
-  scoringRules: ScoringRules;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-// ... (keep the rest of the file unchanged)
+aW1wb3J0IHsgUGxheWVyUHJvZmlsZSB9IGZyb20gIi4vYXV0aC50eXBlcyI7CmltcG9ydCB7IExlYWRlcmJvYXJkRW50cnkgfSBmcm9tICJAL3NlcnZpY2VzL2xlYWRlcmJvYXJkLnNlcnZpY2UiOwoKLy8gLi4uIChrZWVwIGV4aXN0aW5nIHR5cGVzKQoKZXhwb3J0IGludGVyZmFjZSBRdWFydGVyIHsKICBpZDogc3RyaW5nOwogIG5hbWU6IHN0cmluZzsKICBzdGFydERhdGU6IERhdGU7CiAgZW5kRGF0ZTogRGF0ZTsKICBkaWZmaWN1bHR5OiAnZWFzeScgfCAnbWVkaXVtJyB8ICdoYXJkJzsKICBpc0FjdGl2ZTogYm9vbGVhbjsKICBzYW1wbGVzOiBXaGlza2V5U2FtcGxlW107CiAgZGVzY3JpcHRpb246IHN0cmluZzsKICBzY29yaW5nUnVsZXM6IFNjb3JpbmdSdWxlczsKICBjcmVhdGVkQXQ6IERhdGU7CiAgdXBkYXRlZEF0OiBEYXRlOwp9CgovLyAuLi4gKGtlZXAgdGhlIHJlc3Qgb2YgdGhlIGZpbGUgdW5jaGFuZ2VkKQ==
