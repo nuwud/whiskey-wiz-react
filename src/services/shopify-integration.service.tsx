@@ -22,7 +22,14 @@ export interface ShopifyProduct {
   images: ShopifyProductImage[];
   price: number;
   weight: number;
-  metafields: Record<string, string>;
+  handle: (string);
+  vendor: string;
+  metafields: {
+    age?: string;
+    proof?: string;
+    mashbill?: string;
+    description?: string;
+  };
 }
 
 export interface ShopifyProductMetadata {

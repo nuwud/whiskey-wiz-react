@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, useQuarter } from '@/contexts';
 import { quarterService } from '@/services/quarter.service';
-import type { Quarter, WhiskeySample, ScoringRules, ScoringRules } from '@/types/game.types';
+import type { Quarter, WhiskeySample, ScoringRules } from '@/types/game.types';
 import { SampleEditor } from './sample-editor.component';
 
 type Difficulty = 'easy' | 'medium' | 'hard';
@@ -82,24 +82,12 @@ export const QuarterManagement: React.FC = () => {
       endDate: quarter.endDate.toISOString().split('T')[0],
       difficulty: quarter.difficulty || 'easy',
       isActive: quarter.isActive,
-      samples: quarter.samples,
+      samples: quarter.samples || [],
       description: quarter.description || '',
-      scoringRules: {
-        age: {
-          maxPoints: quarter.scoringRules?.age?.maxPoints || 0,
-          pointDeductionPerYear: quarter.scoringRules?.age?.pointDeductionPerYear || 0,
-          exactMatchBonus: quarter.scoringRules?.age?.exactMatchBonus || 0
-        },
-        proof: {
-          maxPoints: quarter.scoringRules?.proof?.maxPoints || 0,
-          pointDeductionPerProof: quarter.scoringRules?.proof?.pointDeductionPerProof || 0,
-          exactMatchBonus: quarter.scoringRules?.proof?.exactMatchBonus || 0
-        },
-        mashbill: {
-          maxPoints: quarter.scoringRules?.mashbill?.maxPoints || 0,
-          pointDeductionPerYear: quarter.scoringRules?.mashbill?.pointDeductionPerYear || 0,
-          exactMatchBonus: quarter.scoringRules?.mashbill?.exactMatchBonus || 0
-        }
+      scoringRules: quarter.scoringRules || {
+        age: { maxPoints: 0, pointDeductionPerYear: 0, exactMatchBonus: 0 },
+        proof: { maxPoints: 0, pointDeductionPerProof: 0, exactMatchBonus: 0 },
+        mashbill: { maxPoints: 0, pointDeductionPerYear: 0, exactMatchBonus: 0 }
       }
     });
     setIsEditing(true);
@@ -121,6 +109,7 @@ export const QuarterManagement: React.FC = () => {
         endDate: new Date(formData.endDate),
         createdAt: new Date(),
         updatedAt: new Date(),
+        challenges: [],
         difficulty: formData.difficulty,
         isActive: formData.isActive,
         description: formData.description,
@@ -148,7 +137,7 @@ export const QuarterManagement: React.FC = () => {
     return <div className="p-4">You must be logged in to access this page.</div>;
   }
 
-  const handleNewQuarter = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleNewQuarter = () => {
     setSelectedQuarter(null);
     setFormData({
       name: '',
@@ -184,10 +173,11 @@ export const QuarterManagement: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const quarterData: Omit<Quarter, 'id' | 'createdAt' | 'updatedAt'> = {
+      const quarterData: Omit<Quarter, 'id'> = {
         ...formData,
         startDate: new Date(formData.startDate),
         endDate: new Date(formData.endDate),
+        challenges: [],
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -356,7 +346,7 @@ export const QuarterManagement: React.FC = () => {
                       <div className="flex justify-between">
                         <span className="font-medium">{sample.name}</span>
                         <span className="text-gray-500">
-                          {sample.age}yr • {sample.proof}° • {sample.mashbillType}
+                          {sample.age}yr • {sample.proof}° • {sample.mashbill}
                         </span>
                       </div>
                     </li>

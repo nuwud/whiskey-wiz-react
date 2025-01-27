@@ -1,37 +1,42 @@
 import { useState, useEffect } from 'react';
 import { WhiskeySample } from '../../types/game.types';
 import { Dialog } from '@/components/ui/dialog';
-import { shopifyService } from 'src/services/shopify-integration.service';
-
-interface ShopifyProduct {
-  id: string;
-  title: string;
-  handle: string;
-  vendor: string;
-  metafields: {
-    age?: string;
-    proof?: string;
-    mashbill?: string;
-    description?: string;
-  };
-}
+import { shopifyService, ShopifyProduct } from 'src/services/shopify-integration.service';
 
 interface SampleFormData {
   name: string;
   age: number;
   proof: number;
-  mashbill: string;
+  mashbill: "bourbon" | "rye" | "wheat" | "corn" | "malted barley";
   distillery: string;
   description: string;
+  shopifyProduct: ShopifyProduct | null;
+  isDialogOpen: boolean;
+  shopifyProductError: string | null;
+  onSave: (sample: WhiskeySample) => void;
+  onDialogClose: () => void;
+  onProductChange: (productId: string) => void;
+  onProductSelect: (productId: string) => void;
 }
 
 const defaultSampleData: SampleFormData = {
   name: '',
   age: 0,
   proof: 80,
-  mashbill: '',
+  mashbill: 'bourbon',
   distillery: '',
-  description: ''
+  description: '',
+  shopifyProduct: null,
+  isDialogOpen: false,
+  shopifyProductError: null,
+  onSave: () => { },
+  onDialogClose: () => { },
+  onProductChange: (productId: string) => {
+    console.log('Product changed:', productId);
+  },
+  onProductSelect: (productId: string) => {
+    console.log('Product selected:', productId);
+  }
 };
 
 interface SampleEditorProps {
@@ -46,6 +51,11 @@ export const SampleEditor = ({ samples, onUpdate, onClose }: SampleEditorProps) 
   const [shopifyProducts, setShopifyProducts] = useState<ShopifyProduct[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [productError, setProductError] = useState<string | null>(null);
+
+  const onDialogClose = () => {
+    setEditingSample(defaultSampleData);
+    setEditingIndex(null);
+  };
 
   useEffect(() => {
     loadShopifyProducts();
@@ -65,6 +75,14 @@ export const SampleEditor = ({ samples, onUpdate, onClose }: SampleEditorProps) 
     }
   };
 
+  const onSave = (sample: WhiskeySample) => {
+    if (editingIndex !== null) {
+      const newSamples = [...samples];
+      newSamples[editingIndex] = sample;
+      onUpdate(newSamples);
+    }
+  };
+
   const handleProductSelect = async (productId: string) => {
     try {
       const product = shopifyProducts.find(p => p.id === productId);
@@ -76,19 +94,61 @@ export const SampleEditor = ({ samples, onUpdate, onClose }: SampleEditorProps) 
       }
 
       const sampleData = shopifyService.convertToSample(product);
+      const handleProductChange = (productId: string) => {
+        console.log('Product changed:', productId);
+      };
+
       setEditingSample({
         name: sampleData.name || '',
         age: sampleData.age || 0,
         proof: sampleData.proof || 80,
-        mashbill: sampleData.mashbill || '',
+        mashbill: sampleData.mashbill || 'bourbon',
         distillery: sampleData.distillery || '',
-        description: sampleData.description || ''
+        description: sampleData.description || '',
+        shopifyProduct: product,
+        isDialogOpen: false,
+        shopifyProductError: null,
+        onSave,
+        onDialogClose,
+        onProductChange: handleProductChange,
+        onProductSelect: handleProductSelect
+      });
+      setEditingSample({
+        name: sampleData.name || '',
+        age: sampleData.age || 0,
+        proof: sampleData.proof || 80,
+        mashbill: sampleData.mashbill || 'bourbon',
+        distillery: sampleData.distillery || '',
+        description: sampleData.description || '',
+        shopifyProduct: product,
+        isDialogOpen: false,
+        shopifyProductError: null,
+        onSave,
+        onDialogClose,
+        onProductChange: handleProductChange,
+        onProductSelect: handleProductSelect
       });
     } catch (err) {
       console.error('Error loading product details:', err);
       // Keep the error message displayed briefly
       setProductError(err instanceof Error ? err.message : 'Failed to load product details');
       setTimeout(() => setProductError(null), 3000);
+    }
+
+    if (editingIndex !== null) {
+      const newSamples = [...samples];
+      newSamples[editingIndex] = {
+        id: samples[editingIndex]?.id || crypto.randomUUID(),
+        name: editingSample.name,
+        age: editingSample.age,
+        proof: editingSample.proof,
+        mashbill: editingSample.mashbill,
+        distillery: editingSample.distillery,
+        description: editingSample.description,
+        notes: samples[editingIndex]?.notes || [],
+        hints: samples[editingIndex]?.hints || []
+      };
+      onUpdate(newSamples);
     }
   };
 
@@ -102,15 +162,15 @@ export const SampleEditor = ({ samples, onUpdate, onClose }: SampleEditorProps) 
               <h3 className="text-lg font-medium text-gray-900">Select from Shopify</h3>
               {isLoadingProducts ? (
                 <div className="flex justify-center">
-                  <div className="animate-spin h-6 w-6 border-t-2 border-amber-600 rounded-full" />
+                  <div className="w-6 h-6 border-t-2 rounded-full animate-spin border-amber-600" />
                 </div>
               ) : productError ? (
-                <div className="text-red-600 text-sm">{productError}</div>
+                <div className="text-sm text-red-600">{productError}</div>
               ) : (
                 <select
                   title="Select from Shopify"
                   onChange={(e) => handleProductSelect(e.target.value)}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"
+                  className="block w-full border-gray-300 rounded-md shadow-sm focus:border-amber-500 focus:ring-amber-500"
                 >
                   <option value="">Select a Product</option>
                   {shopifyProducts.map(product => (
@@ -133,7 +193,15 @@ export const SampleEditor = ({ samples, onUpdate, onClose }: SampleEditorProps) 
                   <button
                     type="button"
                     onClick={() => {
-                      setEditingSample(sample);
+                      setEditingSample({
+                        ...defaultSampleData,
+                        name: sample.name,
+                        age: sample.age,
+                        proof: sample.proof,
+                        mashbill: sample.mashbill,
+                        distillery: sample.distillery,
+                        description: sample.description,
+                      });
                       setEditingIndex(index);
                     }}
                     className="text-amber-600"

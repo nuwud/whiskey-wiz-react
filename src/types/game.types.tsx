@@ -19,7 +19,6 @@ export interface WhiskeySample {
     wheat: number;
     barley: number;
   };
-  notes: string[];
   hints: string[];
   distillery: string;
   description: string;
