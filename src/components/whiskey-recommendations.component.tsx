@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card-ui.component';
 import { useAuth } from '@/contexts/auth.context';
 import { recommendationService } from '@/services/recommendation.service';
-import { analyticsService } from '@/services/analytics.service';
+import { AnalyticsService } from '@/services/analytics.service';
 import { WhiskeySample } from '@/types';
 import { Drama } from 'lucide-react';
 
@@ -26,17 +26,14 @@ export const WhiskeyRecommendations: React.FC = () => {
         setLoading(true);
         const userRecommendations = await recommendationService.getRecommendations(user.uid);
         setRecommendations(userRecommendations);
-        analyticsService.trackUserEngagement('recommendations_loaded', {
+        AnalyticsService.trackUserEngagement('recommendations_loaded', {
           userId: user.uid,
           recommendationCount: userRecommendations.length
         });
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load recommendations';
         setError(errorMessage);
-        analyticsService.trackError('Failed to load recommendations', 'whiskey_recommendations', {
-          userId: user.uid,
-          error: errorMessage
-        });
+        AnalyticsService.trackError('Failed to load recommendations', 'whiskey_recommendations', user.uid);
       } finally {
         setLoading(false);
       }
@@ -149,7 +146,7 @@ export const WhiskeyRecommendations: React.FC = () => {
                       Match Score: {Math.round(whiskey.matchScore * 100)}%
                     </div>
                     <button
-                      onClick={() => analyticsService.trackUserEngagement('recommendation_saved', {
+                      onClick={() => AnalyticsService.trackUserEngagement('recommendation_saved', {
                         userId: user.uid,
                         whiskeyId: whiskey.id
                       })}

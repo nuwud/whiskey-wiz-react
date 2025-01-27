@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { QuarterService, Quarter } from 'src/services/quarter.service';
+import { QuarterService } from 'src/services/quarter.service';
 import { ErrorBoundary } from '../error-boundary.component';
 import { AnalyticsService } from 'src/services/analytics.service';
 import { MonitoringService } from 'src/services/monitoring.service';

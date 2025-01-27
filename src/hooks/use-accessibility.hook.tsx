@@ -1,13 +1,12 @@
 import { useState } from 'react';
-import { accessibilityManager } from 'src/components/accessibility-settings.component';
+import { accessibilityManager, AccessibilityPreferences, AccessibilityReport } from '@/services/accessibility.service';
 
 export const useAccessibility = () => {
-  const accessibilityManager = accessibilityManager.getInstance();
-  const [accessibilityPreferences, setAccessibilityPreferences] = useState(
+  const [accessibilityPreferences, setAccessibilityPreferences] = useState<AccessibilityReport>(
     accessibilityManager.generateAccessibilityReport()
   );
 
-  const updateAccessibilityPreferences = (updates: any) => {
+  const updateAccessibilityPreferences = (updates: Partial<AccessibilityPreferences>) => {
     accessibilityManager.updatePreferences(updates);
     setAccessibilityPreferences(accessibilityManager.generateAccessibilityReport());
   };

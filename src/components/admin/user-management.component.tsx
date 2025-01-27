@@ -28,7 +28,20 @@ export function UserManagement() {
     const fetchUsers = async () => {
       try {
         const data = await trackingService.getAllPlayerProfiles();
-        setUsers(data);
+        const mappedUsers = data.map(profile => ({
+          id: profile.userId,
+          username: profile.displayName || '',
+          email: profile.email || '',
+          roles: {
+            admin: profile.role === 'admin',
+            player: profile.role === 'player',
+            moderator: profile.role === 'moderator'
+          },
+          lastActive: profile.lastActive || new Date().toISOString(),
+          totalGames: profile.totalGames || 0,
+          averageScore: profile.averageScore || 0
+        }));
+        setUsers(mappedUsers);
       } catch (error) {
         console.error('Failed to fetch users:', error);
       } finally {

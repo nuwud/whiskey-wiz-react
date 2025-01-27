@@ -9,16 +9,28 @@ export interface WhiskeySample {
   name: string;
   age: number;
   proof: number;
-  mashbillType: string;
+  mashbill: 'bourbon' | 'rye' | 'wheat' | 'corn' | 'malted barley';
+  mashbillComposition?: {
+    corn: number;
+    rye: number;
+    wheat: number;
+    barley: number;
+  };
+  notes: string[];
   hints: string[];
   distillery: string;
   description: string;
-  notes: string[];
 }
 
 // Challenge types
 export interface Challenge {
   id: string;
+  name: string;
+  description: string;
+  isActive: boolean;
+  startDate: Date;
+  endDate: Date;
+  winners: LeaderboardEntry[];
   type: 'taste' | 'nose' | 'history' | 'pairing';
   question: string;
   options: string[];
@@ -48,6 +60,7 @@ export interface ScoringRules {
   };
 }
 
+
 export interface Quarter {
   id: string;
   name: string;
@@ -55,12 +68,23 @@ export interface Quarter {
   endDate: Date;
   difficulty: 'easy' | 'medium' | 'hard';
   isActive: boolean;
-  scoringRules: ScoringRules;
-  challenges: ScoringRules;
-  samples: ScoringRules;
+  samples: WhiskeySample[];
   description: string;
+  scoringRules: ScoringRules;
   createdAt: Date;
   updatedAt: Date;
+  challenges: Array<{
+    name: string;
+    description: string;
+    points: number;
+    isActive: boolean;
+    startDate: Date;
+    endDate: Date;
+    winners: Array<{
+      name: string;
+      score: number;
+    }>;
+  }>;
 }
 
 // Game state tracking

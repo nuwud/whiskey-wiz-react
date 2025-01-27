@@ -11,7 +11,7 @@ interface ShopifyProduct {
   metafields: {
     age?: string;
     proof?: string;
-    mashbill_type?: string;
+    mashbill?: string;
     description?: string;
   };
 }
@@ -20,7 +20,7 @@ interface SampleFormData {
   name: string;
   age: number;
   proof: number;
-  mashbillType: string;
+  mashbill: string;
   distillery: string;
   description: string;
 }
@@ -29,7 +29,7 @@ const defaultSampleData: SampleFormData = {
   name: '',
   age: 0,
   proof: 80,
-  mashbillType: '',
+  mashbill: '',
   distillery: '',
   description: ''
 };
@@ -55,7 +55,7 @@ export const SampleEditor = ({ samples, onUpdate, onClose }: SampleEditorProps) 
     try {
       setIsLoadingProducts(true);
       setProductError(null);
-      const products = await shopifyService.getProducts();
+      const products = await shopifyService.getProduct();
       setShopifyProducts(products);
     } catch (err) {
       setProductError('Failed to load Shopify products');
@@ -80,7 +80,7 @@ export const SampleEditor = ({ samples, onUpdate, onClose }: SampleEditorProps) 
         name: sampleData.name || '',
         age: sampleData.age || 0,
         proof: sampleData.proof || 80,
-        mashbillType: sampleData.mashbillType || '',
+        mashbill: sampleData.mashbill || '',
         distillery: sampleData.distillery || '',
         description: sampleData.description || ''
       });
@@ -97,8 +97,6 @@ export const SampleEditor = ({ samples, onUpdate, onClose }: SampleEditorProps) 
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
         <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
           <div className="p-6 space-y-6">
-            {/* ... keep existing header ... */}
-
             {/* Shopify Product Selection */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium text-gray-900">Select from Shopify</h3>
@@ -109,7 +107,8 @@ export const SampleEditor = ({ samples, onUpdate, onClose }: SampleEditorProps) 
               ) : productError ? (
                 <div className="text-red-600 text-sm">{productError}</div>
               ) : (
-                <select title='Select from Shopify'
+                <select
+                  title="Select from Shopify"
                   onChange={(e) => handleProductSelect(e.target.value)}
                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"
                 >
@@ -123,28 +122,7 @@ export const SampleEditor = ({ samples, onUpdate, onClose }: SampleEditorProps) 
               )}
             </div>
 
-            <h3 className="text-lg font-medium text-gray-900">Sample Form</h3>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const newSample: WhiskeySample = {
-                  ...editingSample,
-                  id: editingIndex?.toString() || Date.now().toString(),
-                  mashbill: editingSample.mashbillType, // using mashbillType as mashbill
-                  productId: editingIndex
-                };
-                const updatedSamples = [...samples];
-                updatedSamples[editingIndex || samples.length] = newSample;
-                setEditingSample(defaultSampleData);
-                setEditingIndex(null);
-                onClose();
-                onUpdate(updatedSamples);
-                // Save sample to Firestore
-                // await firestoreService.saveSample(newSample);
-                // Show success message or update existing sample if it already exists
-              }
-            </form>
-          {/* ... keep existing samples list ... */
+            {/* Sample List */}
             <div className="flex flex-col space-y-4">
               {samples.map((sample, index) => (
                 <div key={sample.id || index} className="flex items-center space-x-4">
@@ -168,19 +146,17 @@ export const SampleEditor = ({ samples, onUpdate, onClose }: SampleEditorProps) 
                       const updatedSamples = [...samples];
                       updatedSamples.splice(index, 1);
                       onUpdate(updatedSamples);
-                    }
+                    }}
                     className="text-red-600"
                   >
-
+                    Delete
                   </button>
-
-            }
-
-
-                  {/*... keep existing footer ... */}
                 </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </Dialog>
   );
-};
+}

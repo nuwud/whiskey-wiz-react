@@ -15,10 +15,10 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { AnalyticsService } from './analytics.service';
-import { Quarter, WhiskeySample, QuarterAnalytics } from '@/types/game.types';
 import { TimeseriesData } from '@/types/game.types';
 import { LeaderboardEntry } from './leaderboard.service';
 import { PlayerProfile } from 'src/types/auth.types';
+import { Quarter, QuarterAnalytics, WhiskeySample } from '@/types/game.types';
 
 class QuarterService {
   private quartersCollection = collection(db, 'quarters');
@@ -518,7 +518,7 @@ class QuarterService {
       proof: results.reduce((acc, result) =>
         acc + (result.proof === sample.proof ? 1 : 0), 0) / totalResults,
       mashbill: results.reduce((acc, result) =>
-        acc + (result.mashbillType === sample.mashbillType ? 1 : 0), 0) / totalResults
+        acc + (result.mashbillType === sample.mashbill ? 1 : 0), 0) / totalResults
     };
   }
 
@@ -533,26 +533,42 @@ class QuarterService {
       samples: data.samples.map(this.convertToWhiskeySample),
       difficulty: data.difficulty,
       scoringRules: data.scoringRules || {},
+      challenges: data.challenges || {},
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || new Date()
     };
   }
 
   private convertToWhiskeySample(data: DocumentData): WhiskeySample {
+    const getMashbillType = (composition: { corn: number, rye: number, wheat: number, barley: number }): WhiskeySample['mashbill'] => {
+      if (composition.corn >= 51) return 'bourbon';
+      if (composition.rye >= 51) return 'rye';
+      if (composition.wheat >= 51) return 'wheat';
+      if (composition.corn >= 80) return 'corn';
+      if (composition.barley >= 51) return 'malted barley';
+      return 'bourbon'; // default fallback
+    };
+
     return {
       id: data.id,
       name: data.name,
       age: data.age,
       proof: data.proof,
-      mashbillType: data.mashbillType,
-      notes: data.notes,
-      hints: data.hints,
-      distillery: data.distillery || 'Unknown', // Added distillery field with default
-      description: data.description || '' // Added description field with default
+      mashbill: getMashbillType(data.mashbill),
+      mashbillComposition: {
+        corn: data.mashbill.corn,
+        rye: data.mashbill.rye,
+        wheat: data.mashbill.wheat,
+        barley: data.mashbill.barley
+      },
+      notes: data.notes || [],
+      hints: data.hints || [],
+      distillery: data.distillery || 'Unknown',
+      description: data.description || ''
     };
   }
 }
 
-
-
 export const quarterService = new QuarterService();
+export const quarter = quarterService.getCurrentQuarter();
+

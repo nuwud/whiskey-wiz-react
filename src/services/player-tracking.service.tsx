@@ -1,11 +1,17 @@
 import { db, auth } from '../firebase';
-import { collection, doc, setDoc, updateDoc, getDoc, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { collection, doc, setDoc, updateDoc, getDoc, addDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { AnalyticsService } from 'src/services/analytics.service';
 
 export interface PlayerProfile {
   userId: string;
+  role: string;
+  lastLoginAt: Date;
   email?: string;
   displayName?: string;
+  gameStats: {
+    totalGames: number;
+    averageScore: number;
+  };
   totalQuartersPlayed: number;
   lifetimeScore: number;
   quarterPerformance: Record<string, QuarterPerformance>;
@@ -18,6 +24,16 @@ export interface PlayerProfile {
     favoriteWhiskeyTypes?: string[];
     preferredChallengeDifficulty?: 'easy' | 'medium' | 'hard';
   };
+  lastActive?: {
+    timestamp: Date;
+    location?: { lat: number; lng: number };
+    ipAddress?: string;
+    device?: { type: string; model: string };
+    browser?: { name: string; version: string };
+    operatingSystem?: { name: string; version: string };
+  }
+  totalGames?: number;
+  averageScore?: number;
 }
 
 export interface QuarterPerformance {
@@ -63,8 +79,14 @@ export class PlayerTrackingService {
         }
         : {
           userId: currentUser.uid,
+          role: 'player',
+          lastLoginAt: new Date(),
           email: currentUser.email || '',
           displayName: currentUser.displayName || '',
+          gameStats: {
+            totalGames: 0,
+            averageScore: 0
+          },
           totalQuartersPlayed: 0,
           lifetimeScore: 0,
           quarterPerformance: {},
@@ -86,6 +108,28 @@ export class PlayerTrackingService {
       console.error('Failed to create/update player profile', error);
       throw error;
     }
+  }
+
+  async getPlayerByUserId(userId: string): Promise<PlayerProfile | undefined> {
+    const q = query(this.playerProfileCollection, where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => doc.data() as PlayerProfile).pop();
+  }
+  async getPlayerByEmail(email: string): Promise<PlayerProfile | undefined> {
+    const q = query(this.playerProfileCollection, where('email', '==', email));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => doc.data() as PlayerProfile).pop();
+  }
+  async getPlayerByDisplayName(displayName: string): Promise<PlayerProfile | undefined> {
+    const q = query(this.playerProfileCollection, where('displayName', '==', displayName));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => doc.data() as PlayerProfile).pop();
+  }
+  async updatePlayerProfile(userId: string, updatedProfileData: Partial<PlayerProfile>): Promise<void> {
+    await this.createOrUpdatePlayerProfile({ userId, ...updatedProfileData });
+  }
+  async deletePlayerProfile(userId: string): Promise<void> {
+    await deleteDoc(doc(this.playerProfileCollection, userId));
   }
 
   async recordSampleAttempt(attempt: SampleAttempt): Promise<void> {
@@ -138,4 +182,109 @@ export class PlayerTrackingService {
       return [];
     }
   }
+
+  async getAllPlayerProfiles(): Promise<PlayerProfile[]> {
+    try {
+      const q = query(this.playerProfileCollection);
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => doc.data() as PlayerProfile);
+    } catch (error) {
+      console.error('Failed to fetch player profiles:', error);
+      return [];
+    }
+  }
+
+}
+
+export class PlayerService {
+  private playerProfileService = new PlayerTrackingService();
+
+  async createOrUpdatePlayerProfile(profileData: Partial<PlayerProfile>): Promise<PlayerProfile> {
+    return this.playerProfileService.createOrUpdatePlayerProfile(profileData);
+  }
+
+  async recordSampleAttempt(attempt: SampleAttempt): Promise<void> {
+    await this.playerProfileService.recordSampleAttempt(attempt);
+  }
+
+  async getPlayerPerformanceByQuarter(quarterId: string): Promise<PlayerProfile[]> {
+    return this.playerProfileService.getPlayerPerformanceByQuarter(quarterId);
+  }
+
+  async getAllPlayerProfiles(): Promise<PlayerProfile[]> {
+    return this.playerProfileService.getAllPlayerProfiles();
+  }
+
+  async updateSampleAttempt(attemptId: string, updatedAttemptData: Partial<SampleAttempt>): Promise<void> {
+    await updateDoc(doc(this.playerProfileService.sampleAttemptsCollection, attemptId), updatedAttemptData);
+  }
+  async deleteSampleAttempt(attemptId: string): Promise<void> {
+    await deleteDoc(doc(this.playerProfileService.sampleAttemptsCollection, attemptId));
+  }
+  async getSampleAttemptsByUserId(userId: string): Promise<SampleAttempt[]> {
+    const q = query(this.playerProfileService.sampleAttemptsCollection, where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => doc.data() as SampleAttempt);
+  }
+  async getSampleAttemptsByQuarter(quarterId: string): Promise<SampleAttempt[]> {
+    const q = query(this.playerProfileService.sampleAttemptsCollection, where('quarterId', '==', quarterId));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => doc.data() as SampleAttempt);
+  }
+  async getSampleAttemptsByEmail(email: string): Promise<SampleAttempt[]> {
+    const player = await this.getPlayerByEmail(email);
+    if (!player) return [];
+    return this.getSampleAttemptsByUserId(player.userId);
+  }
+  async getSampleAttemptsByDisplayName(displayName: string): Promise<SampleAttempt[]> {
+    const player = await this.getPlayerByDisplayName(displayName);
+    if (!player) return [];
+    return this.getSampleAttemptsByUserId(player.userId);
+  }
+  async getSampleAttemptById(attemptId: string): Promise<SampleAttempt | undefined> {
+    const docRef = doc(this.playerProfileService.sampleAttemptsCollection, attemptId);
+    const docSnap = await getDoc(docRef);
+    return docSnap.data() as SampleAttempt | undefined;
+  }
+  async getSampleAttemptBySampleId(sampleId: string): Promise<SampleAttempt | undefined> {
+    const q = query(this.playerProfileService.sampleAttemptsCollection, where('sampleId', '==', sampleId));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => doc.data() as SampleAttempt).pop();
+  }
+
+
+  async getSampleAttemptByUserIdAndSampleId(userId: string, sampleId: string): Promise<SampleAttempt | undefined> {
+    const q = query(
+      this.playerProfileService.sampleAttemptsCollection,
+      where('userId', '==', userId),
+      where('sampleId', '==', sampleId)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => doc.data() as SampleAttempt).pop();
+  }
+  async getSampleAttemptByDisplayNameAndSampleId(displayName: string, sampleId: string): Promise<SampleAttempt | undefined> {
+    const player = await this.getPlayerByDisplayName(displayName);
+    if (!player) return;
+    return this.getSampleAttemptByUserIdAndSampleId(player.userId, sampleId);
+  }
+  async getSampleAttemptByEmailAndSampleId(email: string, sampleId: string): Promise<SampleAttempt | undefined> {
+    const player = await this.getPlayerByEmail(email);
+    if (!player) return;
+    return this.getSampleAttemptByUserIdAndSampleId(player.userId, sampleId);
+  }
+  async getSampleAttemptByUserIdAndQuarterId(userId: string, quarterId: string): Promise<SampleAttempt[]> {
+    const q = query(
+      this.playerProfileService.sampleAttemptsCollection,
+      where('userId', '==', userId),
+      where('quarterId', '==', quarterId)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => doc.data() as SampleAttempt);
+  }
+  async getSampleAttemptByDisplayNameAndQuarterId(displayName: string, quarterId: string): Promise<SampleAttempt[]> {
+    const player = await this.getPlayerByDisplayName(displayName);
+    if (!player) return [];
+    return this.getSampleAttemptByUserIdAndQuarterId(player.userId, quarterId);
+  }
+
 }

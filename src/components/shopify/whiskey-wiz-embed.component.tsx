@@ -5,7 +5,7 @@ import { QuarterProvider } from '@/contexts/quarter.context';
 import { AuthProvider } from '@/contexts/auth.context';
 import { FeatureProvider } from '@/contexts/feature.context';
 import { GameBoard } from '@/components/game/game-board.component';
-import { analyticsService } from '@/services/analytics.service';
+import { AnalyticsService } from '@/services/analytics.service';
 
 type Theme = 'light' | 'dark';
 type PageType = 'product' | 'collection' | 'page';
@@ -78,11 +78,11 @@ const WhiskeyWizEmbed: React.FC<{ options: WhiskeyWizEmbedOptions }> = ({ option
           productId
         });
 
-        analyticsService.trackError('Shopify embed initialized', 'shopify_embed', productId);
+        AnalyticsService.trackError('Shopify embed initialized', 'shopify_embed', productId);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to initialize game';
         setError(errorMessage);
-        analyticsService.trackError(errorMessage, 'shopify_embed');
+        AnalyticsService.trackError(errorMessage, 'shopify_embed');
       } finally {
         setIsLoading(false);
       }

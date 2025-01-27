@@ -43,5 +43,6 @@ export const useFeatures = () => {
   if (context === undefined) {
     throw new Error('useFeatures must be used within a FeatureProvider');
   }
+
   return context;
 };

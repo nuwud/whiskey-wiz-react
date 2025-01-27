@@ -1,6 +1,30 @@
 import { AnalyticsService } from '@/services/analytics.service';
 import { WhiskeySample } from '@/types';
 
+export interface ShopifyProductVariant {
+  id: string;
+  title: string;
+  price: number;
+  sku?: string;
+}
+
+export interface ShopifyProductImage {
+  id: string;
+  src: string;
+  alt?: string;
+}
+
+export interface ShopifyProduct {
+  id: string;
+  title: string;
+  description: string;
+  variants: ShopifyProductVariant[];
+  images: ShopifyProductImage[];
+  price: number;
+  weight: number;
+  metafields: Record<string, string>;
+}
+
 export interface ShopifyProductMetadata {
   id: string;
   quarterId?: string;
@@ -32,7 +56,7 @@ export class ShopifyIntegrationService {
           name: challengeData.whiskeySample.name,
           age: challengeData.whiskeySample.age,
           proof: challengeData.whiskeySample.proof,
-          mashbillType: challengeData.whiskeySample.mashbillType,
+          mashbill: challengeData.whiskeySample.mashbill,
           distillery: '',
           description: challengeData.whiskeySample.description
         }
@@ -136,6 +160,12 @@ export class ShopifyIntegrationService {
       challengeElement.parentNode.removeChild(challengeElement);
     }
   }
+}
+
+export interface ShopifyIntegrationService {
+  getProduct(): Promise<ShopifyProduct[]>;
+  validateMetafields(productId: string): Promise<{ isValid: boolean; missing: string[] }>;
+  convertToSample(product: ShopifyProduct): Partial<WhiskeySample>;
 }
 
 export const shopifyService = new ShopifyIntegrationService();

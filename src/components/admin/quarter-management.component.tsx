@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, useQuarter } from '@/contexts';
 import { quarterService } from '@/services/quarter.service';
-import type { Quarter, WhiskeySample } from '@/types/game.types';
+import type { Quarter, WhiskeySample, ScoringRules } from '@/types/game.types';
 import { SampleEditor } from './sample-editor.component';
 
 type Difficulty = 'easy' | 'medium' | 'hard';
@@ -15,23 +15,7 @@ interface QuarterFormData {
   isActive: boolean;
   samples: WhiskeySample[];
   description: string;
-  scoringRules: {
-    age: {
-      maxPoints: number;
-      pointDeductionPerYear: number;
-      exactMatchBonus: number;
-    };
-    proof: {
-      maxPoints: number;
-      pointDeductionPerProof: number;
-      exactMatchBonus: number;
-    };
-    mashbill: {
-      maxPoints: number;
-      pointDeductionPerYear: number;
-      exactMatchBonus: number;
-    };
-  };
+  scoringRules: ScoringRules;
 }
 
 export const QuarterManagement: React.FC = () => {
@@ -77,7 +61,10 @@ export const QuarterManagement: React.FC = () => {
       try {
         setLoading(true);
         const fetchedQuarters = await quarterService.getAllQuarters();
-        setQuarters(fetchedQuarters);
+        setQuarters(fetchedQuarters.map(q => ({
+          ...q,
+          difficulty: (q.difficulty as 'easy' | 'medium' | 'hard') || 'easy'
+        })));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load quarters');
       } finally {
@@ -131,16 +118,12 @@ export const QuarterManagement: React.FC = () => {
     e.preventDefault();
     try {
       const quarterData: Omit<Quarter, 'id'> = {
-        name: formData.name,
+        ...formData,
         startDate: new Date(formData.startDate),
         endDate: new Date(formData.endDate),
         createdAt: new Date(),
         updatedAt: new Date(),
-        difficulty: formData.difficulty,
-        isActive: formData.isActive,
-        description: formData.description,
-        samples: formData.samples,
-        scoringRules: formData.scoringRules
+        challenges: []
       };
       if (selectedQuarter) {
         await quarterService.updateQuarter(selectedQuarter.id, quarterData);
@@ -204,7 +187,23 @@ export const QuarterManagement: React.FC = () => {
         startDate: new Date(formData.startDate),
         endDate: new Date(formData.endDate),
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        challenges: [
+          {
+            name: 'Challenge 1',
+            description: 'Description for Challenge 1',
+            points: 100,
+            isActive: true,
+            startDate: new Date(),
+            endDate: new Date(),
+            winners: [
+              {
+                name: 'John Doe',
+                score: 95
+              } // Add this line
+            ] // Add this line
+          } // Add more challenges as needed
+        ] // Add this line
       };
 
       if (selectedQuarter) {
@@ -371,7 +370,7 @@ export const QuarterManagement: React.FC = () => {
                       <div className="flex justify-between">
                         <span className="font-medium">{sample.name}</span>
                         <span className="text-gray-500">
-                          {sample.age}yr • {sample.proof}° • {sample.mashbillType}
+                          {sample.age}yr • {sample.proof}° • {sample.mashbill}
                         </span>
                       </div>
                     </li>
@@ -470,4 +469,4 @@ export const QuarterManagement: React.FC = () => {
       )}
     </div>
   );
-}
+};

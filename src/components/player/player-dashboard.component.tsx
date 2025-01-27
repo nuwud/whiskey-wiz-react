@@ -1,8 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card-ui.component'
-import { useFeature } from '@/contexts/FeatureContext'
+import { useFeatures } from '@/contexts/feature.context'
+
+interface FeatureFlags {
+  'advanced-stats': boolean;
+}
 
 export function PlayerDashboard() {
-  const { enabled: showStats } = useFeature('advanced-stats')
+  const { features } = useFeatures()
+  const showStats = features?.['advanced-stats']
 
   return (
     <div className="space-y-8">
