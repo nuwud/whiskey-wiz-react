@@ -3,6 +3,9 @@ import { LeaderboardEntry } from "@/services/leaderboard.service";
 
 // Sample and basic types
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
+export type Score = 'score' | ' advanced';
+export type Sample = 'sample' | 'advanced';
+
 
 export interface WhiskeySample {
   id: string;
@@ -20,6 +23,7 @@ export interface WhiskeySample {
   hints: string[];
   distillery: string;
   description: string;
+  notes: string[];
 }
 
 // Challenge types
@@ -127,6 +131,7 @@ export interface GameState {
   hints: number;
   isComplete: boolean;
 }
+
 // Player metrics
 export interface GameMetrics {
   totalGames: number;
@@ -154,9 +159,7 @@ export interface TimeseriesData {
   completionRate: number;
 }
 
-
 export interface QuarterAnalytics {
-
   // Basic metrics
   totalPlayers: number;
   totalGames: number;

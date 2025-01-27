@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth, useQuarter } from '@/contexts';
 import { quarterService } from '@/services/quarter.service';
-import type { Quarter, WhiskeySample, ScoringRules } from '@/types/game.types';
+import type { Quarter, WhiskeySample, ScoringRules, ScoringRules } from '@/types/game.types';
 import { SampleEditor } from './sample-editor.component';
 
 type Difficulty = 'easy' | 'medium' | 'hard';
@@ -61,10 +62,7 @@ export const QuarterManagement: React.FC = () => {
       try {
         setLoading(true);
         const fetchedQuarters = await quarterService.getAllQuarters();
-        setQuarters(fetchedQuarters.map(q => ({
-          ...q,
-          difficulty: (q.difficulty as 'easy' | 'medium' | 'hard') || 'easy'
-        })));
+        setQuarters(fetchedQuarters);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load quarters');
       } finally {
@@ -118,12 +116,16 @@ export const QuarterManagement: React.FC = () => {
     e.preventDefault();
     try {
       const quarterData: Omit<Quarter, 'id'> = {
-        ...formData,
+        name: formData.name,
         startDate: new Date(formData.startDate),
         endDate: new Date(formData.endDate),
         createdAt: new Date(),
         updatedAt: new Date(),
-        challenges: []
+        difficulty: formData.difficulty,
+        isActive: formData.isActive,
+        description: formData.description,
+        samples: formData.samples,
+        scoringRules: formData.scoringRules
       };
       if (selectedQuarter) {
         await quarterService.updateQuarter(selectedQuarter.id, quarterData);
@@ -139,7 +141,7 @@ export const QuarterManagement: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="animate-spin h-8 w-8 border-t-2 border-amber-600 rounded-full mx-auto"></div>;
+    return <div className="w-8 h-8 mx-auto border-t-2 rounded-full animate-spin border-amber-600"></div>;
   }
 
   if (!user) {
@@ -182,28 +184,12 @@ export const QuarterManagement: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const quarterData: Omit<Quarter, 'id'> = {
+      const quarterData: Omit<Quarter, 'id' | 'createdAt' | 'updatedAt'> = {
         ...formData,
         startDate: new Date(formData.startDate),
         endDate: new Date(formData.endDate),
         createdAt: new Date(),
-        updatedAt: new Date(),
-        challenges: [
-          {
-            name: 'Challenge 1',
-            description: 'Description for Challenge 1',
-            points: 100,
-            isActive: true,
-            startDate: new Date(),
-            endDate: new Date(),
-            winners: [
-              {
-                name: 'John Doe',
-                score: 95
-              } // Add this line
-            ] // Add this line
-          } // Add more challenges as needed
-        ] // Add this line
+        updatedAt: new Date()
       };
 
       if (selectedQuarter) {
@@ -232,24 +218,24 @@ export const QuarterManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">Quarter Management</h2>
         <button
           onClick={handleNewQuarter}
-          className="px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700"
+          className="px-4 py-2 text-white rounded-md bg-amber-600 hover:bg-amber-700"
         >
           Create New Quarter
         </button>
       </div>
 
       {error && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-md">
+        <div className="p-4 text-red-600 rounded-md bg-red-50">
           {error}
         </div>
       )}
 
       {currentQuarter && !isEditing && (
-        <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+        <div className="p-4 border border-green-200 rounded-lg bg-green-50">
           <h3 className="font-medium">Current Active Quarter</h3>
           <p>{currentQuarter.name}</p>
           <p className="text-sm text-gray-600">
@@ -259,7 +245,7 @@ export const QuarterManagement: React.FC = () => {
       )}
 
       {isEditing ? (
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="p-6 bg-white rounded-lg shadow">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -271,12 +257,12 @@ export const QuarterManagement: React.FC = () => {
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"
+                className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-amber-500 focus:ring-amber-500"
                 required
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700">
                   Start Date
@@ -287,7 +273,7 @@ export const QuarterManagement: React.FC = () => {
                   name="startDate"
                   value={formData.startDate}
                   onChange={handleInputChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"
+                  className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-amber-500 focus:ring-amber-500"
                   required
                 />
               </div>
@@ -302,13 +288,13 @@ export const QuarterManagement: React.FC = () => {
                   name="endDate"
                   value={formData.endDate}
                   onChange={handleInputChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"
+                  className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-amber-500 focus:ring-amber-500"
                   required
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700">
                   Difficulty
@@ -318,7 +304,7 @@ export const QuarterManagement: React.FC = () => {
                   name="difficulty"
                   value={formData.difficulty}
                   onChange={handleInputChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"
+                  className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-amber-500 focus:ring-amber-500"
                 >
                   {DIFFICULTY_OPTIONS.map(difficulty => (
                     <option key={difficulty} value={difficulty}>
@@ -339,7 +325,7 @@ export const QuarterManagement: React.FC = () => {
                       name="isActive"
                       checked={formData.isActive}
                       onChange={handleInputChange}
-                      className="rounded border-gray-300 text-amber-600 shadow-sm focus:border-amber-500 focus:ring-amber-500"
+                      className="border-gray-300 rounded shadow-sm text-amber-600 focus:border-amber-500 focus:ring-amber-500"
                     />
                     <span className="ml-2 text-gray-700">Active</span>
                   </label>
@@ -348,21 +334,21 @@ export const QuarterManagement: React.FC = () => {
             </div>
 
             <div>
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-gray-900">
                   Samples ({formData.samples.length})
                 </h3>
                 <button
                   type="button"
                   onClick={() => setShowSampleEditor(true)}
-                  className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                  className="px-3 py-1 text-sm text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
                 >
                   Manage Samples
                 </button>
               </div>
 
               {formData.samples.length === 0 ? (
-                <p className="text-gray-500 text-sm">No samples added yet.</p>
+                <p className="text-sm text-gray-500">No samples added yet.</p>
               ) : (
                 <ul className="divide-y divide-gray-200">
                   {formData.samples.map((sample, index) => (
@@ -370,7 +356,7 @@ export const QuarterManagement: React.FC = () => {
                       <div className="flex justify-between">
                         <span className="font-medium">{sample.name}</span>
                         <span className="text-gray-500">
-                          {sample.age}yr • {sample.proof}° • {sample.mashbill}
+                          {sample.age}yr • {sample.proof}° • {sample.mashbillType}
                         </span>
                       </div>
                     </li>
@@ -383,13 +369,13 @@ export const QuarterManagement: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsEditing(false)}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700"
+                className="px-4 py-2 text-white rounded-md bg-amber-600 hover:bg-amber-700"
               >
                 Save Quarter
               </button>
@@ -397,23 +383,23 @@ export const QuarterManagement: React.FC = () => {
           </form>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-hidden bg-white rounded-lg shadow">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                   Quarter Name
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                   Date Range
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                   Difficulty
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                   Actions
                 </th>
               </tr>
@@ -469,4 +455,4 @@ export const QuarterManagement: React.FC = () => {
       )}
     </div>
   );
-};
+}
