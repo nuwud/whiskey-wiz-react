@@ -8,8 +8,7 @@ import { FirebaseService } from '../../services/firebase.service';
 import { WhiskeySample } from '../../types/game.types';
 import { Spinner } from '../../components/ui/spinner-ui.component';
 import { GameState, SampleKey } from '../../types/game.types';
-import { SampleGuessing } from './sample-guessing.component';  // Add this import
-
+import { SampleGuessing } from './sample-guessing.component';
 
 type SampleId = 'A' | 'B' | 'C' | 'D';
 
@@ -22,14 +21,13 @@ const calculateTimeSpent = (startTime: number): number => {
 };
 
 const INITIAL_GAME_STATE: GameState = {
-  // User and session info
   userId: '',
   quarterId: '',
   isPlaying: true,
-  isLoading: false,  
-  error: null,       
-  currentSampleId: null, 
-  currentQuarter: null,  
+  isLoading: false,
+  error: null,
+  currentSampleId: null,
+  currentQuarter: null,
   scoringRules: {
     age: {
       maxPoints: 100,
@@ -52,26 +50,19 @@ const INITIAL_GAME_STATE: GameState = {
   endTime: new Date(),
   currentRound: 1,
   totalRounds: 4,
-
   totalScore: {
     'A': 0, 'B': 0, 'C': 0, 'D': 0
   } as Record<SampleKey, number>,
-
-  // Progress tracking
   completedSamples: [],
   progress: 0,
   hasSubmitted: false,
   currentChallengeIndex: 0,
   totalChallenges: 0,
-
-  // Game elements
   challenges: [],
   currentSample: 'A',
   samples: [],
   difficulty: 'beginner',
   mode: 'standard' as const,
-
-  // Player input and scoring
   guesses: {
     'A': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 },
     'B': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 },
@@ -88,8 +79,6 @@ const INITIAL_GAME_STATE: GameState = {
     'D': 'D'
   },
   answers: {},
-
-  // Game mechanics
   timeRemaining: 0,
   lives: 3,
   hints: 0,
@@ -131,12 +120,9 @@ export const GameContainer: React.FC = () => {
 
       try {
         monitoringService.startTrace('game_initialization');
-
-        // Get quarter data
         const quarter = await quarterService.getQuarterById(quarterId);
         if (!quarter) throw new Error('Quarter not found');
 
-        // Initialize analytics
         AnalyticsService.gameStarted({
           quarterId,
           userId: user.uid
@@ -153,7 +139,6 @@ export const GameContainer: React.FC = () => {
           deviceType: 'web'
         });
 
-        // Set up samples
         const quarterSamples = quarter.samples.reduce((acc, sample, index) => {
           const sampleId = String.fromCharCode(65 + index) as SampleId;
           acc[sampleId] = sample;
@@ -176,13 +161,29 @@ export const GameContainer: React.FC = () => {
 
   const handleNextSample = () => {
     if (currentSampleIndex < sampleIds.length - 1) {
-      setCurrentSampleIndex(prevIndex => prevIndex + 1);
-      setGameState(prev => ({
-        ...prev,
-        currentSample: String.fromCharCode(65 + currentSampleIndex) as SampleKey
-      }));
+      setCurrentSampleIndex(prevIndex => {
+        const nextIndex = prevIndex + 1;
+        setGameState(prev => ({
+          ...prev,
+          currentSample: sampleIds[nextIndex] as SampleKey
+        }));
+        return nextIndex;
+      });
     }
-  };  
+  };
+
+  const handlePreviousSample = () => {
+    if (currentSampleIndex > 0) {
+      setCurrentSampleIndex(prevIndex => {
+        const nextIndex = prevIndex - 1;
+        setGameState(prev => ({
+          ...prev,
+          currentSample: sampleIds[nextIndex] as SampleKey
+        }));
+        return nextIndex;
+      });
+    }
+  };
 
   const handleGameComplete = async () => {
     const timeSpent = calculateTimeSpent(startTime);
@@ -199,14 +200,12 @@ export const GameContainer: React.FC = () => {
         timeSpent: Math.floor((Date.now() - startTime) / 1000)
       });
 
-      // Submit final score
       await FirebaseService.submitScore(user.uid, quarterId, calculateTotalScore(gameState.totalScore));
 
-      // Track completion
       AnalyticsService.gameCompleted({
         quarterId: gameState.quarterId,
         userId: user.uid,
-        score: calculateTotalScore(gameState.totalScore), // Convert Record to number
+        score: calculateTotalScore(gameState.totalScore),
         time_spent: timeSpent
       });
 
@@ -274,15 +273,15 @@ export const GameContainer: React.FC = () => {
         ))}
       </div>
 
-      {/* Add the guess input form here */}
       <div className="mt-8">
-      <SampleGuessing 
-        currentSample={sampleIds[currentSampleIndex]}
-        onNextSample={handleNextSample}
-      />
+        <SampleGuessing
+          currentSample={sampleIds[currentSampleIndex]}
+          onNextSample={handleNextSample}
+          onPreviousSample={handlePreviousSample}
+          isLastSample={currentSampleIndex === sampleIds.length - 1}
+        />
       </div>
 
-      {/* Existing Complete Game button */}
       {isGameComplete() && !gameState.isComplete && (
         <button
           onClick={handleGameComplete}

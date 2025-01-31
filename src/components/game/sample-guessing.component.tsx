@@ -24,6 +24,8 @@ interface GuessFormData {
 interface SampleGuessingProps {
   currentSample: SampleId;
   onNextSample: () => void;
+  onPreviousSample: () => void;
+  isLastSample: boolean;
 }
 
 export const SampleGuessing: React.FC<SampleGuessingProps> = ({ currentSample, onNextSample }) => {
