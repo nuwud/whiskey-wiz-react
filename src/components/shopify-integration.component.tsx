@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
-import { useAuth } from 'src/contexts/auth.context';
+import { useAuth } from '../contexts/auth.context';
 
 // Advanced Shopify Web Component Wrapper
-const ShopifyIntegration: React.FC = () => {
+export const ShopifyIntegration: React.FC = () => {
   const { user } = useAuth();
 
   useEffect(() => {
@@ -19,6 +19,8 @@ const ShopifyIntegration: React.FC = () => {
       render() {
         if (this.shadowRoot) {
           const container = document.createElement('div');
+          const userGreeting = user ? `Welcome, ${user.displayName}!` : 'Welcome, Guest!';
+
           container.innerHTML = `
             <style>
               /* Shopify-specific styling */
@@ -28,7 +30,7 @@ const ShopifyIntegration: React.FC = () => {
               }
             </style>
             <div class="whiskey-wiz-container">
-              <h2>Whiskey Wiz Challenge</h2>
+              <h2>${userGreeting}</h2>
               <p>Embedded Whiskey Challenge</p>
             </div>
           `;
@@ -47,11 +49,14 @@ const ShopifyIntegration: React.FC = () => {
     }
 
     return () => {
-      // Cleanup custom element when component is unmounted
-      customElements.delete('whiskey-wiz');
       // Cleanup logic when component is unmounted
+      try {
+        document.querySelector('whiskey-wiz')?.remove();
+      } catch (error) {
+        console.error('Error cleaning up WhiskeyWiz component:', error);
+      }
     };
-  }, []);
+  }, [user]); // Add user to dependencies
 
   return null;
 };

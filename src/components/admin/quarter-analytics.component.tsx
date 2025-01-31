@@ -1,6 +1,7 @@
+import React from 'react';
 import { useEffect, useState } from 'react';
 import { Quarter } from '../../types/game.types';
-import { quarterService } from 'src/services/quarter.service';
+import { quarterService } from '../../services/quarter.service';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 interface QuarterStats {
@@ -27,11 +28,45 @@ interface DailyStats {
   completionRate: number;
 }
 
-export const quarterAnalytics = () => {
+export interface QuarterAnalytics {
+  totalPlayers: number;
+  totalGames: number;
+  averageScore: number;
+  hintUsageStats: {
+    totalHints: number;
+    hintUsageRate: number;
+  };
+  difficultyDistribution: {
+    beginner: number;
+    intermediate: number;
+    advanced: number;
+  };
+  quarterHistory: Array<{
+    quarterId: string;
+    score: number;
+    date: Date;
+  }>;
+  averageCompletionRate: number;
+  dailyStats: DailyStats[];
+  quarterStats: QuarterStats;
+  difficultyStats: {
+    beginner: number;
+    intermediate: number;
+    advanced: number;
+  };
+  averageSampleAccuracy: {
+    age: number;
+    proof: number;
+    mashbill: number;
+  };
+}
+
+export const QuarterAnalytics: React.FC = () => {
   const [selectedQuarter, setSelectedQuarter] = useState<Quarter | null>(null);
   const [quarters, setQuarters] = useState<Quarter[]>([]);
   const [stats, setStats] = useState<QuarterStats | null>(null);
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
+  const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,13 +105,29 @@ export const quarterAnalytics = () => {
     }
   };
 
-  if (loading) {
-    return <div className="animate-spin h-8 w-8 border-t-2 border-amber-600 rounded-full mx-auto"></div>;
-  }
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const current = await quarterService.getCurrentQuarter();
+        if (!current || !Array.isArray(current.samples)) {
+          throw new Error('Invalid quarter data structure');
+        }
+        setData(current);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load quarter data');
+        console.error('Quarter fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  if (error) {
-    return <div className="text-red-600 text-center">{error}</div>;
-  }
+    fetchData();
+  }, []);
+
+  if (loading) return <div>Loading analytics...</div>;
+  if (error) return <div>Error: {error}</div>;
+  if (!data) return <div>No data available</div>;
 
   return (
     <div className="space-y-8">

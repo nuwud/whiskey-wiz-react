@@ -14,6 +14,15 @@ export const PlayerProfile = () => {
     return <div>Error loading profile</div>;
   }
 
+  const metrics = playerProfile?.metrics || {
+    gamesPlayed: 0,
+    bestScore: 0,
+    averageScore: 0,
+    badges: [],
+  };
+
+  const { favoriteWhiskeys = [], preferredDifficulty = 'beginner' } = playerProfile?.preferences || {};
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="bg-white shadow-lg rounded-lg overflow-hidden">
@@ -30,21 +39,21 @@ export const PlayerProfile = () => {
           <div className="bg-amber-50 p-4 rounded-lg">
             <h3 className="text-lg font-semibold text-amber-800">Games</h3>
             <p className="text-2xl font-bold text-amber-600">
-              {playerProfile.metrics.gamesPlayed}
+              {metrics.gamesPlayed}
             </p>
           </div>
 
           <div className="bg-amber-50 p-4 rounded-lg">
             <h3 className="text-lg font-semibold text-amber-800">Best Score</h3>
             <p className="text-2xl font-bold text-amber-600">
-              {playerProfile.metrics.bestScore}
+              {metrics.bestScore}
             </p>
           </div>
 
           <div className="bg-amber-50 p-4 rounded-lg">
             <h3 className="text-lg font-semibold text-amber-800">Average Score</h3>
             <p className="text-2xl font-bold text-amber-600">
-              {playerProfile.metrics.averageScore}
+              {metrics.averageScore}
             </p>
           </div>
         </div>
@@ -52,11 +61,11 @@ export const PlayerProfile = () => {
         {/* Badges & Achievements */}
         <div className="p-6 border-t">
           <h2 className="text-xl font-bold mb-4">Badges & Achievements</h2>
-          {playerProfile.metrics.badges.length === 0 ? (
+          {(metrics.badges?.length ?? 0) === 0 ? (  // Using the metrics object we defined earlier
             <p className="text-gray-500">Play more games to earn badges!</p>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {playerProfile.metrics.badges.map((badge, index) => (
+              {metrics.badges?.map((badge, index) => (
                 <div key={index} className="bg-gray-100 p-4 rounded-lg text-center">
                   <span className="text-lg">🏆</span>
                   <p className="mt-2 font-medium">{badge}</p>
@@ -72,11 +81,11 @@ export const PlayerProfile = () => {
           <div className="space-y-4">
             <div>
               <h3 className="font-medium text-gray-700">Favorite Whiskeys</h3>
-              {playerProfile.preferences.favoriteWhiskeys.length === 0 ? (
+              {favoriteWhiskeys.length === 0 ? (
                 <p className="text-gray-500">No favorites yet</p>
               ) : (
                 <ul className="list-disc list-inside">
-                  {playerProfile.preferences.favoriteWhiskeys.map((whiskey, index) => (
+                  {favoriteWhiskeys.map((whiskey, index) => (
                     <li key={index}>{whiskey}</li>
                   ))}
                 </ul>
@@ -85,7 +94,7 @@ export const PlayerProfile = () => {
 
             <div>
               <h3 className="font-medium text-gray-700">Preferred Difficulty</h3>
-              <p className="capitalize">{playerProfile.preferences.preferredDifficulty}</p>
+              <p className="capitalize">{preferredDifficulty}</p>
             </div>
           </div>
         </div>

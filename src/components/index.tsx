@@ -14,7 +14,6 @@ export * from './accessibility-settings.component';
 export * from './error-boundary.component';
 export * from './game-progress-tracker.component';
 export * from './loading-state.component';
-export * from './private-route.component';
 export * from './seasonal-trends.component';
 export * from './shopify-integration.component';
 export * from './whiskey-recommendations.component';

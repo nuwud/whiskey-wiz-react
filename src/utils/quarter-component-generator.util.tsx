@@ -1,17 +1,17 @@
 import fs from 'fs';
 import path from 'path';
-import { QuarterTemplate } from 'src/services/quarter-template.service';
+import { QuarterTemplate } from '../services/quarter-template.service';
 
 export class QuarterComponentGenerator {
   private static COMPONENT_TEMPLATE = (template: QuarterTemplate) => `
     import React, { useState, useEffect } from 'react';
     import { BaseQuarterComponent } from '../components/quarters/BaseQuarterComponent';
     import { GameChallengeService } from '../services/GameChallengeService';
-    import { useAuth } from '../services/AuthContext';
+    import { useAuth } from '../context/AuthContext';
 
     export const Quarter${template.id}Component: React.FC = () => {
       const { user } = useAuth();
-      const [challenges, setChallenges] = useState(${JSON.stringify(template.whiskeySamples)});
+      const [challenges, setChallenges] = useState(${JSON.stringify(template.samples)});
       const gameChallengeService = new GameChallengeService();
 
       useEffect(() => {

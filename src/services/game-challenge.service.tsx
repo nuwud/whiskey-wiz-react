@@ -1,6 +1,6 @@
 import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
-import { AnalyticsService } from 'src/services/analytics.service';
+import { AnalyticsService } from '../services/analytics.service';
 
 export interface GameChallenge {
   id: string;

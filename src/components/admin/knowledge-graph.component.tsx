@@ -1,21 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card-ui.component';
-import { whiskeyKnowledgeService, WhiskeyNode } from 'src/services/whiskey-knowledge.service';
-import { analyticsService } from '@/services/analytics.service';
-import { useAuth } from '@/contexts/auth.context';
-
-type NodeType = 'whiskey' | 'distillery' | 'region' | 'brand' | 'style';
-
-interface NodeStats {
-  type: NodeType;
-  count: number;
-  avgConnections: number;
-}
+import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card-ui.component';
+import { whiskeyKnowledgeService, WhiskeyNode, NodeStats } from '../../services/whiskey-knowledge.service';
+import { analyticsService } from '../../services/analytics.service';
+import { useAuth } from '../../contexts/auth.context';
 
 export const KnowledgeGraph: React.FC = () => {
   const { user } = useAuth();
   const [nodes, setNodes] = useState<WhiskeyNode[]>([]);
-  const [selectedType, setSelectedType] = useState<NodeType | 'all'>('all');
+  const [selectedType, setSelectedType] = useState<'distillery' | 'brand' | 'style' | 'region' | 'all'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<NodeStats[]>([]);
@@ -27,8 +19,8 @@ export const KnowledgeGraph: React.FC = () => {
         const data = await whiskeyKnowledgeService.getCompleteGraph();
         setNodes(data.nodes);
 
-        // Calculate stats
-        const typeStats = new Map<NodeType, { count: number; totalConnections: number }>();
+        // Fix: Change Map key type from WhiskeyNode to string
+        const typeStats = new Map<string, { count: number; totalConnections: number }>();
         data.nodes.forEach(node => {
           const current = typeStats.get(node.type) || { count: 0, totalConnections: 0 };
           typeStats.set(node.type, {
@@ -102,7 +94,7 @@ export const KnowledgeGraph: React.FC = () => {
           <div className="mt-2">
             <select title='Select node type'
               value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value as NodeType | 'all')}
+              onChange={(e) => setSelectedType(e.target.value as 'distillery' | 'brand' | 'style' | 'region' | 'all')}
               className="rounded-md border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"
             >
               <option value="all">All Types</option>

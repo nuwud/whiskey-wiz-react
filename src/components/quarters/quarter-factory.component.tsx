@@ -1,8 +1,10 @@
-import React, { lazy, Suspense } from 'react';
-import { QuarterService } from 'src/services/quarter.service';
+import React, { Suspense } from 'react';
+import { quarterService } from '../../services/quarter.service';
 import { ErrorBoundary } from '../error-boundary.component';
-import { AnalyticsService } from 'src/services/analytics.service';
-import { MonitoringService } from 'src/services/monitoring.service';
+import { AnalyticsService } from '../../services/analytics.service';
+import { monitoringService } from '../../services/monitoring.service';
+import { Quarter } from '../../types/game.types';
+import { } from '../../components/quarters/base-quarter.component';
 
 interface QuarterFactoryProps {
   quarterId: string;
@@ -17,10 +19,9 @@ export const QuarterFactory: React.FC<QuarterFactoryProps> = ({ quarterId }) => 
     const loadQuarterComponent = async () => {
       try {
         // Use monitoring to track component loading performance
-        MonitoringService.startTrace(`quarter_load_${quarterId}`);
+        monitoringService.startTrace(`quarter_load_${quarterId}`);
 
         // Fetch quarter data
-        const quarterService = new QuarterService();
         const quarter = await quarterService.getQuarterById(quarterId);
 
         if (!quarter) {
@@ -37,7 +38,7 @@ export const QuarterFactory: React.FC<QuarterFactoryProps> = ({ quarterId }) => 
             setQuarterComponent(() => module.default);
           } catch (importError) {
             // Fallback to base quarter component if specific component not found
-            const BaseQuarterComponent = await import('./BaseQuarterComponent');
+            const BaseQuarterComponent = await import('@/components/quarters/base-quarter.component');
             setQuarterComponent(() => BaseQuarterComponent.default);
           }
         };
@@ -47,7 +48,10 @@ export const QuarterFactory: React.FC<QuarterFactoryProps> = ({ quarterId }) => 
         // Log successful quarter component load
         AnalyticsService.trackGameInteraction('quarter_component_loaded', {
           quarterId,
-          quarterName: quarter.name
+          actionType: 'component_load',
+          metadata: {
+            name: quarter.name
+          }
         });
       } catch (error) {
         // Handle loading errors
@@ -57,7 +61,7 @@ export const QuarterFactory: React.FC<QuarterFactoryProps> = ({ quarterId }) => 
           quarterId
         });
       } finally {
-        MonitoringService.endTrace(`quarter_load_${quarterId}`);
+        monitoringService.endTrace(`quarter_load_${quarterId}`);
       }
     };
 

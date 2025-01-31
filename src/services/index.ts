@@ -1,6 +1,6 @@
 // Core services
 export { AdminDashboardService } from './admin-dashboard.service';
-export { analyticsService } from './analytics.service';
+export { AnalyticsService } from './analytics.service';
 export { authService } from './auth.service';
 export { FirebaseService } from './firebase.service';
 export { GameChallengeService } from './game-challenge.service';

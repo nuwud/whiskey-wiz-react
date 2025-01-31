@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from 'src/services/auth.service';
-import { FirebaseService } from 'src/services/firebase.service';
-import { AnalyticsService } from 'src/services/analytics.service';
+import { useAuth } from '../../services/auth.service';
+import { FirebaseService } from '../../services/firebase.service';
+import { AnalyticsService } from '../../services/analytics.service';
 
 interface BaseQuarterProps {
   quarterId: string;
   quarterName: string;
+  onGuessSubmit: GuessHandlerType;
 }
 
 export const BaseQuarterComponent: React.FC<BaseQuarterProps> = ({ quarterId, quarterName }) => {
-  const { user } = useAuth();
-  const [gameState, setGameState] = useState({
+  const { } = useAuth();
+  const [gameState] = useState({
     progress: 0,
     currentSample: null,
     score: 0
@@ -20,34 +21,33 @@ export const BaseQuarterComponent: React.FC<BaseQuarterProps> = ({ quarterId, qu
     const initializeQuarter = async () => {
       try {
         // Initialize quarter-specific game logic
-        const quarterData = await FirebaseService.getQuarterData(quarterId);
+        await FirebaseService.getQuarterData(quarterId);
         AnalyticsService.logQuarterStart(quarterId);
       } catch (error) {
-        // Error handling
-        console.error('Quarter initialization failed', error);
+        console.error('Failed to initialize quarter', error);
       }
     };
-
     initializeQuarter();
   }, [quarterId]);
 
-  const handleSampleGuess = async (guess: any) => {
-    try {
-      const result = await FirebaseService.validateGuess(quarterId, guess);
-      setGameState(prev => ({
-        ...prev,
-        score: prev.score + result.points
-      }));
-      AnalyticsService.logGuess(quarterId, result);
-    } catch (error) {
-      console.error('Guess validation failed', error);
-    }
-  };
-
   return (
-    <div className="quarter-component">
-      <h2>{quarterName} Whiskey Challenge</h2>
-      {/* Placeholder for quarter-specific rendering */}
+    <div className="quarter-container">
+      <h2>{quarterName}</h2>
+      <div className="game-state">
+        <p>Score: {gameState.score}</p>
+        <p>Progress: {gameState.progress}%</p>
+      </div>
     </div>
   );
+}
+
+export default BaseQuarterComponent;
+
+export type GuessHandlerType = (quarterId: string, guess: any) => Promise<void>;
+const setGameState = (updater: (prev: any) => any) => {
+  const newState = updater(setGameState);
+  if (newState !== setGameState) {
+    setGameState(newState);
+  }
 };
+

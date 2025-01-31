@@ -1,7 +1,7 @@
 import React, { useState, FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { FirebaseService } from '@/services/firebase.service';
-import { useAuth } from '@/contexts/auth.context';
+import { FirebaseService } from '../../services/firebase.service';
+import { useAuth } from '../../contexts/auth.context';
 
 interface LoginFormData {
   email: string;

@@ -1,6 +1,6 @@
-import { useAuthStore } from '@/store/auth.store';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar-ui.component';
-import { Button } from '@/components/ui/button-ui.component';
+import { useAuthStore } from '../../store/auth.store';
+import { Avatar, AvatarFallback } from '../../components/ui/avatar-ui.component';
+import { Button } from '../../components/ui/button-ui.component';
 import {
   DropdownMenu,
   DropdownMenuContent,

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { accessibilityManager, AccessibilityPreferences, AccessibilityReport } from '@/services/accessibility.service';
+import { accessibilityManager, AccessibilityPreferences, AccessibilityReport } from '../services/accessibility.service';
 
 export const useAccessibility = () => {
   const [accessibilityPreferences, setAccessibilityPreferences] = useState<AccessibilityReport>(

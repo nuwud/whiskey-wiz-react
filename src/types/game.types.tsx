@@ -1,11 +1,38 @@
 import { PlayerProfile } from "./auth.types";
-import { LeaderboardEntry } from "@/services/leaderboard.service";
+import { LeaderboardEntry } from "../services/leaderboard.service";
 
 // Sample and basic types
-export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
-export type Score = 'score' | ' advanced';
-export type Sample = 'sample' | 'advanced';
 
+export type Score = 'score' | 'score A' | 'score B' | 'score C' | 'score D';
+export type SampleKey = 'A' | 'B' | 'C' | 'D';
+
+export const MODE_OPTIONS = ['standard', 'default'] as const;
+export const DIFFICULTY_OPTIONS = ['beginner', 'intermediate', 'advanced'] as const;
+export const SAMPLE_OPTIONS = ['Sample A', 'Sample B', 'Sample C', 'Sample D'] as const;
+
+// Define the type based on the options
+export type Difficulty = typeof DIFFICULTY_OPTIONS[number];
+export type Mode = typeof MODE_OPTIONS[number];
+export type Sample = typeof SAMPLE_OPTIONS[number];
+
+export enum DifficultyEnum {
+  Beginner = 'beginner',
+  Intermediate = 'intermediate',
+  Advanced = 'advanced'
+}
+
+export interface Whiskey {
+  id: string;
+  name: string;
+  type: 'whiskey';
+  properties: {
+    age?: number;
+    proof?: number;
+    mashbill?: string;
+    description?: string;
+  };
+  connections: string[];
+}
 
 export interface WhiskeySample {
   id: string;
@@ -23,25 +50,41 @@ export interface WhiskeySample {
   distillery: string;
   description: string;
   notes: string[];
+  difficulty: Difficulty;
+  score: Score;
+  challengeQuestions: ChallengeQuestion[];
+  image: string;
 }
 
 // Challenge types
 export interface Challenge {
   id: string;
-  name: string;
-  description: string;
-  isActive: boolean;
-  startDate: Date;
-  endDate: Date;
-  winners: LeaderboardEntry[];
-  type: 'taste' | 'nose' | 'history' | 'pairing';
-  question: string;
-  options: string[];
+  type: 'blind' | 'comparison' | 'identification';
+  samples: string[];
+  completed: boolean;
+  score?: number;
+  question: string;    // Added
+  options: string[];   // Added
+  hint?: string;       // Added
+  sample: WhiskeySample; // Added
+  createdAt: Date;
+  updatedAt: Date;
   correctAnswer: string;
   points: number;
-  hint?: string;
-  explanation?: string;
-  sample: WhiskeySample;
+}
+
+export interface ChallengeQuestion {
+  id: string;
+  question: string;
+  possibleAnswers: string[];
+  correctAnswer: string;
+  points: number;
+}
+
+export interface ChallengeRules {
+  maxAttempts: number;
+  timeLimit: number; // in minutes
+  passingScore: number;
 }
 
 // Scoring configuration
@@ -58,36 +101,31 @@ export interface ScoringRules {
   };
   mashbill: {
     maxPoints: number;
-    pointDeductionPerYear: number;
+    pointDeductionPerType: number;  // Changed from pointDeductionPerYear
     exactMatchBonus: number;
   };
 }
-
 
 export interface Quarter {
   id: string;
   name: string;
   startDate: Date;
   endDate: Date;
-  difficulty: 'easy' | 'medium' | 'hard';
+  duration: number;
+  startTime: string;
+  endTime: string;
+  difficulty: Difficulty;
+  minimumScore: number;
+  maximumScore: number;
+  minimumChallengesCompleted: number;
   isActive: boolean;
   samples: WhiskeySample[];
   description: string;
+  challenges: Challenge[];
   scoringRules: ScoringRules;
   createdAt: Date;
   updatedAt: Date;
-  challenges: Array<{
-    name: string;
-    description: string;
-    points: number;
-    isActive: boolean;
-    startDate: Date;
-    endDate: Date;
-    winners: Array<{
-      name: string;
-      score: number;
-    }>;
-  }>;
+
 }
 
 // Game state tracking
@@ -96,6 +134,8 @@ export interface SampleGuess {
   proof: number;
   mashbill: string;
   score?: number;
+  rating: number;  // Add this
+  notes: string;   // Add this
 }
 
 export interface GameState {
@@ -103,9 +143,21 @@ export interface GameState {
   userId: string;
   quarterId: string;
   isPlaying: boolean;
+  isLoading: boolean;
+  error: string | null;
   lastUpdated: Date;
+  startTime: Date;
+  endTime: Date;
+  currentSampleId: string | null;
+  samples: WhiskeySample[]; 
+  currentRound: number;
+  totalRounds: number;
 
-  totalScore: number;
+  // Game Configuration
+  currentQuarter: Quarter | null;
+  scoringRules: ScoringRules;
+  difficulty: Difficulty;
+  mode: Mode;
 
   // Progress tracking
   completedSamples: string[];
@@ -113,15 +165,16 @@ export interface GameState {
   hasSubmitted: boolean;
   currentChallengeIndex: number;
   totalChallenges: number;
-
+  
   // Game elements
   challenges: Challenge[];
   currentSample: 'A' | 'B' | 'C' | 'D';
-  samples: WhiskeySample[];
-
+  
   // Player input and scoring
-  guesses: Record<'A' | 'B' | 'C' | 'D', SampleGuess>;
-  score: number;
+  guesses: Record<SampleKey, SampleGuess>;
+  score: Record<SampleKey, number>;
+  totalScore: Record<SampleKey, number>;
+  scores: Record<SampleKey, SampleKey>;
   answers: Record<string, string | boolean>;
 
   // Game mechanics
@@ -129,6 +182,139 @@ export interface GameState {
   lives: number;
   hints: number;
   isComplete: boolean;
+}
+
+export const DEFAULT_SCORING_RULES: ScoringRules = {
+  age: {
+    maxPoints: 100,
+    pointDeductionPerYear: 10,
+    exactMatchBonus: 20
+  },
+  proof: {
+    maxPoints: 100,
+    pointDeductionPerProof: 5,
+    exactMatchBonus: 20
+  },
+  mashbill: {
+    maxPoints: 100,
+    pointDeductionPerType: 10,
+    exactMatchBonus: 20
+  }
+} as const;
+
+export const INITIAL_STATE: GameState = {
+  // User and session info
+  userId: '',
+  quarterId: '',
+  isLoading: false,
+  isPlaying: false,
+  lastUpdated: new Date(),
+  startTime: new Date(),
+  endTime: new Date(),
+  currentRound: 0,
+  totalRounds: 0,
+  currentChallengeIndex: 0,
+
+  // Game state
+  error: null,
+  currentSampleId: null,
+  currentQuarter: null,
+  scoringRules: DEFAULT_SCORING_RULES,
+  
+  // Add the missing challenges property
+  challenges: [],  // or {} depending on your type definition
+
+  // Game elements
+  currentSample: 'A',
+  samples: [],
+  difficulty: 'beginner',
+  mode: 'standard',
+  totalScore: {
+    'A': 0,
+    'B': 0,
+    'C': 0,
+    'D': 0
+  },
+
+  // Progress tracking
+  completedSamples: [],
+  progress: 0,
+  hasSubmitted: false,
+  totalChallenges: 0,
+
+  // Player input and scoring
+  guesses: {
+    'A': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '' },
+    'B': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '' },
+    'C': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '' },
+    'D': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '' }
+  },
+  score: {
+    'A': 0,
+    'B': 0,
+    'C': 0,
+    'D': 0
+  },
+  scores: {
+    'A': 'A',
+    'B': 'B',
+    'C': 'C',
+    'D': 'D'
+  },
+  answers: {},
+
+  // Game mechanics
+  timeRemaining: 300,
+  lives: 3,
+  hints: 3,
+  isComplete: false,
+};
+
+export interface SampleAttempt {
+  id: string;
+  sampleId: string;
+  userId: string;
+  guess: SampleGuess;
+  score: number;
+  timestamp: Date;
+}
+
+export interface ChallengeAttempt {
+  id: string;
+  challengeId: string;
+  userId: string;
+  answer: string;
+  isCorrect: boolean;
+  score: number;
+  timestamp: Date;
+}
+
+export interface PlayerChallenge {
+  challengeId: string;
+  userId: string;
+  status: 'completed' | 'in-progress' | 'failed';
+  attempts: number;
+  score: number;
+  completedAt?: Date;
+}
+
+export interface GameInteractionData {
+  quarterId?: string;
+  userId?: string;
+  actionType: string;
+  value?: number;
+  metadata?: Record<string, any>;
+  timestamp: Date;
+  playerProfile?: PlayerProfile;
+  challenge?: Challenge;
+  sample?: WhiskeySample;
+  sampleAttempt?: SampleAttempt;
+  challengeAttempt?: ChallengeAttempt;
+  playerLeaderboard?: LeaderboardEntry;
+  gameMetrics?: GameMetrics;
+  quarterAnalytics?: QuarterAnalytics;
+  playerChallenges?: PlayerChallenge;
+  gameState?: GameState;
 }
 
 // Player metrics
@@ -507,6 +693,12 @@ export interface QuarterAnalytics {
     regions: Record<string, number>;
     countries: Record<string, number>;
   };
+
+  // Machine learning insights
+  machineLearning: {
+    recommendations: Record<string, number>;
+    predictions: Record<string, number>;
+  };
 }
 
 export interface SampleFormData {
@@ -529,4 +721,14 @@ export const defaultSampleData: SampleFormData = {
   hints: [],
   distillery: '',
   description: ''
+};
+
+export const isValidGameState = (state: Partial<GameState>): state is GameState => {
+  return (
+    'userId' in state &&
+    'quarterId' in state &&
+    'scoringRules' in state &&
+    // ...other required properties
+    true
+  );
 };

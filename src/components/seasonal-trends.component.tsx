@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { SeasonalTrend, seasonalTrendsService } from 'src/services/seasonal-trends.service';
+import { SeasonalTrend, seasonalTrendsService } from '../services/seasonal-trends.service';
 
 const SeasonalTrends: React.FC = () => {
   const [trends, setTrends] = useState<SeasonalTrend[]>([]);

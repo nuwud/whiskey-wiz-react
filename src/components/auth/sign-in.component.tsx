@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '@/contexts/auth.context';
-
+import { useAuth } from '../../contexts/auth.context';
 export const SignIn: React.FC = () => {
   const { signIn } = useAuth();
   const navigate = useNavigate();
@@ -93,9 +92,8 @@ export const SignIn: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 ${
-                loading ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
+              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 ${loading ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
             >
               {loading ? 'Signing in...' : 'Sign in'}
             </button>

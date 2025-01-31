@@ -1,11 +1,14 @@
 /** @type {import('tailwindcss').Config} */
+import animate from "tailwindcss-animate";
+
 export default {
   darkMode: ["class"],
   content: [
+    "./index.html",
     "./pages/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
     "./app/**/*.{ts,tsx}",
-    "./src/**/*.{ts,tsx}",
+    "./src/**/*.{js,ts,jsx,tsx}",
   ],
   prefix: "",
   theme: {
@@ -73,5 +76,5 @@ export default {
       },
     },
   },
-  plugins: [import("tailwindcss-animate")],
-};
+  plugins: [animate],
+}

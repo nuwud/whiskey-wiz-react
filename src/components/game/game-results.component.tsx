@@ -1,16 +1,15 @@
-import React from 'react';
 import { useGameStore } from '../../store/game.store';
-import { WhiskeySample } from '../../types/game.types';
+import { WhiskeySample} from '../../types/game.types';
 
-const GuessComparison = ({ 
-  label, 
-  guess, 
-  actual, 
-  unit = '', 
+const GuessComparison = ({
+  label,
+  guess,
+  actual,
+  unit = '',
   exactPoints = 50,
   bonusPoints = 20,
   deduction = 5
-}: { 
+}: {
   label: string;
   guess: number | string;
   actual: number | string;
@@ -20,13 +19,13 @@ const GuessComparison = ({
   deduction?: number;
 }) => {
   const isExact = guess === actual;
-  const difference = typeof guess === 'number' && typeof actual === 'number' 
-    ? Math.abs(guess - actual) 
+  const difference = typeof guess === 'number' && typeof actual === 'number'
+    ? Math.abs(guess - actual)
     : null;
-  
-  const points = isExact 
-    ? exactPoints + bonusPoints 
-    : difference !== null 
+
+  const points = isExact
+    ? exactPoints + bonusPoints
+    : difference !== null
       ? Math.max(exactPoints - (difference * deduction), 0)
       : 0;
 
@@ -69,15 +68,15 @@ const SampleResult = ({
   };
 }) => {
   return (
-    <div className="bg-white rounded-lg shadow p-6 mb-4">
-      <div className="flex justify-between items-center mb-4">
+    <div className="p-6 mb-4 bg-white rounded-lg shadow">
+      <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-bold">Sample {sampleId}</h3>
         <div className="text-xl font-bold text-amber-600">
           {guess.score} points
         </div>
       </div>
 
-      <div className="mb-4 grid grid-cols-4 text-sm font-medium text-gray-500">
+      <div className="grid grid-cols-4 mb-4 text-sm font-medium text-gray-500">
         <div>Attribute</div>
         <div className="text-center">Your Guess</div>
         <div className="text-center">Actual</div>
@@ -107,39 +106,44 @@ const SampleResult = ({
       <GuessComparison
         label="Mashbill"
         guess={guess.mashbill}
-        actual={sample.mashbillType}
+        actual={sample.mashbill}
         exactPoints={50}
         bonusPoints={0}
         deduction={50}
       />
 
-      <div className="mt-4 pt-4 border-t">
-        <h4 className="font-medium text-gray-900 mb-2">{sample.name}</h4>
-        <p className="text-gray-600 text-sm">{sample.description}</p>
+      <div className="pt-4 mt-4 border-t">
+        <h4 className="mb-2 font-medium text-gray-900">{sample.name}</h4>
+        <p className="text-sm text-gray-600">{sample.description}</p>
       </div>
     </div>
   );
 };
 
 export const GameResults = () => {
-  const { samples, guesses, score } = useGameStore();
+  const { samples, guesses, totalScore } = useGameStore();
+
+  // Calculate final score from totalScore object
+  const finalScore = Object.values(totalScore).reduce((sum, score) => sum + score, 0);
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="text-center mb-8">
+      <div className="mb-8 text-center">
         <h2 className="text-3xl font-bold text-gray-900">Results Analysis</h2>
-        <p className="text-xl text-gray-600">Total Score: {score}</p>
+        <p className="text-xl text-gray-600">Total Score: {finalScore}</p>
       </div>
 
       <div className="space-y-6">
-        {samples.map((sample, index) => {
-          const sampleId = String.fromCharCode(65 + index); // A, B, C, D
+        {Object.entries(guesses).map(([sampleId, guess]) => {
+          const sample = samples.find(s => s.id === sampleId);
+          if (!sample) return null;
+          
           return (
             <SampleResult
-              key={sample.id}
+              key={sampleId}
               sampleId={sampleId}
               sample={sample}
-              guess={guesses[sampleId as keyof typeof guesses]}
+              guess={guess}
             />
           );
         })}

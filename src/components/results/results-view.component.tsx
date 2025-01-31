@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Quarter, Sample } from '../../models/quarter.model';
+import { Quarter } from 'src/types/game.types';
 import { ScoreSubmission } from '../../services/score.service';
 import { useAuth } from '../../contexts/auth.context';
 
@@ -9,9 +9,23 @@ interface ResultsViewProps {
 }
 
 const ResultsView: React.FC<ResultsViewProps> = ({ quarter, gameResults }) => {
-  const { currentUser } = useAuth();
   const [shareText, setShareText] = useState('');
-  const [shareImage, setShareImage] = useState<string | null>(null);
+  const { user, isAuthenticated } = useAuth();
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveResults = async () => {
+    if (!isAuthenticated) {
+      // Show login prompt
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Save results logic here
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Detailed result calculation similar to Angular implementation
   const calculateDetailedResults = () => {
@@ -39,7 +53,9 @@ const ResultsView: React.FC<ResultsViewProps> = ({ quarter, gameResults }) => {
       }
     });
 
-    const shareText = `Whiskey Wiz Challenge 🥃
+    // Add user context to share text if needed
+    const userPrefix = user ? `${user.displayName}'s ` : '';
+    const shareText = `${userPrefix}Whiskey Wiz Challenge 🥃
 ${blocks.join('')}
 Total Score: ${gameResults.totalScore}/70
 #WhiskeyWiz`;
@@ -89,6 +105,15 @@ Total Score: ${gameResults.totalScore}/70
         <button onClick={handleShare}>Share Results</button>
         <textarea aria-label="Shareable Results" readOnly value={shareText} />
       </div>
+
+      {isAuthenticated && (
+        <button
+          onClick={handleSaveResults}
+          disabled={isSaving}
+        >
+          {isSaving ? 'Saving...' : 'Save Results'}
+        </button>
+      )}
     </div>
   );
 };

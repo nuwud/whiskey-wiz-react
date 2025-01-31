@@ -8,7 +8,7 @@ import {
   sendPasswordResetEmail,
   User
 } from 'firebase/auth';
-import { ExtendedUser, UserRole } from '@/types';
+import { ExtendedUser, UserRole } from '../types/auth.types';
 
 
 export const FirebaseService = {

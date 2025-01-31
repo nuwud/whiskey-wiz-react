@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/config/firebase';
-import { FirebaseService } from '@/services/firebase.service';
-import { ExtendedUser, UserRole } from '@/types';
-import { analyticsService } from '@/services/analytics.service';
+import { auth } from '../config/firebase';
+import { FirebaseService } from '../services/firebase.service';
+import { ExtendedUser, UserRole } from '../types';
+import { analyticsService } from '../services/analytics.service';
 
 interface AuthContextType {
   user: ExtendedUser | null;
+  isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
   signIn: (email: string, password: string) => Promise<void>;
@@ -23,6 +24,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Compute isAuthenticated based on user existence
+  const isAuthenticated = Boolean(user);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
@@ -34,9 +38,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             role: userDoc?.role || UserRole.USER
           };
           setUser(extendedUser);
-          analyticsService.userSignedIn({ 
-            userId: extendedUser.uid, 
-            role: extendedUser.role 
+          analyticsService.userSignedIn({
+            userId: extendedUser.uid,
+            role: extendedUser.role
           });
         } else {
           setUser(null);
@@ -66,9 +70,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const extendedUser = await FirebaseService.signUp(email, password);
       setUser(extendedUser);
-      analyticsService.userSignedUp({ 
-        userId: extendedUser.uid, 
-        role: extendedUser.role 
+      analyticsService.userSignedUp({
+        userId: extendedUser.uid,
+        role: extendedUser.role
       });
     } catch (err) {
       console.error('Sign up error:', err);
@@ -108,6 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const value = {
     user,
+    isAuthenticated,
     loading,
     error,
     signIn,

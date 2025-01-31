@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { StateRecoveryService } from 'src/services/state-recovery.service';
-import { useAuth } from 'src/contexts/auth.context';
+import { StateRecoveryService } from '../services/state-recovery.service';
+import { useAuth } from '../contexts/auth.context';
 
 export const useStateRecovery = (quarterId: string) => {
   const { user } = useAuth();

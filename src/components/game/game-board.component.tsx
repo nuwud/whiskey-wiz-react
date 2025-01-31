@@ -1,5 +1,5 @@
-import { useQuarter } from '@/contexts/quarter.context';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card-ui.component';
+import { useQuarter } from '../../contexts/quarter.context';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card-ui.component';
 
 export function GameBoard() {
   const { currentQuarter } = useQuarter();

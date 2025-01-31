@@ -11,6 +11,8 @@ import {
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { UserRole, PlayerProfile, AdminProfile } from '../types/auth.types';
+import { WhiskeyNode } from '../services/whiskey-knowledge.service';
+
 
 interface AuthState {
   user: PlayerProfile | null;
@@ -75,6 +77,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         displayName: fbUser.displayName ?? '',
         role,
         createdAt: new Date(),
+        updatedAt: new Date(),  // Add this line
         lastLoginAt: new Date()
       };
 
@@ -148,6 +151,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           notifications: true
         },
         createdAt: new Date(),
+        updatedAt: new Date(),
         lastLoginAt: new Date()
       };
 
@@ -182,9 +186,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       await updateDoc(doc(db, 'users', user.userId), data);
-      set(state => ({
-        profile: state.profile ? { ...state.profile, ...data } : null
-      }));
+      // Fix: Ensure type safety when updating profile
     } catch (error) {
       set({ error: (error as Error).message });
       throw error;
@@ -227,6 +229,7 @@ export const createGuestProfile = (fbUser: FirebaseUser): PlayerProfile => ({
     notifications: true
   },
   createdAt: new Date(),
+  updatedAt: new Date(),
   lastLoginAt: new Date()
 });
 
@@ -268,6 +271,7 @@ onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
           notifications: true
         },
         createdAt: new Date(),
+        updatedAt: new Date(),
         lastLoginAt: new Date()
       };
 
@@ -284,21 +288,50 @@ onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
 
     const fetchedProfile = userDoc.data();
     if (fetchedProfile.role === UserRole.ADMIN) {
-      setProfile(fetchedProfile as AdminProfile);
+      // Format admin whiskeys to match PlayerProfile structure
+      const formattedProfile = {
+        ...fetchedProfile,
+        whiskeys: fetchedProfile.whiskeys?.map((w: Partial<WhiskeyNode>) => ({
+          id: w.id || '',
+          name: w.name || '',
+          type: 'whiskey' as const,
+          properties: {
+            age: w.properties?.age,
+            proof: w.properties?.proof
+          },
+          connections: w.connections || []
+        })) || []
+      };
+      setProfile(formattedProfile as AdminProfile);
+
       // Convert admin to player profile for user state
-      setUser({
+      const playerProfile: PlayerProfile = {
         userId: fetchedProfile.userId,
         displayName: fetchedProfile.displayName,
         email: fetchedProfile.email,
         role: fetchedProfile.role,
         createdAt: fetchedProfile.createdAt,
+        updatedAt: fetchedProfile.updatedAt || new Date(),
         lastLoginAt: fetchedProfile.lastLoginAt,
         guest: false,
         isAnonymous: false,
         registrationType: 'email',
-        metrics: { gamesPlayed: 0, totalScore: 0, averageScore: 0, bestScore: 0, badges: [], achievements: [] },
-        preferences: { favoriteWhiskeys: [], preferredDifficulty: 'beginner', notifications: true }
-      } as PlayerProfile);
+        metrics: {
+          gamesPlayed: 0,
+          totalScore: 0,
+          averageScore: 0,
+          bestScore: 0,
+          badges: [],
+          achievements: []
+        },
+        preferences: {
+          favoriteWhiskeys: [],
+          preferredDifficulty: 'beginner',
+          notifications: true
+        },
+        whiskeys: formattedProfile.whiskeys
+      };
+      setUser(playerProfile);
     } else {
       setProfile(fetchedProfile as PlayerProfile);
       setUser(fetchedProfile as PlayerProfile);

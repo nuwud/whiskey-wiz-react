@@ -1,11 +1,12 @@
 import { auth, db } from '../config/firebase';
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signOut, 
-  User 
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  User
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
 
 export const authService = {
   async register(email: string, password: string, displayName?: string): Promise<User> {
@@ -31,3 +32,19 @@ export const authService = {
     await signOut(auth);
   }
 };
+
+export function useAuth() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(user => {
+      setUser(user);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  return { user, loading };
+}

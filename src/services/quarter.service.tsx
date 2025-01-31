@@ -7,7 +7,6 @@ import {
   getDoc,
   DocumentData,
   orderBy,
-  Timestamp,
   limit,
   updateDoc,
   serverTimestamp,
@@ -15,12 +14,12 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { AnalyticsService } from './analytics.service';
-import { TimeseriesData } from '@/types/game.types';
+import { TimeseriesData } from '../types/game.types';
 import { LeaderboardEntry } from './leaderboard.service';
-import { PlayerProfile } from 'src/types/auth.types';
-import { Quarter, QuarterAnalytics, WhiskeySample } from '@/types/game.types';
+import { PlayerProfile } from '../types/auth.types';
+import { Quarter, QuarterAnalytics, WhiskeySample } from '../types/game.types';
 
-class QuarterService {
+export class QuarterService {
   private quartersCollection = collection(db, 'quarters');
   private resultsCollection = collection(db, 'game_results');
 
@@ -29,9 +28,9 @@ class QuarterService {
     try {
       const q = query(
         this.quartersCollection,
-        where('isActive', '==', true),
-        orderBy('startDate', 'desc'),
-        where('endDate', '>', Timestamp.now())
+        where('active', '==', true),
+        orderBy('startDate', 'desc')
+        // Removed endDate check to allow historical quarters
       );
 
       const snapshot = await getDocs(q);
@@ -128,7 +127,6 @@ class QuarterService {
       const timeSpentData = await this.calculateTimeSpentMetrics(quarterId);
 
       return {
-        playerStats: progressionStats,
         sampleAnalytics: [...sampleAnalytics],
         totalPlayers: progressionStats.totalGames,
         totalGames: progressionStats.totalGames,
@@ -232,13 +230,11 @@ class QuarterService {
           averageScore: progressionStats.averageScore,
           totalPlayers: progressionStats.totalGames,
         }],
-
         machineLearningSuggestions: {
           recommendedMerchandise: [],
           potentialSubscriptionTargets: [],
           marketingSegments: []
         },
-
         playerDemographics: {
           authMethodBreakdown: {},
           ageBreakdown: {},
@@ -246,7 +242,6 @@ class QuarterService {
           countryDistribution: {},
           favoriteWhiskey: progressionStats.favoriteWhiskey
         },
-
         playerEngagement: {
           totalTimeSpent: timeSpentData.totalTimeSpent || 0,
           averageTimeSpentPerGame: timeSpentData.totalTimeSpent / progressionStats.totalGames || 0,
@@ -255,29 +250,24 @@ class QuarterService {
           averageHintsUsedPerPlayer: progressionStats.hintsUsed / progressionStats.totalGames,
           averageHintsUsedPerChallenge: progressionStats.hintsUsed / progressionStats.totalChallengesCompleted
         },
-
         flavorProfile: {
           preferredFlavors: [],
           mostPopularFlavors: [],
           flavorDensity: 0
         },
-
         samplePerformance: [],
-
         challengePerformance: {
           challengeId: '',
           totalAttempts: progressionStats.totalChallengesCompleted,
           totalCorrect: progressionStats.correctAnswers,
           accuracy: progressionStats.correctAnswers / progressionStats.totalChallengesCompleted || 0
         },
-
         playerChallenges: {
           challengeId: '',
           totalAttempts: progressionStats.totalChallengesCompleted,
           totalCorrect: progressionStats.correctAnswers,
           accuracy: progressionStats.correctAnswers / progressionStats.totalChallengesCompleted || 0
         },
-
         playerProfile: {
           userId: '',
           username: '',
@@ -291,7 +281,25 @@ class QuarterService {
         playerLeaderboard: {
           global: [] as PlayerProfile[],
           quarterly: [] as PlayerProfile[]
-        }
+        },
+        playerStats: {
+          totalGames: progressionStats.totalGames,
+          averageScore: progressionStats.averageScore,
+          bestScore: progressionStats.bestScore,
+          totalChallengesCompleted: progressionStats.totalChallengesCompleted,
+          correctAnswers: progressionStats.correctAnswers,
+          hintsUsed: progressionStats.hintsUsed,
+          favoriteWhiskey: progressionStats.favoriteWhiskey,
+          totalSamples: progressionStats.totalSamples,
+          perfectScores: progressionStats.perfectScores,
+          lastPlayed: progressionStats.lastPlayed,
+          quarterHistory: progressionStats.quarterHistory
+        },
+        machineLearning: {
+          recommendations: {},
+          predictions: {}
+        },
+
       };
     } catch (error) {
       console.error('Failed to fetch quarter analytics', error);
@@ -469,32 +477,53 @@ class QuarterService {
           machineLearningSuggestions: {
             recommendedMerchandise: [''] as string[],
             potentialSubscriptionTargets: [''] as string[],
-            marketingSegments: [''] as string[]
-          },
-          playerDemographics: { age: 0, region: '', experience: '' },
-          playerEngagement: { timeSpent: 0, retryRate: 0 },
-          flavorProfile: { primary: [], secondary: [] },
-          seasonalTrends: { popularity: 0, seasonalIndex: 0 },
-          competitorAnalysis: { ranking: 0, marketShare: 0 },
-          costAnalysis: { productionCost: 0, retailPrice: 0 },
-          qualityMetrics: { satisfaction: 0, retention: 0 },
-          supplierRelations: { reliability: 0, leadTime: 0 },
-          playerStats: { attempts: 0, successRate: 0 },
-          samplePerformance: { accuracy: 0, completion: 0 },
-          challengePerformance: { score: 0, time: 0 },
-          playerChallenges: [],
-          playerProfile: { level: 0, rank: '' },
-          playerLeaderboard: { position: 0, score: 0 }
+            marketingSegments: [''] as string[],
+            sampleAnalytics: {
+              sampleId: '',
+              totalAttempts: sampleResults.length,
+              averageAccuracy: {
+                age: accuracyStats.age,
+                proof: accuracyStats.proof,
+                mashbill: accuracyStats.mashbill
+              },
+              performance: {
+                totalCorrect: sampleResults.filter(result => result.correct).length,
+                accuracy: sampleResults.length > 0 ? sampleResults.filter(result => result.correct).length / sampleResults.length : 0
+              },
+              machineLearningSuggestions: {
+                recommendedMerchandise: [] as string[],
+                potentialSubscriptionTargets: [] as string[],
+                marketingSegments: [] as string[],
+              }
+            },
+            playerDemographics: { age: 0, region: '', experience: '' },
+            playerEngagement: { timeSpent: 0, retryRate: 0 },
+            flavorProfile: { primary: [], secondary: [] },
+            seasonalTrends: { popularity: 0, seasonalIndex: 0 },
+            competitorAnalysis: { ranking: 0, marketShare: 0 },
+            costAnalysis: { productionCost: 0, retailPrice: 0 },
+            qualityMetrics: { satisfaction: 0, retention: 0 },
+            supplierRelations: { reliability: 0, leadTime: 0 },
+            playerStats: { attempts: 0, successRate: 0 },
+            samplePerformance: { accuracy: 0, completion: 0 },
+            challengePerformance: { score: 0, time: 0 },
+            playerChallenges: [],
+            playerProfile: { level: 0, rank: '' },
+            playerLeaderboard: { position: 0, score: 0 }
+          }
         };
-      });
-    } catch (error) {
+      }
+      );
+
+    }
+    catch (error) {
       console.error('Failed to fetch detailed sample analytics', error);
       AnalyticsService.trackError('Failed to fetch detailed sample analytics', 'quarter_service');
       return [];
     }
   }
 
-  private async getQuarterById(quarterId: string): Promise<Quarter | null> {
+  public async getQuarterById(quarterId: string): Promise<Quarter | null> {
     try {
       const quarterDoc = await getDoc(doc(this.quartersCollection, quarterId));
       if (!quarterDoc.exists()) {
@@ -527,11 +556,17 @@ class QuarterService {
       id,
       name: data.name,
       description: data.description,
-      startDate: data.startDate.toDate(),
-      endDate: data.endDate.toDate(),
-      isActive: data.isActive,
-      samples: data.samples.map(this.convertToWhiskeySample),
-      difficulty: data.difficulty,
+      startTime: data.startTime?.toDate() || new Date(),
+      endTime: data.endTime?.toDate() || new Date(),
+      duration: data.duration || 0,
+      minimumScore: data.minimumScore || 0,
+      maximumScore: data.maximumScore || 0,
+      minimumChallengesCompleted: data.minimumChallengesCompleted || 0,
+      startDate: data.startDate?.toDate() || new Date(),
+      endDate: data.endDate?.toDate() || new Date(),
+      isActive: data.isActive || false,
+      samples: Array.isArray(data.samples) ? data.samples.map(this.convertToWhiskeySample) : [],
+      difficulty: data.difficulty || 'beginner',
       scoringRules: data.scoringRules || {},
       challenges: data.challenges || {},
       createdAt: data.createdAt?.toDate() || new Date(),
@@ -564,7 +599,11 @@ class QuarterService {
       notes: data.notes || [],
       hints: data.hints || [],
       distillery: data.distillery || 'Unknown',
-      description: data.description || ''
+      description: data.description || '',
+      difficulty: data.difficulty,
+      score: data.score,
+      challengeQuestions: data.challengeQuestions,
+      image: data.image || ''
     };
   }
 }
@@ -572,3 +611,28 @@ class QuarterService {
 export const quarterService = new QuarterService();
 export const quarter = quarterService.getCurrentQuarter();
 
+export const formatTime = (date: Date): string => {
+  const options: Intl.DateTimeFormatOptions = {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  };
+  
+  return date.toLocaleTimeString('en-US', options);
+};
+
+export const parseTimeString = (timeStr: string): Date | null => {
+  if (!timeStr) return null;
+  
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return null;
+  
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  return date;
+};
+
+export const isValidTimeString = (timeStr: string): boolean => {
+  const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+  return timeRegex.test(timeStr);
+};

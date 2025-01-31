@@ -1,7 +1,6 @@
-import { PlayerProfile } from '@/components';
 import { db } from '../firebase';
 import { collection, addDoc, getDocs, query, where, updateDoc as firestoreUpdateDoc } from 'firebase/firestore';
-import { AnalyticsService } from 'src/services/analytics.service';
+import { AnalyticsService } from '../services/analytics.service';
 
 interface MLTrainingData {
   userId: string;

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card-ui.component';
-import { PlayerTrackingService } from 'src/services/player-tracking.service';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card-ui.component';
+import { PlayerTrackingService } from '../../services/player-tracking.service';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 
 interface User {
   id: string;
@@ -19,11 +19,11 @@ interface User {
   averageScore: number;
 }
 
-export function UserManagement() {
+const UserManagement = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const trackingService = new PlayerTrackingService();
-
+  
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -98,3 +98,5 @@ export function UserManagement() {
     </div>
   );
 }
+
+export default UserManagement;

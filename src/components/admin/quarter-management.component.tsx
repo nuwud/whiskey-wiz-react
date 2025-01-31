@@ -1,23 +1,75 @@
-
 import React, { useState, useEffect } from 'react';
-import { useAuth, useQuarter } from '@/contexts';
-import { quarterService } from '@/services/quarter.service';
-import type { Quarter, WhiskeySample, ScoringRules } from '@/types/game.types';
+import { useAuth, useQuarter } from '../../contexts';
+import { quarterService } from '../../services/quarter.service';
+import { type Quarter, type WhiskeySample, type ScoringRules, type Difficulty, DifficultyEnum, Challenge } from '../../types/game.types';
 import { SampleEditor } from './sample-editor.component';
 
-type Difficulty = 'easy' | 'medium' | 'hard';
-const DIFFICULTY_OPTIONS: Difficulty[] = ['easy', 'medium', 'hard'];
+const DIFFICULTY_OPTIONS = Object.values(DifficultyEnum);
 
 interface QuarterFormData {
   name: string;
   startDate: string;
   endDate: string;
-  difficulty: Difficulty;
+  startTime: string;
+  endTime: string;
+  duration: number;  // Changed from string to number
+  difficulty: DifficultyEnum;
+  minimumScore: number;
+  maximumScore: number;
+  minimumChallengesCompleted: number;
   isActive: boolean;
   samples: WhiskeySample[];
   description: string;
   scoringRules: ScoringRules;
+  challenges: Array<Challenge>;
 }
+
+interface QuarterManagement {
+  name: string;
+  startDate: string;
+  endDate: string;
+  difficulty: DifficultyEnum;
+  isActive: boolean;
+  samples: WhiskeySample[];
+  description: string;
+  challenges: Array<Challenge>;
+  scoringRules: ScoringRules;
+}
+
+export const isValidTimeString = (time: string): boolean => {
+  const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+  return timeRegex.test(time);
+};
+
+export const formatTime = (date: Date): string => {
+  const options: Intl.DateTimeFormatOptions = {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  };
+  
+  return date.toLocaleTimeString('en-US', options);
+};
+
+// Date and Time Formatting Utilities
+const formatDateTimeForInput = (date: Date): string => {
+  return date.toISOString().slice(0, 16); // Returns format: "YYYY-MM-DDTHH:mm"
+};
+
+const formatTimeString = (date: Date): string => {
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+};
+
+const parseTimeString = (time: string): Date => {
+  const [hours, minutes] = time.split(':').map(Number);
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  return date;
+};
 
 export const QuarterManagement: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -32,26 +84,21 @@ export const QuarterManagement: React.FC = () => {
     name: '',
     startDate: '',
     endDate: '',
-    difficulty: 'easy',
+    startTime: '',
+    endTime: '',
+    duration: 0,  // Initialize as number, not string
+    difficulty: DifficultyEnum.Beginner,
+    minimumScore: 0,
+    maximumScore: 100,
+    minimumChallengesCompleted: 0,
     isActive: true,
     samples: [],
     description: '',
+    challenges: [],
     scoringRules: {
-      age: {
-        maxPoints: 0,
-        pointDeductionPerYear: 0,
-        exactMatchBonus: 0
-      },
-      proof: {
-        maxPoints: 0,
-        pointDeductionPerProof: 0,
-        exactMatchBonus: 0
-      },
-      mashbill: {
-        maxPoints: 0,
-        pointDeductionPerYear: 0,
-        exactMatchBonus: 0
-      }
+      age: { maxPoints: 0, pointDeductionPerYear: 0, exactMatchBonus: 0 },
+      proof: { maxPoints: 0, pointDeductionPerProof: 0, exactMatchBonus: 0 },
+      mashbill: { maxPoints: 0, pointDeductionPerType: 0, exactMatchBonus: 0 }
     }
   });
 
@@ -78,16 +125,64 @@ export const QuarterManagement: React.FC = () => {
     setSelectedQuarter(quarter);
     setFormData({
       name: quarter.name,
-      startDate: quarter.startDate.toISOString().split('T')[0],
-      endDate: quarter.endDate.toISOString().split('T')[0],
-      difficulty: quarter.difficulty || 'easy',
+      startDate: formatDateTimeForInput(quarter.startDate),
+      endDate: formatDateTimeForInput(quarter.endDate),
+      startTime: formatTimeString(quarter.startDate),
+      endTime: formatTimeString(quarter.endDate),
+      duration: calculateDuration(quarter.startDate, quarter.endDate), // Add this function
+      difficulty: quarter.difficulty as DifficultyEnum,
+      minimumScore: quarter.minimumScore,
+      maximumScore: quarter.maximumScore,
+      minimumChallengesCompleted: quarter.minimumChallengesCompleted,
       isActive: quarter.isActive,
       samples: quarter.samples || [],
       description: quarter.description || '',
-      scoringRules: quarter.scoringRules || {
-        age: { maxPoints: 0, pointDeductionPerYear: 0, exactMatchBonus: 0 },
-        proof: { maxPoints: 0, pointDeductionPerProof: 0, exactMatchBonus: 0 },
-        mashbill: { maxPoints: 0, pointDeductionPerYear: 0, exactMatchBonus: 0 }
+      challenges: quarter.challenges,
+      scoringRules: quarter.scoringRules
+    });
+    setIsEditing(true);
+  };
+  
+  // Add this function to calculate duration
+  const calculateDuration = (startDate: Date, endDate: Date): number => {
+    return Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  };
+  
+  // Update handleNewQuarter
+  const handleNewQuarter = () => {
+    const now = new Date();
+    setSelectedQuarter(null);
+    setFormData({
+      name: '',
+      startDate: formatDateTimeForInput(now),
+      endDate: formatDateTimeForInput(now),
+      startTime: formatTimeString(now),
+      endTime: formatTimeString(now),
+      duration: 0,
+      minimumScore: 0,
+      maximumScore: 100,
+      minimumChallengesCompleted: 0,
+      difficulty: DifficultyEnum.Beginner,
+      isActive: true,
+      samples: [],
+      description: '',
+      challenges: [],
+      scoringRules: {
+        age: {
+          maxPoints: 0,
+          pointDeductionPerYear: 0,
+          exactMatchBonus: 0
+        },
+        proof: {
+          maxPoints: 0,
+          pointDeductionPerProof: 0,
+          exactMatchBonus: 0
+        },
+        mashbill: {
+          maxPoints: 0,
+          pointDeductionPerType: 0,
+          exactMatchBonus: 0
+        }
       }
     });
     setIsEditing(true);
@@ -97,30 +192,70 @@ export const QuarterManagement: React.FC = () => {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value, type } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
-    }));
+    
+    // Handle the form data update with date conversions
+    setFormData(prev => {
+      const newValue = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
+      
+      // If we're updating dates, recalculate duration
+      if (name === 'startDate' || name === 'endDate') {
+        const startDate = name === 'startDate' ? new Date(value) : new Date(prev.startDate);
+        const endDate = name === 'endDate' ? new Date(value) : new Date(prev.endDate);
+        const newDuration = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        return {
+          ...prev,
+          [name]: value,
+          duration: newDuration
+        };
+      }
+  
+      // For time inputs, validate and format
+      if (name === 'startTime' || name === 'endTime') {
+        return {
+          ...prev,
+          [name]: formatTimeString(parseTimeString(value))
+        };
+      }
+  
+      // For all other inputs
+      return {
+        ...prev,
+        [name]: newValue
+      };
+    });
+  
     e.preventDefault();
+    
     try {
       const quarterData: Omit<Quarter, 'id'> = {
         name: formData.name,
         startDate: new Date(formData.startDate),
         endDate: new Date(formData.endDate),
+        startTime: formatTimeString(parseTimeString(formData.startTime)),
+        endTime: formatTimeString(parseTimeString(formData.endTime)),
+        duration: typeof formData.duration === 'string' 
+          ? parseInt(formData.duration, 10) 
+          : formData.duration,
+        minimumScore: formData.minimumScore,
+        maximumScore: formData.maximumScore,
+        minimumChallengesCompleted: formData.minimumChallengesCompleted,
         createdAt: new Date(),
         updatedAt: new Date(),
-        challenges: [],
-        difficulty: formData.difficulty,
+        challenges: formData.challenges,
+        difficulty: (formData.difficulty.toLowerCase() as unknown) as Difficulty,
         isActive: formData.isActive,
         description: formData.description,
         samples: formData.samples,
         scoringRules: formData.scoringRules
       };
+  
       if (selectedQuarter) {
         await quarterService.updateQuarter(selectedQuarter.id, quarterData);
       } else {
         await quarterService.createQuarter(quarterData);
       }
+  
       const fetchedQuarters = await quarterService.getAllQuarters();
       setQuarters(fetchedQuarters);
       setIsEditing(false);
@@ -137,37 +272,6 @@ export const QuarterManagement: React.FC = () => {
     return <div className="p-4">You must be logged in to access this page.</div>;
   }
 
-  const handleNewQuarter = () => {
-    setSelectedQuarter(null);
-    setFormData({
-      name: '',
-      startDate: '',
-      endDate: '',
-      difficulty: 'easy',
-      isActive: true,
-      samples: [],
-      description: '',
-      scoringRules: {
-        age: {
-          maxPoints: 0,
-          pointDeductionPerYear: 0,
-          exactMatchBonus: 0
-        },
-        proof: {
-          maxPoints: 0,
-          pointDeductionPerProof: 0,
-          exactMatchBonus: 0
-        },
-        mashbill: {
-          maxPoints: 0,
-          pointDeductionPerYear: 0,
-          exactMatchBonus: 0
-        }
-      }
-    });
-    setIsEditing(true);
-  };
-
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
@@ -177,9 +281,10 @@ export const QuarterManagement: React.FC = () => {
         ...formData,
         startDate: new Date(formData.startDate),
         endDate: new Date(formData.endDate),
-        challenges: [],
+        challenges: formData.challenges,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        difficulty: (formData.difficulty.toLowerCase() as unknown) as Difficulty
       };
 
       if (selectedQuarter) {
@@ -404,13 +509,13 @@ export const QuarterManagement: React.FC = () => {
                     {quarter.startDate.toLocaleDateString()} - {quarter.endDate.toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs rounded-full ${quarter.difficulty === 'easy'
+                    <span className={`px-2 py-1 text-xs rounded-full ${String(quarter.difficulty).toUpperCase() === DifficultyEnum.Beginner
                       ? 'bg-green-100 text-green-800'
-                      : quarter.difficulty === 'medium'
+                      : String(quarter.difficulty).toUpperCase() === DifficultyEnum.Intermediate
                         ? 'bg-amber-100 text-amber-800'
                         : 'bg-red-100 text-red-800'
                       }`}>
-                      {quarter.difficulty.charAt(0).toUpperCase() + quarter.difficulty.slice(1)}
+                      {String(quarter.difficulty).charAt(0).toUpperCase() + String(quarter.difficulty).slice(1)}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

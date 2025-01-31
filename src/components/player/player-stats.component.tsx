@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card-ui.component'
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card-ui.component'
 import { collection, query, where, getDocs } from 'firebase/firestore'
-import { auth } from '@/config/firebase';
-import { db } from '@/config/firebase';
+import { auth } from '../../config/firebase';
+import { db } from '../../config/firebase';
 
 interface GameResult {
   id: string

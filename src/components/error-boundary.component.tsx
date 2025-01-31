@@ -1,11 +1,12 @@
 "use client";
 
 import React from 'react';
-import { Button } from '@/components/ui/button-ui.component';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card-ui.component';
+import { Button } from '../components/ui/button-ui.component';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card-ui.component';
 
 interface Props {
   children: React.ReactNode;
+  fallback: React.ReactNode;
 }
 
 interface State {
@@ -34,7 +35,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="flex items-center justify-center min-h-screen p-4">
           <Card className="w-full max-w-md">
             <CardHeader>
               <CardTitle>Something went wrong</CardTitle>
@@ -44,7 +45,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
                 We apologize for the inconvenience. The application has encountered an unexpected error.
               </p>
               {this.state.error && (
-                <pre className="bg-gray-100 p-2 rounded text-xs overflow-auto">
+                <pre className="p-2 overflow-auto text-xs bg-gray-100 rounded">
                   {this.state.error.message}
                 </pre>
               )}

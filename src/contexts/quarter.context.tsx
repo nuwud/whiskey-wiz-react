@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { db } from '@/config/firebase';
+import { db } from '../config/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 
 interface Quarter {
@@ -32,7 +32,7 @@ export const QuarterProvider: React.FC<{ children: React.ReactNode }> = ({ child
           collection(db, 'quarters'),
           where('isActive', '==', true)
         );
-        
+
         const querySnapshot = await getDocs(q);
         if (!querySnapshot.empty) {
           const quarterDoc = querySnapshot.docs[0];

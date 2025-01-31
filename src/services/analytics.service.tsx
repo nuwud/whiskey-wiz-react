@@ -1,6 +1,6 @@
 import { logEvent, Analytics, setUserProperties } from 'firebase/analytics';
-import { analytics } from '@/config/firebase';
-import { UserRole } from '@/types/firebase.types';
+import { analytics } from '../config/firebase';
+import { UserRole } from '../types/firebase.types';
 
 interface GameEvent {
   quarterId: string;
@@ -18,6 +18,24 @@ interface UserEvent {
   action?: string;
 }
 
+interface GameInteractionData {
+  quarterId?: string;
+  userId?: string;
+  actionType: string;
+  value?: number;
+  metadata?: Record<string, any>;
+}
+
+interface MetricsData {
+  name: string;
+  usedMB?: number;
+  totalMB?: number;
+  limitMB?: number;
+  usagePercentage?: number;
+  timestamp: string;
+  [key: string]: any; // For additional metrics we might want to track
+}
+
 export class AnalyticsService {
   private static instance: AnalyticsService;
   private analytics: Analytics;
@@ -29,16 +47,61 @@ export class AnalyticsService {
     this.analytics = analytics;
   }
 
-  logError(error: any) {
-    console.error('[AnalyticsService]:', error);
+  static logQuarter(quarterId: string) {
+    try {
+      const instance = AnalyticsService.getInstance();
+      logEvent(instance.analytics, 'quarter_started', {
+        quarter_id: quarterId,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Analytics error - quarter_started:', error);
+    }
+  }
+
+  static logQuarterStart(quarterId: string) {
+    try {
+      const instance = AnalyticsService.getInstance();
+      logEvent(instance.analytics, 'quarter_start', {
+        quarter_id: quarterId,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Analytics error - quarter_start:', error);
+    }
+  }
+
+  static logGuess(quarterId: string, result: any) {
+    try {
+      const instance = AnalyticsService.getInstance();
+      logEvent(instance.analytics, 'sample_guessed', {
+        quarter_id: quarterId,
+        sample_id: result.sampleId,
+        accuracy: result.accuracy,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Analytics error - sample_guessed:', error);
+    }
   }
 
   // Game Events
-  gameStarted({ quarterId, userId }: GameEvent) {
+  public static gameStarted(
+    context: { quarterId: string, userId: string },
+    metadata: { difficulty: string, mode: string; deviceType: string },
+    userInfo: { quarterId: string, userId: string },
+    gameInfo: { difficulty: string; mode: string; deviceType: string }
+  ): void {
     try {
-      logEvent(this.analytics, 'game_started', {
-        quarter_id: quarterId,
-        user_id: userId,
+      // Get instance first to access analytics
+      const instance = AnalyticsService.getInstance();
+
+      logEvent(instance.analytics, 'game_started', {
+        quarter_id: userInfo.quarterId || context.quarterId,
+        user_id: userInfo.userId || context.userId,
+        difficulty: gameInfo.difficulty || metadata.difficulty,
+        mode: gameInfo.mode || metadata.mode,
+        device_type: gameInfo.deviceType || metadata.deviceType,
         timestamp: new Date().toISOString()
       });
     } catch (error) {
@@ -46,13 +109,50 @@ export class AnalyticsService {
     }
   }
 
-  gameCompleted({ quarterId, userId, score, timeSpent }: GameEvent) {
+  static trackGuess(data: { quarterId: string; userId: string; sampleId: string; accuracy: number; timeSpent: number }) {
     try {
-      logEvent(this.analytics, 'game_completed', {
-        quarter_id: quarterId,
-        user_id: userId,
-        score,
-        time_spent: timeSpent,
+      const instance = AnalyticsService.getInstance();
+      logEvent(instance.analytics, 'sample_guessed', {
+        quarter_id: data.quarterId,
+        user_id: data.userId,
+        sample_id: data.sampleId,
+        accuracy: data.accuracy,
+        time_spent: data.timeSpent,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Analytics error - sample_guessed:', error);
+    }
+  }
+
+  static trackMetrics(data: MetricsData): void {
+    try {
+      const instance = AnalyticsService.getInstance();
+      logEvent(instance.analytics, 'metrics_tracked', {
+        quarter_id: data.quarterId,
+        user_id: data.userId,
+        difficulty: data.difficulty,
+        mode: data.mode,
+        device_type: data.deviceType,
+        accuracy: data.accuracy,
+        time_spent: data.timeSpent,
+        score: data.score,
+        metadata: data.metadata,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Analytics error - metrics_tracked:', error);
+    }
+  }
+
+  static gameCompleted(data: { quarterId: string, userId: string, score: number, time_spent: number }) {
+    try {
+      const instance = AnalyticsService.getInstance();
+      logEvent(instance.analytics, 'game_completed', {
+        quarter_id: data.quarterId,
+        user_id: data.userId,
+        score: data.score,
+        time_spent: data.time_spent,
         timestamp: new Date().toISOString()
       });
     } catch (error) {
@@ -243,7 +343,24 @@ export class AnalyticsService {
       throw error;
     }
   }
+
+  public static trackGameInteraction(action: string, data: GameInteractionData): void {
+    try {
+      if (!AnalyticsService.instance) {
+        throw new Error('Analytics service is not initialized');
+      }
+
+      logEvent(AnalyticsService.instance.analytics, action, {
+        ...data,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Analytics error - trackGameInteraction:', error);
+    }
+  }
+
   static logError(_error: unknown) {
+    console.error('[AnalyticsService]:', _error);
     throw new Error('Method not implemented.');
     // Implement error logging using your preferred method
     // For example, using console.error() or your preferred error logging service
@@ -256,6 +373,13 @@ export class AnalyticsService {
   }
 }
 
+export interface GameStartMetadata {
+  quarterId: string;
+  userId?: string;
+  difficulty?: string;
+  mode?: string;
+  deviceType?: string;
+}
 export interface SampleAnalytics {
   sampleId: string;
   totalAttempts: number;
@@ -299,4 +423,8 @@ export interface SampleAnalytics {
   };
 }
 
+
+
+
 export const analyticsService = new AnalyticsService();
+export const AnalyticsServiceInstance = AnalyticsService.getInstance();

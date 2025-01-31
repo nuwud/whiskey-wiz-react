@@ -1,11 +1,10 @@
 import { Component } from 'react';
-import { FeatureFlags, defaultFeatures } from '@/contexts/feature.context';
 
 export class FeatureFlagComponent extends Component<FeatureFlagProps> {
     render() {
         const { featureFlag, children } = this.props;
 
-        if (!featureFlag.enabled) {
+        if (!featureFlag.enabledFeature) {
             return null;
         }
 
@@ -18,19 +17,34 @@ export class FeatureFlagComponent extends Component<FeatureFlagProps> {
 }
 
 interface FeatureFlagProps {
-    featureFlag: FeatureFlag;
+    featureFlag: FeatureFlags;
     children: React.ReactNode;
 }
 
-interface FeatureFlag {
-    key: string;
-    enabled: boolean;
-    description?: string;
+interface FeatureFlags {
+    enabledFeature: boolean;
+    'advanced-stats': boolean;
+    GUEST_MODE: boolean;
+    MACHINE_LEARNING: boolean;
+    SOCIAL_FEATURES: boolean;
+    SHOPIFY_INTEGRATION: boolean;
 }
 
-
-export const isEnabled = (flag: keyof FeatureFlags): boolean => {
-    return defaultFeatures[flag];
+export const featureFlags: FeatureFlags = {
+    enabledFeature: true,
+    GUEST_MODE: false,
+    MACHINE_LEARNING: false,
+    SOCIAL_FEATURES: true,
+    SHOPIFY_INTEGRATION: false,
+    'advanced-stats': false,
+    // Add more feature flags here
+    // Example: 'VIP_ACCESS': false
 };
 
-export type { FeatureFlags };
+export const enableFeature = (flag: keyof FeatureFlags): void => {
+    featureFlags[flag] = true;
+};
+
+export const isEnabled = (flag: keyof FeatureFlags): boolean => {
+    return featureFlags[flag];
+};

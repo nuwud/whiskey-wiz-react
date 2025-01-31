@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/auth.context';
+import { useAuth } from '../../contexts/auth.context';
 
 interface NavUser {
   displayName: string | null;
@@ -28,13 +28,13 @@ export const NavBar: React.FC = () => {
             <Link to="/" className="text-white text-xl font-bold">
               WhiskeyWiz
             </Link>
-            
+
             {/* Navigation Links */}
             <div className="hidden md:flex space-x-4">
               <Link to="/" className="text-white hover:text-amber-200">
                 Play
               </Link>
-              
+
               {navUser && !navUser.isAnonymous && (
                 <Link to="/profile" className="text-white hover:text-amber-200">
                   Profile
@@ -54,8 +54,8 @@ export const NavBar: React.FC = () => {
             {navUser ? (
               <div className="flex items-center space-x-4">
                 <span className="text-white">
-                  {navUser.isAnonymous 
-                    ? 'Playing as Guest' 
+                  {navUser.isAnonymous
+                    ? 'Playing as Guest'
                     : navUser.displayName || navUser.email || 'User'}
                 </span>
                 <button

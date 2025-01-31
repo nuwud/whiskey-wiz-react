@@ -1,8 +1,6 @@
-"use client";
-
 import { useEffect, useState } from 'react'
-import { Switch } from '@/components/ui/switch-ui.component'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card-ui.component'
+import { Switch } from '../../components/ui/switch-ui.component'
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card-ui.component'
 import { doc, updateDoc, collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../../firebase'
 

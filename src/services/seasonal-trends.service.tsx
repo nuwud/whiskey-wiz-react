@@ -1,6 +1,6 @@
-import { db } from '@/config/firebase';
+import { db } from '../config/firebase';
 import { collection, query, getDocs, where, orderBy } from 'firebase/firestore';
-import { AnalyticsService } from '@/services/analytics.service';
+import { AnalyticsService } from '../services/analytics.service';
 
 export interface SeasonalTrend {
   id: string;

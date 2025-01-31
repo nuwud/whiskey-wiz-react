@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card-ui.component';
-import { Button } from '@/components/ui/button-ui.component';
-import { Progress } from '@/components/ui/progress-ui.component';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card-ui.component';
+import { Button } from '../../components/ui/button-ui.component';
+import { Progress } from '../../components/ui/progress-ui.component';
 
 interface Step {
   title: string;
@@ -84,13 +84,13 @@ export function OnboardingFlow() {
             {currentStepData.content}
           </div>
           <div className="flex justify-between pt-4">
-            <Button 
+            <Button
               onClick={goToPreviousStep}
               disabled={currentStep === 0}
             >
               Previous
             </Button>
-            <Button 
+            <Button
               onClick={goToNextStep}
               disabled={currentStep === onboardingSteps.length - 1}
             >

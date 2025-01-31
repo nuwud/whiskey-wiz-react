@@ -1,8 +1,8 @@
-import { db } from '@/config/firebase';
+import { db } from '../config/firebase';
 import { doc, getDoc, updateDoc, setDoc, collection } from 'firebase/firestore';
-import { AnalyticsService } from 'src/services/analytics.service';
+import { AnalyticsService } from '../services/analytics.service';
 import { DocumentData } from 'firebase/firestore';
-import { GameState } from '@/types/game.types';
+import { GameState, SampleKey, DEFAULT_SCORING_RULES } from '../types/game.types';
 
 export class GameStateService {
   private gameStateCollection = collection(db, 'gameStates');
@@ -12,8 +12,18 @@ export class GameStateService {
       userId,
       quarterId,
       currentSample: 'A',
-      score: 0,
-      totalScore: 0,
+      score: {
+        'A': 0, 'B': 0, 'C': 0, 'D': 0
+      } as Record<SampleKey, number>,
+      scores: {
+        A: 'A',
+        B: 'B',
+        C: 'C',
+        D: 'D'
+      },
+      totalScore: {
+        'A': 0, 'B': 0, 'C': 0, 'D': 0
+      } as Record<SampleKey, number>,
       completedSamples: [],
       progress: 0,
       lastUpdated: new Date(),
@@ -22,10 +32,10 @@ export class GameStateService {
       challenges: [],
       samples: [],
       guesses: {
-        A: { age: 0, proof: 0, mashbill: '' },
-        B: { age: 0, proof: 0, mashbill: '' },
-        C: { age: 0, proof: 0, mashbill: '' },
-        D: { age: 0, proof: 0, mashbill: '' }
+        A: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 },
+        B: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 },
+        C: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 },
+        D: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 }
       },
       answers: {},
       timeRemaining: 0,
@@ -33,7 +43,18 @@ export class GameStateService {
       hints: 0,
       isComplete: false,
       totalChallenges: 0,
-      hasSubmitted: false
+      hasSubmitted: false,
+      startTime: new Date(),
+      endTime: new Date(),
+      currentRound: 1,
+      totalRounds: 4,
+      mode: 'standard',
+      difficulty: 'beginner',
+      isLoading: false,
+      error: null,
+      currentSampleId: null,
+      currentQuarter: null,
+      scoringRules: DEFAULT_SCORING_RULES
     };
 
     try {
@@ -149,8 +170,14 @@ export class GameStateService {
       userId: data.userId || '',
       quarterId: data.quarterId || '',
       currentSample: data.currentSample || 'A',
-      score: data.score || 0,
-      totalScore: data.totalScore || 0,
+      score: data.score || { 'A': 0, 'B': 0, 'C': 0, 'D': 0 } as Record<SampleKey, number>,
+      scores: data.scores || {
+        'A': 'A',
+        'B': 'B',
+        'C': 'C',
+        'D': 'D'
+      },
+      totalScore: data.totalScore || { 'A': 0, 'B': 0, 'C': 0, 'D': 0 } as Record<SampleKey, number>,
       completedSamples: data.completedSamples || [],
       progress: data.progress || 0,
       lastUpdated: new Date(data.lastUpdated || new Date()),
@@ -158,14 +185,31 @@ export class GameStateService {
       currentChallengeIndex: data.currentChallengeIndex || 0,
       challenges: data.challenges || [],
       samples: data.samples || [],
-      guesses: data.guesses || {},
+      guesses: data.guesses || {
+        'A': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 },
+        'B': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 },
+        'C': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 },
+        'D': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 }
+      },
       answers: data.answers || {},
       timeRemaining: data.timeRemaining || 0,
       lives: data.lives || 0,
       hints: data.hints || 0,
       isComplete: data.isComplete || false,
       totalChallenges: data.totalChallenges || 0,
-      hasSubmitted: data.hasSubmitted || false
+      hasSubmitted: data.hasSubmitted || false,
+      startTime: new Date(data.startTime || new Date()),
+      endTime: new Date(data.endTime || new Date()),
+      currentRound: data.currentRound || 1,
+      totalRounds: data.totalRounds || 4,
+      mode: data.mode || 'standard',
+      difficulty: data.difficulty || 'beginner',
+      // Add missing properties
+      isLoading: data.isLoading || false,
+      error: data.error || null,
+      currentSampleId: data.currentSampleId || null,
+      currentQuarter: data.currentQuarter || null,
+      scoringRules: data.scoringRules || DEFAULT_SCORING_RULES
     };
   }
 }

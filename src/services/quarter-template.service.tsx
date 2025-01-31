@@ -1,36 +1,21 @@
 import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
-import { AnalyticsService } from 'src/services/analytics.service';
+import { AnalyticsService } from '../services/analytics.service';
 
 export interface QuarterTemplate {
-  id: string;
+  id?: string;
   name: string;
-  difficulty: 'easy' | 'medium' | 'hard';
-  whiskeySamples: WhiskeySample[];
-  challengeRules: ChallengeRules;
-}
-
-export interface WhiskeySample {
-  id: string;
-  name: string;
-  age: number;
-  proof: number;
-  mashbillType: string;
-  challengeQuestions: ChallengeQuestion[];
-}
-
-export interface ChallengeQuestion {
-  id: string;
-  question: string;
-  possibleAnswers: string[];
-  correctAnswer: string;
-  points: number;
-}
-
-export interface ChallengeRules {
-  maxAttempts: number;
-  timeLimit: number; // in minutes
-  passingScore: number;
+  startDate: Date;
+  endDate: Date;
+  isActive: boolean;
+  difficulty: string;
+  description?: string;
+  samples: Array<any>; // Consider creating a Sample interface
+  scoringRules?: {
+    age: number;
+    proof: number;
+    mashbill: number;
+  };
 }
 
 export class QuarterTemplateService {
@@ -95,7 +80,7 @@ export class QuarterTemplateService {
 
         templates.forEach(template => {
           // Generate component files or register dynamically
-          const componentCode = this.generateQuarterComponent(template);
+          this.generateQuarterComponent(template);
 
           AnalyticsService.trackUserEngagement('dynamic_quarter_generated', {
             templateId: template.id,

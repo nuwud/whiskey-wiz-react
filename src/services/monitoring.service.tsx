@@ -1,10 +1,16 @@
-import { analyticsService } from './analytics.service';
+import { AnalyticsService } from './analytics.service';
 
 interface PerformanceMetric {
   name: string;
   duration: number;
   startTime: number;
   context?: string;
+}
+
+interface MemoryMetrics {
+  usedJSHeapSize: number;
+  totalJSHeapSize: number;
+  jsHeapSizeLimit: number;
 }
 
 class MonitoringService {
@@ -15,18 +21,20 @@ class MonitoringService {
     ['guess_submission', 1000],
     ['analytics_event', 200]
   ]);
+  private readonly MEMORY_THRESHOLD = 0.8; // 80% of heap limit
+  private memoryWarningLogged = false;
 
   startTrace(traceName: string, context?: string) {
     try {
       const startTime = performance.now();
       this.performanceEntries.set(traceName, startTime);
-      
+
       if (context) {
-        analyticsService.trackError(`Trace started: ${traceName}`, context);
+        AnalyticsService.trackError(`Trace started: ${traceName}`, context);
       }
     } catch (error) {
       console.error('Failed to start trace:', error);
-      analyticsService.trackError('Failed to start trace', 'monitoring_service');
+      AnalyticsService.trackError('Failed to start trace', 'monitoring_service');
     }
   }
 
@@ -57,7 +65,7 @@ class MonitoringService {
       return duration;
     } catch (error) {
       console.error('Failed to end trace:', error);
-      analyticsService.trackError('Failed to end trace', 'monitoring_service');
+      AnalyticsService.trackError('Failed to end trace', 'monitoring_service');
       return 0;
     }
   }
@@ -85,7 +93,7 @@ class MonitoringService {
   private logPerformanceMetric(metric: PerformanceMetric) {
     try {
       // Log to analytics
-      analyticsService.trackError('Performance metric logged', 'monitoring_service');
+      AnalyticsService.trackError('Performance metric logged', 'monitoring_service');
 
       // Log to console in development
       if (import.meta.env.DEV) {
@@ -102,11 +110,11 @@ class MonitoringService {
   private checkPerformanceThreshold(metricName: string, duration: number) {
     const threshold = this.thresholds.get(metricName);
     if (threshold && duration > threshold) {
-      analyticsService.trackError(
+      AnalyticsService.trackError(
         `Performance threshold exceeded: ${metricName}`,
         'monitoring_service'
       );
-      
+
       if (import.meta.env.DEV) {
         console.warn(
           `Performance warning: ${metricName} took ${duration.toFixed(2)}ms ` +
@@ -119,14 +127,56 @@ class MonitoringService {
   // Browser-specific memory metrics
   logMemoryMetrics() {
     try {
-      if ('memory' in performance) {
-        const memory = (performance as any).memory;
-        analyticsService.trackError('Memory metrics logged', 'monitoring_service');
+      if (!('memory' in performance)) {
+        return; // Early return if memory metrics not available
+      }
+
+      const memory = (performance as any).memory as MemoryMetrics;
+      const metrics = {
+        usedMB: memory.usedJSHeapSize / (1024 * 1024),
+        totalMB: memory.totalJSHeapSize / (1024 * 1024),
+        limitMB: memory.jsHeapSizeLimit / (1024 * 1024),
+        usagePercentage: (memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100
+      };
+
+      // Track regular metrics
+      AnalyticsService.trackMetrics({
+        name: 'memory_metrics',
+        ...metrics,
+        timestamp: new Date().toISOString()
+      });
+      // Handle memory warnings
+      if (metrics.usagePercentage > this.MEMORY_THRESHOLD * 100) {
+        if (!this.memoryWarningLogged) {
+          AnalyticsService.trackError(
+            `High memory usage: ${metrics.usagePercentage.toFixed(1)}%`,
+            'monitoring_service'
+          );
+          this.memoryWarningLogged = true;
+        }
+      } else {
+        this.memoryWarningLogged = false;
+      }
+
+      // Log in development
+      if (import.meta.env.DEV) {
+        console.log('Memory Usage:', metrics);
       }
     } catch (error) {
       console.error('Failed to log memory metrics:', error);
     }
   }
 }
+
+export const formatMemoryMetrics = (memory: MemoryMetrics) => {
+  const bytesToMB = (bytes: number) => bytes / (1024 * 1024);
+
+  return {
+    usedMB: bytesToMB(memory.usedJSHeapSize),
+    totalMB: bytesToMB(memory.totalJSHeapSize),
+    limitMB: bytesToMB(memory.jsHeapSizeLimit),
+    usagePercentage: (memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100
+  };
+};
 
 export const monitoringService = new MonitoringService();

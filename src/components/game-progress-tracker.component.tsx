@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { GameStateService, GameState, GameEvent } from '@/services/game-state.service';
-import { useAuth } from '@/contexts/auth.context';
-import { AnalyticsService } from '@/services/analytics.service';
+import { GameStateService, GameEvent } from '../services/game-state.service';
+import { GameState, SampleKey } from '../types/game.types';
+import { useAuth } from '../contexts/auth.context';
+import { AnalyticsService } from '../services/analytics.service';
 import { cn } from '@/lib/utils';
 
 interface GameProgressTrackerProps {
@@ -18,6 +19,9 @@ export const GameProgressTracker: React.FC<GameProgressTrackerProps> = ({
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [startTime] = useState<number>(Date.now());
   const gameStateService = new GameStateService();
+  const calculateTotalScore = (scores: Record<SampleKey, number>): number => {
+    return Object.values(scores).reduce((sum, score) => sum + score, 0);
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -70,7 +74,7 @@ export const GameProgressTracker: React.FC<GameProgressTrackerProps> = ({
           quarterId,
           userId: user.uid,
           sampleId: completedSampleId,
-          accuracy: ((updatedState.score - gameState.score) / 100) * 100,
+          accuracy: calculateTotalScore(updatedState.score) - calculateTotalScore(gameState.score),
           timeSpent: Math.floor((Date.now() - startTime) / 1000)
         });
 
@@ -104,11 +108,11 @@ export const GameProgressTracker: React.FC<GameProgressTrackerProps> = ({
 
   if (!gameState) {
     return (
-      <div className="rounded-lg bg-white p-4 shadow animate-pulse">
-        <div className="h-2 w-full bg-gray-200 rounded" />
-        <div className="mt-2 flex justify-between">
-          <div className="h-4 w-24 bg-gray-200 rounded" />
-          <div className="h-4 w-24 bg-gray-200 rounded" />
+      <div className="p-4 bg-white rounded-lg shadow animate-pulse">
+        <div className="w-full h-2 bg-gray-200 rounded" />
+        <div className="flex justify-between mt-2">
+          <div className="w-24 h-4 bg-gray-200 rounded" />
+          <div className="w-24 h-4 bg-gray-200 rounded" />
         </div>
       </div>
     );
@@ -117,8 +121,8 @@ export const GameProgressTracker: React.FC<GameProgressTrackerProps> = ({
   const progress = Math.min(Math.max(gameState.progress, 0), 100);
 
   return (
-    <div className="rounded-lg bg-white p-4 shadow">
-      <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+    <div className="p-4 bg-white rounded-lg shadow">
+      <div className="w-full h-2 overflow-hidden bg-gray-200 rounded-full">
         <div
           className={cn(
             "h-full bg-amber-500 transition-all duration-300",
@@ -126,9 +130,9 @@ export const GameProgressTracker: React.FC<GameProgressTrackerProps> = ({
           )}
         />
       </div>
-      <div className="mt-2 flex justify-between text-sm text-gray-600">
+      <div className="flex justify-between mt-2 text-sm text-gray-600">
         <span>Completed: {gameState.completedSamples.length}/{totalSamples}</span>
-        <span>Score: {gameState.score}</span>
+        <span>Score: {calculateTotalScore(gameState.score)}</span>
       </div>
     </div>
   );

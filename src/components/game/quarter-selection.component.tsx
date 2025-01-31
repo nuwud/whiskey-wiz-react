@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Quarter } from '@/types';
-import { quarterService } from '@/services/quarter.service';
-import { analyticsService } from '@/services/analytics.service';
-import { useAuth } from '@/contexts/auth.context';
+import { Quarter } from '../../types/game.types';
+import { quarterService } from '../../services/quarter.service';
+import { analyticsService } from '../../services/analytics.service';
+import { useAuth } from '../../contexts/auth.context';
+import { Difficulty } from '../../types/game.types';
 
 interface QuarterSelectionProps {
   onSelect: (quarter: Quarter) => void;
@@ -10,7 +11,7 @@ interface QuarterSelectionProps {
   className?: string;
 }
 
-export const QuarterSelection: React.FC<QuarterSelectionProps> = ({ 
+export const QuarterSelection: React.FC<QuarterSelectionProps> = ({
   onSelect,
   showInactive = false,
   className = ''
@@ -24,15 +25,15 @@ export const QuarterSelection: React.FC<QuarterSelectionProps> = ({
     const fetchQuarters = async () => {
       try {
         setLoading(true);
-        const fetchedQuarters = await (showInactive 
+        const fetchedQuarters = await (showInactive
           ? quarterService.getAllQuarters()
           : quarterService.getActiveQuarters());
-        
+
         // Sort quarters by start date (most recent first)
         const sortedQuarters = [...fetchedQuarters].sort(
           (a, b) => b.startDate.getTime() - a.startDate.getTime()
         );
-        
+
         setQuarters(sortedQuarters);
         analyticsService.trackError('Quarters loaded', 'quarter_selection', user?.uid);
       } catch (err) {
@@ -52,32 +53,45 @@ export const QuarterSelection: React.FC<QuarterSelectionProps> = ({
 
     // Track quarter selection
     analyticsService.trackError('Quarter selected', 'quarter_selection', user.uid);
-    
+
     onSelect(quarter);
+  };
+
+  const getDifficultyColor = (difficulty: Difficulty): string => {
+    switch (difficulty) {
+      case 'beginner':
+        return 'text-green-600';
+      case 'intermediate':
+        return 'text-amber-600';
+      case 'advanced':
+        return 'text-red-600';
+      default:
+        return 'text-gray-600';
+    }
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-32">
-        <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+      <div className="flex items-center justify-center h-32">
+        <div className="w-8 h-8 border-4 rounded-full border-amber-500 border-t-transparent animate-spin" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-lg bg-red-50 p-4">
-        <div className="text-sm text-red-700 text-center">{error}</div>
+      <div className="p-4 rounded-lg bg-red-50">
+        <div className="text-sm text-center text-red-700">{error}</div>
       </div>
     );
   }
 
   if (quarters.length === 0) {
     return (
-      <div className="text-center p-8 bg-gray-50 rounded-lg">
+      <div className="p-8 text-center rounded-lg bg-gray-50">
         <p className="text-gray-600">
-          {showInactive 
-            ? 'No quarters available.' 
+          {showInactive
+            ? 'No quarters available.'
             : 'No active quarters available. Check back later!'}
         </p>
       </div>
@@ -99,10 +113,10 @@ export const QuarterSelection: React.FC<QuarterSelectionProps> = ({
             focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2
           `}
         >
-          <h3 className="text-lg font-bold text-gray-900 mb-2">
+          <h3 className="mb-2 text-lg font-bold text-gray-900">
             {quarter.name}
           </h3>
-          
+
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-600">Start Date:</span>
@@ -110,24 +124,19 @@ export const QuarterSelection: React.FC<QuarterSelectionProps> = ({
                 {new Date(quarter.startDate).toLocaleDateString()}
               </span>
             </div>
-            
+
             <div className="flex justify-between">
               <span className="text-gray-600">End Date:</span>
               <span className="text-gray-900">
                 {new Date(quarter.endDate).toLocaleDateString()}
               </span>
             </div>
-            
+
             <div className="flex justify-between">
               <span className="text-gray-600">Difficulty:</span>
-              <span className={`font-medium ${
-                quarter.difficulty === 'beginner'
-                  ? 'text-green-600'
-                  : quarter.difficulty === 'intermediate'
-                  ? 'text-amber-600'
-                  : 'text-red-600'
-              }`}>
-                {quarter.difficulty.charAt(0).toUpperCase() + quarter.difficulty.slice(1)}
+              <span className={`font-medium ${getDifficultyColor(quarter.difficulty)}`}>
+                {typeof quarter.difficulty === 'string' &&
+                  quarter.difficulty.charAt(0).toUpperCase() + quarter.difficulty.slice(1)}
               </span>
             </div>
 

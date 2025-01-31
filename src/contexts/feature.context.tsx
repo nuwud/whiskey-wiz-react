@@ -1,30 +1,17 @@
 import React, { createContext, useContext, useState } from 'react';
-
-export interface FeatureFlags {
-  GUEST_MODE: boolean;
-  MACHINE_LEARNING: boolean;
-  SOCIAL_FEATURES: boolean;
-  SHOPIFY_INTEGRATION: boolean;
-}
+import { featureFlags } from '../config/feature-flags.config';
 
 interface FeatureContextType {
-  features: FeatureFlags;
-  toggleFeature: (featureName: keyof FeatureFlags) => void;
+  features: typeof featureFlags;
+  toggleFeature: (featureName: keyof typeof featureFlags) => void;
 }
-
-export const defaultFeatures: FeatureFlags = {
-  GUEST_MODE: false,
-  MACHINE_LEARNING: false,
-  SOCIAL_FEATURES: true,
-  SHOPIFY_INTEGRATION: false
-};
 
 const FeatureContext = createContext<FeatureContextType | undefined>(undefined);
 
 export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [features, setFeatures] = useState<FeatureFlags>(defaultFeatures);
+  const [features, setFeatures] = useState<typeof featureFlags>(featureFlags);
 
-  const toggleFeature = (featureName: keyof FeatureFlags) => {
+  const toggleFeature = (featureName: keyof typeof featureFlags) => {
     setFeatures(prev => ({
       ...prev,
       [featureName]: !prev[featureName]

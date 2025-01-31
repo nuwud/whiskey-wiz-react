@@ -1,8 +1,26 @@
-"use client";
-
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card-ui.component';
-import { AdminDashboardMetrics, AdminDashboardService, } from 'src/services/admin-dashboard.service';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card-ui.component';
+import { AdminDashboardMetrics, AdminDashboardService, } from '../../services/admin-dashboard.service';
+
+interface AdminMetricsPanel {
+  totalPlayers: number;
+  activePlayers: number;
+  averageScore: number;
+  memoryUsage: {
+    used: number;
+    total: number;
+    percentage: number;
+  };
+  performanceMetrics: {
+    name: string;
+    value: number;
+  }[];
+  playerStats: {
+    totalGames: number;
+    completionRate: number;
+    averageAccuracy: number;
+  };
+}
 
 export function AdminMetricsPanel() {
   const [metrics, setMetrics] = useState<AdminDashboardMetrics | null>(null);
@@ -37,17 +55,19 @@ export function AdminMetricsPanel() {
           <div className="space-y-4 p-4">
             <div>
               <h3 className="text-lg font-bold">Total Players</h3>
-              <p className="text-3xl font-bold">{metrics.totalPlayers}</p>
+              <p className="text-3xl font-bold">{metrics.playerStats.total}</p>
             </div>
             <div>
               <h3 className="text-lg font-bold">Authentication Breakdown</h3>
               <ul className="space-y-2">
-                {Object.entries(metrics.playerDemographics.authMethodBreakdown).map(([type, count]) => (
-                  <li key={type} className="flex justify-between">
-                    <span className="capitalize">{type}</span>
-                    <span className="font-bold">{count}</span>
-                  </li>
-                ))}
+                {Object.entries(metrics.playerStats.demographics.authMethodBreakdown).map(
+                  ([type, count]: [string, number]) => (
+                    <li key={type} className="flex justify-between">
+                      <span className="capitalize">{type}</span>
+                      <span className="font-bold">{count}</span>
+                    </li>
+                  )
+                )}
               </ul>
             </div>
           </div>
@@ -60,7 +80,7 @@ export function AdminMetricsPanel() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4 p-4">
-            {metrics.quarterPerformance.map((quarter) => (
+            {metrics.quarterPerformance && metrics.quarterPerformance.map((quarter) => (
               <div key={quarter.quarterId} className="space-y-2">
                 <div className="flex justify-between items-center">
                   <h4 className="font-medium">{quarter.quarterId}</h4>
@@ -80,7 +100,6 @@ export function AdminMetricsPanel() {
         </CardContent>
       </Card>
 
-      {/* Additional Cards */}
       <Card>
         <CardHeader>
           <CardTitle>ML Insights</CardTitle>
@@ -90,7 +109,7 @@ export function AdminMetricsPanel() {
             <div>
               <h4 className="font-medium">Marketing Segments</h4>
               <ul className="list-disc pl-4">
-                {metrics.machineLearningSuggestions.marketingSegments.map((segment, i) => (
+                {metrics.machineLearningSuggestions && metrics.machineLearningSuggestions.marketingSegments.map((segment: string, i: number) => (
                   <li key={i}>{segment}</li>
                 ))}
               </ul>

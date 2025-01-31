@@ -1,6 +1,6 @@
 import React, { useState, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { FirebaseService } from '@/services/firebase.service';
+import { FirebaseService } from '../../services/firebase.service';
 
 export const ForgotPassword: React.FC = () => {
   const [email, setEmail] = useState<string>('');
@@ -71,9 +71,8 @@ export const ForgotPassword: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className={`group relative flex w-full justify-center rounded-md border border-transparent bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
-                loading ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
+              className={`group relative flex w-full justify-center rounded-md border border-transparent bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${loading ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
             >
               {loading ? 'Sending...' : 'Reset Password'}
             </button>

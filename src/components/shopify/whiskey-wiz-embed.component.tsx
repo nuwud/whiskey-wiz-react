@@ -1,21 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { shopifyService } from '@/services/shopify-integration.service';
-import { QuarterProvider } from '@/contexts/quarter.context';
-import { AuthProvider } from '@/contexts/auth.context';
-import { FeatureProvider } from '@/contexts/feature.context';
-import { GameBoard } from '@/components/game/game-board.component';
-import { AnalyticsService } from '@/services/analytics.service';
+import { shopifyService } from '../../services/shopify-integration.service';
+import { QuarterProvider } from '../../contexts/quarter.context';
+import { AuthProvider } from '../../contexts/auth.context';
+import { FeatureProvider } from '../../contexts/feature.context';
+import { GameBoard } from '../../components/game/game-board.component';
+import { AnalyticsService } from '../../services/analytics.service';
 
 type Theme = 'light' | 'dark';
 type PageType = 'product' | 'collection' | 'page';
 
-interface WhiskeyWizEmbedOptions {
+export interface WhiskeyWizEmbedOptions {
   quarterId?: string;
   theme?: Theme;
-  width?: string;
-  height?: string;
-  containerStyle?: React.CSSProperties;
+  size?: 'small' | 'medium' | 'large';
+  containerId?: string;
+  apiKey?: string;
 }
 
 interface PageInfo {
@@ -46,7 +46,20 @@ const DEFAULT_CONFIG = {
   maxWidth: '1200px',
 };
 
-const WhiskeyWizEmbed: React.FC<{ options: WhiskeyWizEmbedOptions }> = ({ options }) => {
+interface WhiskeyWizEmbedProps {
+  containerId?: string;
+  theme?: Theme;
+  size?: 'small' | 'medium' | 'large';
+  quarterId?: string;
+  apiKey?: string;
+}
+
+const WhiskeyWizEmbed: React.FC<WhiskeyWizEmbedProps> = ({
+  containerId,
+  theme = DEFAULT_CONFIG.theme,
+  size = 'medium',
+  quarterId
+}) => {
   const [pageInfo, setPageInfo] = useState<PageInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -55,25 +68,22 @@ const WhiskeyWizEmbed: React.FC<{ options: WhiskeyWizEmbedOptions }> = ({ option
     const initializeEmbed = async () => {
       try {
         setIsLoading(true);
-
-        // Get page info from Shopify
-        if (!options.quarterId) {
+        if (!quarterId) {
           throw new Error('No quarter ID specified');
         }
 
         const productId = new URLSearchParams(window.location.search).get('product_id') ?? undefined;
         const pageType: PageType = productId ? 'product' : 'page';
 
-        // If on product page, check for existing challenge
         if (pageType === 'product' && productId) {
-          const hasChallenge = shopifyService.hasEmbeddedChallenge(productId);
+          const hasChallenge = await shopifyService.hasEmbeddedChallenge(productId);
           if (hasChallenge) {
             throw new Error('Challenge already embedded in this product');
           }
         }
 
         setPageInfo({
-          quarterId: options.quarterId,
+          quarterId,
           pageType,
           productId
         });
@@ -91,30 +101,15 @@ const WhiskeyWizEmbed: React.FC<{ options: WhiskeyWizEmbedOptions }> = ({ option
     initializeEmbed();
 
     return () => {
-      // Cleanup if needed
       const { productId } = pageInfo || {};
       if (productId) {
         shopifyService.removeChallengeFromProduct(productId);
       }
     };
-  }, [options.quarterId]);
+  }, [quarterId]);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-lg bg-red-50 p-4">
-        <div className="text-sm text-red-700 text-center">{error}</div>
-      </div>
-    );
-  }
-
+  if (isLoading) return <div className="whiskey-wiz-spinner" />;
+  if (error) return <div className="whiskey-wiz-error">{error}</div>;
   if (!pageInfo?.quarterId) {
     return (
       <div className="rounded-lg bg-amber-50 p-4">
@@ -125,17 +120,11 @@ const WhiskeyWizEmbed: React.FC<{ options: WhiskeyWizEmbedOptions }> = ({ option
     );
   }
 
-  const containerStyles: React.CSSProperties = {
-    width: options.width || DEFAULT_CONFIG.width,
-    height: options.height || DEFAULT_CONFIG.height,
-    maxWidth: DEFAULT_CONFIG.maxWidth,
-    margin: '0 auto',
-    ...(options.containerStyle || {})
-  };
-
-  // In the return statement of WhiskeyWizEmbed
   return (
-    <div className={`whiskey-wiz-embed ${options.theme || DEFAULT_CONFIG.theme}`} style={containerStyles}>
+    <div
+      id={containerId}
+      className={`whiskey-wiz-embed ${theme} ${size}`}
+    >
       <AuthProvider>
         <FeatureProvider>
           <QuarterProvider>
@@ -154,7 +143,7 @@ const mountEmbed = (el: HTMLElement, options: WhiskeyWizEmbedOptions = {}): (() 
   el.appendChild(container);
 
   const root = createRoot(container);
-  root.render(<WhiskeyWizEmbed options={options} />);
+  root.render(<WhiskeyWizEmbed {...options} />);
 
   // Return cleanup function
   return () => {

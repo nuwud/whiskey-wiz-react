@@ -1,26 +1,26 @@
 import React from 'react';
-import { Routes, Route, Navigate, useNavigate, Outlet } from 'react-router-dom';
-import PrivateRoute from 'src/components/private-route.component';
-import { UserRole } from '@/types';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { PrivateRoute } from '../routes/private-route';
+import { UserRole } from '../types/auth.types';
 
 // Auth Components
-import { Login } from '@/components/auth/login.component';
-import { SignUp } from '@/components/auth/sign-up.component';
-import { ForgotPassword } from '@/components/auth/forgot-password.component';
-import { VerifyEmail } from '@/components/auth/verify-email.component';
+import { Login } from '../components/auth/login.component';
+import { SignUp } from '../components/auth/sign-up.component';
+import { ForgotPassword } from '../components/auth/forgot-password.component';
+import { VerifyEmail } from '../components/auth/verify-email.component';
 
 // Game Components
-import { GameContainer } from '@/components/game/game-container.component';
-import { QuarterSelection } from '@/components/game/quarter-selection.component';
+import { GameContainer } from '../components/game/game-container.component';
+import { QuarterSelection } from '../components/game/quarter-selection.component';
 
 // Admin Components
-import { AdminDashboard } from '@/components/admin/admin-dashboard.component';
-import { UserManagement } from '@/components/admin/user-management.component';
-import { QuarterManagement } from '@/components/admin/quarter-management.component';
+import AdminDashboard from '../components/admin/admin-dashboard.component';
+import UserManagement from '../components/admin/user-management.component';
+import { QuarterManagement } from '../components/admin/quarter-management.component';
 
 // Player Components
-import { PlayerDashboard } from '@/components/player/player-dashboard.component';
-import { PlayerProfile } from '@/components/player/player-profile.component';
+import { PlayerDashboard } from '../components/player/player-dashboard.component';
+import { PlayerProfile } from '../components/player/player-profile.component';
 
 export const AppRoutes: React.FC = () => {
   const navigate = useNavigate();
@@ -34,13 +34,13 @@ export const AppRoutes: React.FC = () => {
 
       {/* Game Routes */}
       <Route element={<PrivateRoute allowedRoles={[UserRole.USER, UserRole.ADMIN]} />}>
-        <Outlet />
         <Route path="/" element={<QuarterSelection onSelect={(quarter) => {
           if (quarter?.id) {
             navigate(`/game/${quarter.id}`);
           }
         }} />} />
         <Route path="/game/:quarterId" element={<GameContainer />} />
+        <Route path="/game" element={<GameContainer />} />
       </Route>
 
       {/* Player Routes */}

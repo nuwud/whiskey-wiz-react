@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { quarterService } from 'src/services/quarter.service';
-import { LeaderboardEntry } from 'src/services/leaderboard.service';
+import { quarterService } from '../../services/quarter.service';
+import { LeaderboardEntry } from '../../services/leaderboard.service';
 
 export const QuarterLeaderboard = ({ quarterId }: { quarterId: string }) => {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);

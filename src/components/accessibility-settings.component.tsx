@@ -29,7 +29,7 @@ export const AccessibilitySettings: React.FC = () => {
         <select title="Font Size"
           value={accessibilityPreferences.preferences.fontSize}
           onChange={(e) => updateAccessibilityPreferences({
-            fontSize: e.target.value
+            fontSize: e.target.value as 'small' | 'medium' | 'large'
           })}
         >
           <option value="small">Small</option>

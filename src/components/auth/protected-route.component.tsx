@@ -1,8 +1,8 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from '@/contexts/auth.context';
-import { Spinner } from '@/components/ui/spinner-ui.component';
-import { UserRole } from '@/types';
+import { useAuth } from '../../contexts/auth.context';
+import { Spinner } from '../../components/ui/spinner-ui.component';
+import { UserRole } from '../../types';
 
 interface ProtectedRouteProps {
   allowedRoles?: UserRole[];
@@ -10,8 +10,8 @@ interface ProtectedRouteProps {
   children?: React.ReactNode;
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
-  allowedRoles = [], 
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+  allowedRoles = [],
   requireAuth = true,
   children
 }) => {

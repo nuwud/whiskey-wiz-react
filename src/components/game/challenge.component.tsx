@@ -16,6 +16,7 @@ export const Challenge = ({ challenge, onAnswer, onUseHint }: ChallengeProps) =>
   const handleSubmit = () => {
     if (!selectedAnswer) return;
     submitAnswer(challenge.id, selectedAnswer);
+    onAnswer(selectedAnswer);
     setSelectedAnswer('');
   };
 
@@ -67,8 +68,8 @@ export const Challenge = ({ challenge, onAnswer, onUseHint }: ChallengeProps) =>
             key={option}
             onClick={() => setSelectedAnswer(option)}
             className={`w-full p-4 text-left rounded-lg border-2 transition-all ${selectedAnswer === option
-                ? 'border-amber-600 bg-amber-50'
-                : 'border-gray-200 hover:border-amber-200'
+              ? 'border-amber-600 bg-amber-50'
+              : 'border-gray-200 hover:border-amber-200'
               }`}
           >
             {option}
@@ -87,8 +88,8 @@ export const Challenge = ({ challenge, onAnswer, onUseHint }: ChallengeProps) =>
             onClick={handleHint}
             disabled={hints === 0}
             className={`text-sm ${hints > 0
-                ? 'text-amber-600 hover:text-amber-700'
-                : 'text-gray-400 cursor-not-allowed'
+              ? 'text-amber-600 hover:text-amber-700'
+              : 'text-gray-400 cursor-not-allowed'
               }`}
           >
             Use Hint ({hints} remaining)
@@ -101,8 +102,8 @@ export const Challenge = ({ challenge, onAnswer, onUseHint }: ChallengeProps) =>
         onClick={handleSubmit}
         disabled={!selectedAnswer}
         className={`w-full py-3 px-4 rounded-lg font-medium ${selectedAnswer
-            ? 'bg-amber-600 text-white hover:bg-amber-700'
-            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+          ? 'bg-amber-600 text-white hover:bg-amber-700'
+          : 'bg-gray-100 text-gray-400 cursor-not-allowed'
           }`}
       >
         Submit Answer

@@ -1,6 +1,20 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import GameContainer from '../components/game/game-container.component';
+
+interface GameContainerProps {
+  quarterId?: string;
+}
+
+const GameContainer: React.FC<GameContainerProps> = ({ quarterId }) => {
+  // Your component implementation here
+  return (
+    <div>
+      {/* Game container */}
+      <h1>Game Container</h1>
+      <p>Quarter ID: {quarterId}</p>
+    </div>
+  );
+};
 
 class WhiskeyWizGameElement extends HTMLElement {
   private root: ReturnType<typeof createRoot> | null = null;

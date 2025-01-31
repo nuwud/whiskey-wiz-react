@@ -1,54 +1,114 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/auth.context';
-import { quarterService } from '@/services/quarter.service';
-import { AnalyticsService } from '@/services/analytics.service';
-import { monitoringService } from '@/services/monitoring.service';
-import { FirebaseService } from '@/services/firebase.service';
-import { WhiskeySample } from '@/services/quarter.service';
-import { Spinner } from '@/components/ui/spinner-ui.component';
+import { useAuth } from '../../contexts/auth.context';
+import { quarterService } from '../../services/quarter.service';
+import { AnalyticsService } from '../../services/analytics.service';
+import { monitoringService } from '../../services/monitoring.service';
+import { FirebaseService } from '../../services/firebase.service';
+import { WhiskeySample } from '../../types/game.types';
+import { Spinner } from '../../components/ui/spinner-ui.component';
+import { GameState, SampleKey } from '../../types/game.types';
+import { SampleGuessing } from './sample-guessing.component';  // Add this import
+
 
 type SampleId = 'A' | 'B' | 'C' | 'D';
 
-interface Guess {
-  age: number;
-  proof: number;
-  mashbillType: string;
-  submitted: boolean;
-}
+const calculateTotalScore = (scores: Record<SampleKey, number>): number => {
+  return Object.values(scores).reduce((sum, score) => sum + score, 0);
+};
 
-interface GameState {
-  currentSample: SampleId;
-  guesses: Record<SampleId, Guess>;
-  scores: Record<SampleId, number>;
-  totalScore: number;
-  isComplete: boolean;
-}
-
-const INITIAL_GUESS: Guess = {
-  age: 0,
-  proof: 0,
-  mashbillType: '',
-  submitted: false
+const calculateTimeSpent = (startTime: number): number => {
+  return Math.floor((Date.now() - startTime) / 1000);
 };
 
 const INITIAL_GAME_STATE: GameState = {
+  // User and session info
+  userId: '',
+  quarterId: '',
+  isPlaying: true,
+  isLoading: false,  
+  error: null,       
+  currentSampleId: null, 
+  currentQuarter: null,  
+  scoringRules: {
+    age: {
+      maxPoints: 100,
+      pointDeductionPerYear: 10,
+      exactMatchBonus: 20
+    },
+    proof: {
+      maxPoints: 100,
+      pointDeductionPerProof: 5,
+      exactMatchBonus: 20
+    },
+    mashbill: {
+      maxPoints: 100,
+      pointDeductionPerType: 5,
+      exactMatchBonus: 20
+    }
+  },
+  lastUpdated: new Date(),
+  startTime: new Date(),
+  endTime: new Date(),
+  currentRound: 1,
+  totalRounds: 4,
+
+  totalScore: {
+    'A': 0, 'B': 0, 'C': 0, 'D': 0
+  } as Record<SampleKey, number>,
+
+  // Progress tracking
+  completedSamples: [],
+  progress: 0,
+  hasSubmitted: false,
+  currentChallengeIndex: 0,
+  totalChallenges: 0,
+
+  // Game elements
+  challenges: [],
   currentSample: 'A',
+  samples: [],
+  difficulty: 'beginner',
+  mode: 'standard' as const,
+
+  // Player input and scoring
   guesses: {
-    'A': { ...INITIAL_GUESS },
-    'B': { ...INITIAL_GUESS },
-    'C': { ...INITIAL_GUESS },
-    'D': { ...INITIAL_GUESS }
+    'A': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 },
+    'B': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 },
+    'C': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 },
+    'D': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 }
   },
+  score: {
+    'A': 0, 'B': 0, 'C': 0, 'D': 0
+  } as Record<SampleKey, number>,
   scores: {
-    'A': 0,
-    'B': 0,
-    'C': 0,
-    'D': 0
+    'A': 'A',
+    'B': 'B',
+    'C': 'C',
+    'D': 'D'
   },
-  totalScore: 0,
+  answers: {},
+
+  // Game mechanics
+  timeRemaining: 0,
+  lives: 3,
+  hints: 0,
   isComplete: false
 };
+
+export interface GuessSubmitEvent {
+  sampleId: string;
+  guessedValues: {
+    age: number;
+    proof: number;
+    mashbill: {
+      corn: number;
+      rye: number;
+      wheat: number;
+      barley: number;
+    };
+  };
+}
 
 export const GameContainer: React.FC = () => {
   const { quarterId } = useParams<{ quarterId: string }>();
@@ -58,6 +118,9 @@ export const GameContainer: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [gameState, setGameState] = useState<GameState>(INITIAL_GAME_STATE);
   const [samples, setSamples] = useState<Record<SampleId, WhiskeySample>>({} as Record<SampleId, WhiskeySample>);
+  const [startTime] = useState<number>(Date.now());
+  const [currentSampleIndex, setCurrentSampleIndex] = useState(0);
+  const sampleIds: SampleId[] = ['A', 'B', 'C', 'D'];
 
   useEffect(() => {
     const initializeGame = async () => {
@@ -77,6 +140,17 @@ export const GameContainer: React.FC = () => {
         AnalyticsService.gameStarted({
           quarterId,
           userId: user.uid
+        }, {
+          difficulty: quarter.difficulty,
+          mode: 'standard',
+          deviceType: 'web'
+        }, {
+          quarterId,
+          userId: user.uid
+        }, {
+          difficulty: quarter.difficulty,
+          mode: 'standard',
+          deviceType: 'web'
         });
 
         // Set up samples
@@ -89,9 +163,9 @@ export const GameContainer: React.FC = () => {
         setSamples(quarterSamples);
         setLoading(false);
       } catch (error) {
-        console.error('Game initialization failed:', error);
-        setError('Failed to initialize game. Please try again.');
-        AnalyticsService.trackError('Game initialization failed', 'game_container');
+        console.error('Analytics setup failed:', error);
+        setError('Failed to initialize analytics. Please try again.');
+        AnalyticsService.trackError('Analytics setup failed', 'game_container');
       } finally {
         monitoringService.endTrace('game_initialization');
       }
@@ -100,81 +174,53 @@ export const GameContainer: React.FC = () => {
     initializeGame();
   }, [quarterId, user, navigate]);
 
-  const handleGuessSubmit = async (guess: Partial<Guess>) => {
-    if (!quarterId || !user) return;
-
-    const currentSample = samples[gameState.currentSample];
-    if (!currentSample) return;
-
-    try {
-      monitoringService.startTrace('guess_submission');
-
-      // Validate guess
-      const result = await FirebaseService.validateGuess(quarterId, {
-        ...guess,
-        sampleId: gameState.currentSample
-      });
-
-      // Update game state
+  const handleNextSample = () => {
+    if (currentSampleIndex < sampleIds.length - 1) {
+      setCurrentSampleIndex(prevIndex => prevIndex + 1);
       setGameState(prev => ({
         ...prev,
-        guesses: {
-          ...prev.guesses,
-          [prev.currentSample]: {
-            ...prev.guesses[prev.currentSample],
-            ...guess,
-            submitted: true
-          }
-        },
-        scores: {
-          ...prev.scores,
-          [prev.currentSample]: result.points
-        },
-        totalScore: Object.values(prev.scores).reduce((a, b) => a + b, 0) + result.points
+        currentSample: String.fromCharCode(65 + currentSampleIndex) as SampleKey
       }));
-
-      // Track guess
-      AnalyticsService.sampleGuessed({
-        quarterId,
-        userId: user.uid,
-        sampleId: gameState.currentSample,
-        accuracy: result.points
-      });
-
-      // Move to next sample if available
-      const currentIndex = 'ABCD'.indexOf(gameState.currentSample);
-      if (currentIndex < 3) {
-        const nextSample = String.fromCharCode(66 + currentIndex) as SampleId;
-        setGameState(prev => ({ ...prev, currentSample: nextSample }));
-      } else {
-        await handleGameComplete();
-      }
-    } catch (error) {
-      console.error('Guess submission failed:', error);
-      setError('Failed to submit guess. Please try again.');
-      AnalyticsService.trackError('Guess submission failed', 'game_container');
-    } finally {
-      monitoringService.endTrace('guess_submission');
     }
-  };
+  };  
 
   const handleGameComplete = async () => {
+    const timeSpent = calculateTimeSpent(startTime);
     if (!quarterId || !user) return;
 
     try {
       monitoringService.startTrace('game_completion');
 
+      AnalyticsService.trackGuess({
+        quarterId,
+        userId: user.uid,
+        sampleId: ('sampleId'),
+        accuracy: 100,
+        timeSpent: Math.floor((Date.now() - startTime) / 1000)
+      });
+
       // Submit final score
-      await FirebaseService.submitScore(user.uid, quarterId, gameState.totalScore);
+      await FirebaseService.submitScore(user.uid, quarterId, calculateTotalScore(gameState.totalScore));
 
       // Track completion
       AnalyticsService.gameCompleted({
-        quarterId,
+        quarterId: gameState.quarterId,
         userId: user.uid,
-        score: gameState.totalScore
+        score: calculateTotalScore(gameState.totalScore), // Convert Record to number
+        time_spent: timeSpent
       });
 
-      setGameState(prev => ({ ...prev, isComplete: true }));
+      setGameState(prev => ({
+        ...prev,
+        guesses: {
+          ...prev.guesses,
+          'A': { ...prev.guesses['A'], submitted: true },
+          'B': { ...prev.guesses['B'], submitted: true },
+          'C': { ...prev.guesses['C'], submitted: true },
+          'D': { ...prev.guesses['D'], submitted: true }
+        },
+        isComplete: true
+      }));
       navigate(`/quarters/${quarterId}/results`);
     } catch (error) {
       console.error('Game completion failed:', error);
@@ -185,17 +231,24 @@ export const GameContainer: React.FC = () => {
     }
   };
 
+  const isGameComplete = () => {
+    return Object.keys(samples).length > 0 &&
+      Object.keys(samples).every(sampleId =>
+        gameState.guesses[sampleId as SampleId] !== undefined
+      );
+  };
+
   if (loading) {
-    return <div className="flex justify-center items-center h-screen"><Spinner /></div>;
+    return <div className="flex items-center justify-center h-screen"><Spinner /></div>;
   }
 
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-screen">
-        <div className="text-red-500 mb-4">{error}</div>
+        <div className="mb-4 text-red-500">{error}</div>
         <button
           onClick={() => navigate('/quarters')}
-          className="px-4 py-2 bg-amber-500 text-white rounded hover:bg-amber-600"
+          className="px-4 py-2 text-white rounded bg-amber-500 hover:bg-amber-600"
         >
           Return to Quarter Selection
         </button>
@@ -204,10 +257,45 @@ export const GameContainer: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Game UI components go here */}
+    <div className="container px-4 py-8 mx-auto">
+      <h1 className="mb-4 text-2xl font-bold">Game of Whiskey Blind Tasting</h1>
+
+      <div className="flex flex-wrap gap-4">
+        {Object.entries(samples).map(([sampleId, sample]) => (
+          <div key={sampleId} className="flex-shrink-0">
+            <div className="w-48 h-48 bg-white rounded-lg shadow-md">
+              <img
+                className="object-cover w-full h-full"
+                src={sample.image}
+                alt={sample.name}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Add the guess input form here */}
+      <div className="mt-8">
+      <SampleGuessing 
+        currentSample={sampleIds[currentSampleIndex]}
+        onNextSample={handleNextSample}
+      />
+      </div>
+
+      {/* Existing Complete Game button */}
+      {isGameComplete() && !gameState.isComplete && (
+        <button
+          onClick={handleGameComplete}
+          className="px-6 py-2 mt-4 text-white transition-colors bg-green-500 rounded-lg hover:bg-green-600"
+        >
+          Complete Game
+        </button>
+      )}
     </div>
   );
 };
 
-export default GameContainer;
+export const validateMashbill = (mashbill: GuessSubmitEvent['guessedValues']['mashbill']): boolean => {
+  const total = Object.values(mashbill).reduce((sum, value) => sum + value, 0);
+  return total === 100;
+};

@@ -1,5 +1,11 @@
-import { AnalyticsService } from '@/services/analytics.service';
-import { WhiskeySample } from '@/types';
+import { AnalyticsService } from '../services/analytics.service';
+import { WhiskeySample, Difficulty } from '../types/game.types';
+
+interface ChallengeData {
+  quarterId: string;
+  whiskeySample: WhiskeySample;
+  difficulty?: Difficulty;  // Changed from DifficultyEnum to Difficulty
+}
 
 export interface ShopifyProductVariant {
   id: string;
@@ -42,7 +48,7 @@ export interface ShopifyProductMetadata {
 interface ChallengeData {
   quarterId: string;
   whiskeySample: WhiskeySample;
-  difficulty?: string;
+  difficulty?: Difficulty;
 }
 
 export class ShopifyIntegrationService {
@@ -65,7 +71,11 @@ export class ShopifyIntegrationService {
           proof: challengeData.whiskeySample.proof,
           mashbill: challengeData.whiskeySample.mashbill,
           distillery: '',
-          description: challengeData.whiskeySample.description
+          description: challengeData.whiskeySample.description,
+          difficulty: challengeData.whiskeySample.difficulty,
+          image: challengeData.whiskeySample.image,
+          score: challengeData.whiskeySample.score,
+          challengeQuestions: challengeData.whiskeySample.challengeQuestions
         }
       };
 

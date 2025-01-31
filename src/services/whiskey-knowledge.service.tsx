@@ -1,5 +1,5 @@
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
-import { db } from '@/config/firebase';
+import { db } from '../config/firebase';
 import { AnalyticsService } from './analytics.service';
 
 export interface WhiskeyNode {
@@ -10,6 +10,12 @@ export interface WhiskeyNode {
   properties: Record<string, any>;
   connections: Array<'produces' | 'belongs_to' | 'located_in' | 'influences' | 'related_to' | 'similar_to' | 'contains'>;
   // Add more properties as needed
+}
+
+export interface NodeStats {
+  type: string;
+  count: number;
+  avgConnections: number;
 }
 
 export interface WhiskeyRelation {

@@ -1,6 +1,6 @@
-import { db } from 'src/firebase';
+import { db } from '../firebase';
 import { doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { AnalyticsService } from 'src/services/analytics.service';
+import { AnalyticsService } from '../services/analytics.service';
 
 export interface GameStateRecovery {
   userId: string;

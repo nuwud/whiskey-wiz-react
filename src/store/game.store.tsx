@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GameState, Challenge, Quarter, ScoringRules, WhiskeySample } from '../types/game.types';
+import { GameState, Challenge, ScoringRules, WhiskeySample, SampleGuess, SampleKey, INITIAL_STATE } from '../types/game.types';
 import { db } from '../firebase';
 import { collection, getDocs, query, where, addDoc } from 'firebase/firestore';
 import { quarterService } from '../services/quarter.service';
@@ -35,86 +35,31 @@ const calculateScore = (
   }
 
   // Mashbill scoring
-  if (sample.mashbillType === guess.mashbill) {
+  if (sample.mashbill === guess.mashbill) {
     score += rules.mashbill.exactMatchBonus;
   }
 
   return score;
 };
 
-interface GameStore {
-  // State properties
-  isPlaying: boolean;
-  currentQuarter: Quarter | null;
-  scoringRules: ScoringRules | null;
-  currentChallengeIndex: number;
-  challenges: Challenge[];
-  currentSample: string;
-  samples: WhiskeySample[];
-  guesses: Record<string, any>;
-  score: number;
-  answers: Record<string, any>;
-  timeRemaining: number;
-  lives: number;
-  hints: number;
-  isComplete: boolean;
-  userId: string;
-  quarterId: string;
-  lastUpdated: Date;
-  completedSamples: string[];
-  totalScore: number;
-  hasSubmitted: boolean;
-  progress: number;
-  totalChallenges: number;
-
-  // Game actions
+interface GameStore extends GameState {
+  // Actions only
   startGame: () => Promise<void>;
   submitAnswer: (challengeId: string, answer: string) => void;
   useHint: (challengeId: string) => void;
   endGame: () => Promise<void>;
   resetGame: () => void;
-
-  // Sample actions
+  navigateSample: (direction: 'next' | 'prev') => void;
+  setSample: (id: string) => void;
   submitSampleGuess: (
     sampleId: 'A' | 'B' | 'C' | 'D',
-    guess: { age: number; proof: number; mashbill: string }
+    guess: SampleGuess
   ) => void;
-  navigateSample: (direction: 'next' | 'previous') => void;
+  loadSamples: () => Promise<void>;
 }
-
-const INITIAL_STATE: GameState = {
-  isPlaying: false,
-  currentChallengeIndex: 0,
-  challenges: [],
-  currentSample: 'A',
-  samples: [],
-  guesses: {
-    A: { age: 0, proof: 0, mashbill: '' },
-    B: { age: 0, proof: 0, mashbill: '' },
-    C: { age: 0, proof: 0, mashbill: '' },
-    D: { age: 0, proof: 0, mashbill: '' }
-  },
-  score: 0,
-  answers: {},
-  timeRemaining: 300, // 5 minutes
-  lives: 3,
-  hints: 3,
-  isComplete: false,
-  userId: '',
-  quarterId: '',
-  lastUpdated: new Date(),
-  completedSamples: [],
-  totalScore: 0,
-  hasSubmitted: false,
-  progress: 0,
-  totalChallenges: 0
-};
 
 export const useGameStore = create<GameStore>((set, get) => ({
   ...INITIAL_STATE,
-  currentQuarter: null,
-  scoringRules: null,
-  totalChallenges: 0,
 
   startGame: async () => {
     try {
@@ -144,7 +89,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
         challenges: challenges.sort(() => Math.random() - 0.5).slice(0, 5),
         samples: quarter.samples,
         currentChallengeIndex: 0,
-        score: 0,
+        score: {
+          'A': 0, 'B': 0, 'C': 0, 'D': 0
+        } as Record<SampleKey, number>,
         answers: {},
         timeRemaining: 300,
         lives: 3,
@@ -161,10 +108,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     const challenge = state.challenges.find(c => c.id === challengeId);
     if (!challenge) return;
-
+  
     const isCorrect = answer === challenge.correctAnswer;
+    const sampleKey = challengeId as SampleKey;  // Type assertion
+
+    const newScore = { ...state.score };
+    newScore[challengeId as SampleKey] = isCorrect ? 
+      (state.score[challengeId as SampleKey] || 0) + challenge.points : 
+      (state.score[challengeId as SampleKey] || 0);
+
+    
+    newScore[sampleKey] = isCorrect 
+      ? (state.score[sampleKey] || 0) + challenge.points 
+      : (state.score[sampleKey] || 0);
+  
     set(state => ({
-      score: isCorrect ? state.score + challenge.points : state.score,
+      score: newScore,
       lives: isCorrect ? state.lives : state.lives - 1,
       answers: { ...state.answers, [challengeId]: answer },
       currentChallengeIndex: state.currentChallengeIndex + 1
@@ -189,23 +148,56 @@ export const useGameStore = create<GameStore>((set, get) => ({
         ...state.guesses,
         [sampleId]: { ...guess, score: sampleScore }
       },
-      score: state.score + sampleScore
+      score: {
+        ...state.score,
+        [sampleId]: state.score[sampleId] + sampleScore
+      }
     }));
   },
 
-  navigateSample: (direction) => {
-    const sampleOrder: ('A' | 'B' | 'C' | 'D')[] = ['A', 'B', 'C', 'D'];
-    const state = get();
-    const currentIndex = sampleOrder.indexOf(state.currentSample);
-    const newIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
-
-    if (newIndex < 0) return;
-    if (newIndex >= sampleOrder.length) {
-      set({ isComplete: true });
+  navigateSample: (direction: 'next' | 'prev') => {
+    const { currentSampleId, samples } = get();
+    const sampleIds = Object.keys(samples);
+    
+    if (sampleIds.length === 0) {
+      console.warn('No samples available to navigate');
       return;
     }
+    
+    const currentIndex = currentSampleId ? sampleIds.indexOf(currentSampleId) : -1;
+    if (currentIndex === -1) {
+      console.warn('Current sample not found in samples list');
+      set({ currentSampleId: sampleIds[0] });
+      return;
+    }
+    
+    const newIndex = direction === 'next'
+      ? (currentIndex + 1) % sampleIds.length
+      : (currentIndex - 1 + sampleIds.length) % sampleIds.length;
+    
+    set({ currentSampleId: sampleIds[newIndex] });
+  },
 
-    set({ currentSample: sampleOrder[newIndex] });
+  setSample: (id: string) => {
+    set({ currentSampleId: id });
+  },
+
+  loadSamples: async () => {
+    try {
+      set({ isLoading: true, error: null });
+      const quarter = await quarterService.getCurrentQuarter();
+      if (!quarter) throw new Error('No active quarter found');
+      
+      set({ 
+        samples: quarter.samples || [],  // Ensure it's an array
+        currentSampleId: quarter.samples[0]?.id || null 
+      });
+    } catch (error) {
+      console.error('Failed to load samples:', error);
+      set({ error: error instanceof Error ? error.message : 'Failed to load samples' });
+    } finally {
+      set({ isLoading: false });
+    }
   },
 
   useHint: (challengeId: string) => {
@@ -240,6 +232,5 @@ export const useGameStore = create<GameStore>((set, get) => ({
       throw error;
     }
   },
-
   resetGame: () => set(INITIAL_STATE)
 }));

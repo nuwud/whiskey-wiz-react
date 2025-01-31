@@ -2,11 +2,15 @@ import { useState } from 'react';
 import { useAuthStore } from '../../store/auth.store';
 import { AdminProfile as AdminProfileType } from '../../types/auth.types';
 import { Spinner } from '../ui/spinner-ui.component';
+import { AdminMetricsPanel } from './admin-metrics-panel.component';
+import UserManagement from './user-management.component';
+import { QuarterAnalytics } from './quarter-analytics.component';
+import { QuarterManagement } from './quarter-management.component';
 
-export const AdminDashboard = () => {
+const AdminDashboard = () => {
   const { profile, isLoading } = useAuthStore();
   const adminProfile = profile as AdminProfileType;
-  const [activeTab, setActiveTab] = useState<'users' | 'content' | 'analytics'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'content' | 'analytics' | 'quarter-management'>('users');
 
   if (isLoading) {
     return <Spinner />;
@@ -15,6 +19,21 @@ export const AdminDashboard = () => {
   if (!adminProfile || adminProfile.role !== 'admin') {
     return <div>Access denied</div>;
   }
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'users':
+        return <UserManagement />;
+      case 'content':
+        return <AdminMetricsPanel />;
+      case 'analytics':
+        return <QuarterAnalytics />;
+      case 'quarter-management':
+        return <QuarterManagement />;
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -31,8 +50,8 @@ export const AdminDashboard = () => {
             <button
               onClick={() => setActiveTab('users')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'users'
-                  ? 'border-amber-500 text-amber-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-amber-500 text-amber-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
             >
               Users
@@ -40,8 +59,8 @@ export const AdminDashboard = () => {
             <button
               onClick={() => setActiveTab('content')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'content'
-                  ? 'border-amber-500 text-amber-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-amber-500 text-amber-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
             >
               Content
@@ -49,37 +68,27 @@ export const AdminDashboard = () => {
             <button
               onClick={() => setActiveTab('analytics')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'analytics'
-                  ? 'border-amber-500 text-amber-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-amber-500 text-amber-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
             >
               Analytics
+            </button>
+            <button
+              onClick={() => setActiveTab('quarter-management')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'quarter-management'
+                ? 'border-amber-500 text-amber-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+            >
+              Quarter Management
             </button>
           </nav>
         </div>
 
         {/* Tab Content */}
         <div className="p-6">
-          {activeTab === 'users' && (
-            <div>
-              <h2 className="text-xl font-bold mb-4">User Management</h2>
-              <p className="text-gray-500">User management features coming soon...</p>
-            </div>
-          )}
-
-          {activeTab === 'content' && (
-            <div>
-              <h2 className="text-xl font-bold mb-4">Content Management</h2>
-              <p className="text-gray-500">Content management features coming soon...</p>
-            </div>
-          )}
-
-          {activeTab === 'analytics' && (
-            <div>
-              <h2 className="text-xl font-bold mb-4">Game Analytics</h2>
-              <p className="text-gray-500">Analytics features coming soon...</p>
-            </div>
-          )}
+          {renderTabContent()}
         </div>
       </div>
 
@@ -102,3 +111,5 @@ export const AdminDashboard = () => {
     </div>
   );
 };
+
+export default AdminDashboard;

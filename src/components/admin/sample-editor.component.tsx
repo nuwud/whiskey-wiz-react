@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { WhiskeySample } from '../../types/game.types';
-import { Dialog } from '@/components/ui/dialog';
-import { shopifyService, ShopifyProduct } from 'src/services/shopify-integration.service';
+import { Dialog } from '../../components/ui/dialog';
+import { shopifyService, ShopifyProduct } from '../../services/shopify-integration.service';
 
 interface SampleFormData {
   name: string;
@@ -146,7 +146,11 @@ export const SampleEditor = ({ samples, onUpdate, onClose }: SampleEditorProps) 
         distillery: editingSample.distillery,
         description: editingSample.description,
         notes: samples[editingIndex]?.notes || [],
-        hints: samples[editingIndex]?.hints || []
+        hints: samples[editingIndex]?.hints || [],
+        difficulty: samples[editingIndex]?.difficulty || 1,
+        score: samples[editingIndex]?.score || 0,
+        challengeQuestions: samples[editingIndex]?.challengeQuestions || [],
+        image: samples[editingIndex]?.image || ''
       };
       onUpdate(newSamples);
     }

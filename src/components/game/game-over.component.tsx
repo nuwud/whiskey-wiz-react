@@ -1,5 +1,7 @@
 import { useGameStore } from '../../store/game.store';
 import { useAuthStore } from '../../store/auth.store';
+import { SampleKey } from '../../types/game.types';
+
 
 interface GameOverProps {
   onPlayAgain: () => void;
@@ -24,8 +26,10 @@ export const GameOver = ({ onPlayAgain }: GameOverProps) => {
 
     return totalAccuracy / samples.length;
   };
-
   const sampleAccuracy = calculateSampleAccuracy();
+  const calculateTotalScore = (scores: Record<SampleKey, number>): number => {
+    return Object.values(scores).reduce((sum, score) => sum + score, 0);
+  };
   const challengeAccuracy = Object.values(answers).filter(answer => answer === 'correct').length / totalChallenges * 100;
   const hintsUsed = 3 - hints;
   const livesRemaining = lives;
@@ -35,10 +39,13 @@ export const GameOver = ({ onPlayAgain }: GameOverProps) => {
       <h2 className="text-3xl font-bold text-center mb-8">Game Over!</h2>
 
       {/* Final Score */}
-      <div className="text-center mb-8">
-        <div className="text-5xl font-bold text-amber-600 mb-2">{score}</div>
-        <div className="text-gray-600">Final Score</div>
+      <div className="text-5xl font-bold text-amber-600 mb-2">
+        {calculateTotalScore(score)}
       </div>
+
+      <p className="text-xl text-gray-600">
+        Total Score: {calculateTotalScore(score)}
+      </p>
 
       {/* Performance Stats */}
       <div className="grid grid-cols-2 gap-4 mb-8">

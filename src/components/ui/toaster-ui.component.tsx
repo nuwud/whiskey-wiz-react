@@ -1,5 +1,5 @@
-import { Toast, ToastProvider, ToastViewport } from "@/components/ui/toast-ui.component";
-import { useToast } from "@/hooks/use-toast.hook";
+import { Toast, ToastProvider, ToastViewport } from "../../components/ui/toast-ui.component";
+import { useToast } from "../../hooks/use-toast.hook";
 
 export function Toaster() {
   const { toasts } = useToast();
