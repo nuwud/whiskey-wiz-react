@@ -37,7 +37,7 @@ const UserManagement = () => {
             player: profile.role === 'player',
             moderator: profile.role === 'moderator'
           },
-          lastActive: typeof profile.lastActive === 'string' ? profile.lastActive : profile.lastActive?.timestamp?.toISOString() || new Date().toISOString(),
+          lastActive: typeof profile.lastActive === 'string' ? profile.lastActive : profile.lastActive?.timestamp?.toString() || new Date().toISOString(),
           totalGames: profile.totalGames || 0,
           averageScore: profile.averageScore || 0
         }));

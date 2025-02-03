@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { useGameStore } from '../../store/game.store';
+import React, { useState, useEffect } from 'react';
+import { useGameProgression } from '../../store/game-progression.store';
 import { Flame } from 'lucide-react';
+import { SampleKey, SampleGuess, SampleId } from '../../types/game.types';
 
-type SampleId = 'A' | 'B' | 'C' | 'D';
 const SAMPLE_IDS: SampleId[] = ['A', 'B', 'C', 'D'];
 
 const MASHBILL_TYPES = [
@@ -12,6 +12,26 @@ const MASHBILL_TYPES = [
   'Single Malt',
   'Specialty'
 ];
+
+const defaultGuess: SampleGuess = {
+  age: 0,
+  proof: 0,
+  mashbill: '',
+  rating: 0,
+  notes: '',
+  score: 0,
+  submitted: false
+} as const;
+
+export const createGuess = (partial?: Partial<SampleGuess>): SampleGuess => ({
+  ...defaultGuess,
+  ...partial
+});
+
+export const createInitialGuesses = (): Record<SampleKey, SampleGuess> => 
+  Object.fromEntries(
+    SAMPLE_IDS.map(id => [id, createGuess()])
+  ) as Record<SampleKey, SampleGuess>;
 
 interface GuessFormData {
   age: number;
@@ -23,23 +43,26 @@ interface GuessFormData {
 
 interface SampleGuessingProps {
   currentSample: SampleId;
+  guess: SampleGuess;
+  onSubmitGuess: (sampleId: SampleId, guess: SampleGuess) => void;
   onNextSample: () => void;
   onPreviousSample: () => void;
   isLastSample: boolean;
+  onGameComplete: () => void;  // Add this prop
 }
 
-export const SampleGuessing: React.FC<SampleGuessingProps> = ({ currentSample, onNextSample }) => {
-  const { submitSampleGuess, navigateSample } = useGameStore();
+export const SampleGuessing: React.FC<SampleGuessingProps> = ({
+  currentSample,
+  guess,
+  onSubmitGuess,
+  onNextSample,
+  onPreviousSample,
+  isLastSample,
+  onGameComplete
+}) => {
+  const {submitGuess } = useGameProgression();
   const [rating, setRating] = useState<number>(0);
   const [notes, setNotes] = useState<string>('');
-
-  const setCurrentSample = (sample: SampleId) => {
-    if (sample === currentSample) return;
-    const currentIndex = SAMPLE_IDS.indexOf(currentSample);
-    const targetIndex = SAMPLE_IDS.indexOf(sample);
-    navigateSample(targetIndex > currentIndex ? 'next' : 'prev');
-  };
-
   const [guessData, setGuessData] = useState<GuessFormData>({
     age: 0,
     proof: 0,
@@ -47,17 +70,60 @@ export const SampleGuessing: React.FC<SampleGuessingProps> = ({ currentSample, o
     rating: 0,
     notes: ''
   });
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    submitSampleGuess(currentSample, {
-      ...guessData,
-      rating,
-      notes
+
+useEffect(() => {
+  if (guess) {
+    setGuessData({
+      age: guess.age,
+      proof: guess.proof,
+      mashbill: guess.mashbill,
+      rating: guess.rating,
+      notes: guess.notes
     });
-    onNextSample();
+    setRating(guess.rating);
+    setNotes(guess.notes);
+  } else {
+    setGuessData({
+      age: 0,
+      proof: 0,
+      mashbill: '',
+      rating: 0,
+      notes: ''
+    });
+    setRating(0);
+    setNotes('');
+  }
+}, [currentSample, guess]);
+
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  // Validate required fields
+  if (!guessData.age || !guessData.proof || !guessData.mashbill) {
+    alert('Please fill in age, proof, and mashbill before continuing');
+    return;
+  }
+  
+  const completeGuess: SampleGuess = {
+    ...guessData,
+    rating,  // optional
+    notes,   // optional
+    score: 0,
+    submitted: true
   };
-
-
+  
+  console.log('Submitting guess for sample:', currentSample);
+  await submitGuess(currentSample, completeGuess);
+  onSubmitGuess(currentSample, completeGuess);
+  
+  if (isLastSample) {
+    console.log('Last sample submitted, calling onGameComplete');
+    await onGameComplete();
+  } else {
+    console.log('Moving to next sample');
+    onNextSample();
+  }
+};
   const handleInputChange = (field: keyof GuessFormData) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -75,9 +141,9 @@ export const SampleGuessing: React.FC<SampleGuessingProps> = ({ currentSample, o
         {SAMPLE_IDS.map((sample) => (
           <div
             key={sample}
-            className={`w-24 h-16 flex items-center justify-center border ${currentSample === sample ? 'border-amber-500' : 'border-gray-200'
-              } rounded`}
-            onClick={() => setCurrentSample(sample)}
+            className={`w-24 h-16 flex items-center justify-center border ${
+              currentSample === sample ? 'border-amber-500' : 'border-gray-200'
+            } rounded`}
           >
             Sample {sample}
           </div>
@@ -86,7 +152,9 @@ export const SampleGuessing: React.FC<SampleGuessingProps> = ({ currentSample, o
 
       {/* Instructions */}
       <div className="text-center mb-8">
-        <p className="text-lg">Take your first sip of Sample {currentSample} and see how good your whiskey taste buds are...</p>
+        <p className="text-lg">
+          Take your first sip of Sample {currentSample} and see how good your whiskey taste buds are...
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
@@ -97,7 +165,8 @@ export const SampleGuessing: React.FC<SampleGuessingProps> = ({ currentSample, o
           </label>
           <div className="flex items-center gap-4">
             <div className="w-20">
-              <input aria-label='Age'
+              <input
+                aria-label="Age"
                 type="number"
                 value={guessData.age}
                 onChange={handleInputChange('age')}
@@ -107,7 +176,8 @@ export const SampleGuessing: React.FC<SampleGuessingProps> = ({ currentSample, o
               />
             </div>
             <div className="flex-1">
-              <input aria-label='Age'
+              <input
+                aria-label="Age"
                 type="range"
                 min="0"
                 max="50"
@@ -126,7 +196,8 @@ export const SampleGuessing: React.FC<SampleGuessingProps> = ({ currentSample, o
           </label>
           <div className="flex items-center gap-4">
             <div className="w-20">
-              <input aria-label='Proof'
+              <input
+                aria-label="Proof"
                 type="number"
                 value={guessData.proof}
                 onChange={handleInputChange('proof')}
@@ -136,7 +207,8 @@ export const SampleGuessing: React.FC<SampleGuessingProps> = ({ currentSample, o
               />
             </div>
             <div className="flex-1">
-              <input aria-label='Proof'
+              <input
+                aria-label="Proof"
                 type="range"
                 min="80"
                 max="160"
@@ -184,25 +256,27 @@ export const SampleGuessing: React.FC<SampleGuessingProps> = ({ currentSample, o
                     type="button"
                     onClick={() => setRating(value)}
                     className={`
-              w-8 h-8 
-              flex items-center justify-center 
-              rounded-lg
-              transition-all duration-200
-              ${rating >= value
-                        ? 'text-amber-500 hover:text-amber-600 rating-icon rating-icon-selected'
-                        : 'text-gray-300 hover:text-gray-400 rating-icon'
+                      w-8 h-8 
+                      flex items-center justify-center 
+                      rounded-lg
+                      transition-all duration-200
+                      ${
+                        rating >= value
+                          ? 'text-amber-500 hover:text-amber-600 rating-icon rating-icon-selected'
+                          : 'text-gray-300 hover:text-gray-400 rating-icon'
                       }
-              focus:outline-none 
-              focus:ring-2 
-              focus:ring-offset-2 
-              focus:ring-amber-500
-            `}
+                      focus:outline-none 
+                      focus:ring-2 
+                      focus:ring-offset-2 
+                      focus:ring-amber-500
+                    `}
                     aria-label={`Rate ${value} out of 10`}
                   >
                     <Flame
                       size={20}
-                      className={`transform transition-transform ${rating >= value ? 'scale-110' : 'scale-100'
-                        }`}
+                      className={`transform transition-transform ${
+                        rating >= value ? 'scale-110' : 'scale-100'
+                      }`}
                     />
                   </button>
                 ))}
@@ -215,8 +289,8 @@ export const SampleGuessing: React.FC<SampleGuessingProps> = ({ currentSample, o
                   type="button"
                   onClick={() => setRating(0)}
                   className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 
-                      border border-gray-300 rounded-md hover:bg-gray-50
-                      transition-colors duration-200"
+                    border border-gray-300 rounded-md hover:bg-gray-50
+                    transition-colors duration-200"
                 >
                   Clear
                 </button>
@@ -225,11 +299,15 @@ export const SampleGuessing: React.FC<SampleGuessingProps> = ({ currentSample, o
             <div className="flex gap-2 text-sm text-gray-500">
               {rating > 0 && (
                 <span className="text-amber-600 font-medium">
-                  {rating <= 3 ? 'Not my favorite' :
-                    rating <= 5 ? 'Decent' :
-                      rating <= 7 ? 'Pretty good' :
-                        rating <= 9 ? 'Excellent' :
-                          'Exceptional!'}
+                  {rating <= 3
+                    ? 'Not my favorite'
+                    : rating <= 5
+                    ? 'Decent'
+                    : rating <= 7
+                    ? 'Pretty good'
+                    : rating <= 9
+                    ? 'Excellent'
+                    : 'Exceptional!'}
                 </span>
               )}
             </div>
@@ -246,10 +324,10 @@ export const SampleGuessing: React.FC<SampleGuessingProps> = ({ currentSample, o
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="w-full p-3 border border-gray-300 rounded-lg
-                        focus:ring-2 focus:ring-amber-500 focus:border-amber-500
-                        min-h-[120px] resize-y
-                        placeholder-gray-400
-                        transition-all duration-200"
+                focus:ring-2 focus:ring-amber-500 focus:border-amber-500
+                min-h-[120px] resize-y
+                placeholder-gray-400
+                transition-all duration-200"
               placeholder="Describe what you taste... (vanilla, caramel, spice, etc.)"
               maxLength={500}
             />
@@ -266,7 +344,7 @@ export const SampleGuessing: React.FC<SampleGuessingProps> = ({ currentSample, o
         <div className="flex justify-between pt-4">
           <button
             type="button"
-            onClick={() => navigateSample('prev')}
+            onClick={onPreviousSample}
             className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
           >
             Previous Sample
@@ -275,10 +353,12 @@ export const SampleGuessing: React.FC<SampleGuessingProps> = ({ currentSample, o
             type="submit"
             className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-amber-600 hover:bg-amber-700"
           >
-            Next Sample
+            {isLastSample ? 'Submit' : 'Next Sample'}
           </button>
         </div>
       </form>
     </div>
   );
 };
+
+export default SampleGuessing;

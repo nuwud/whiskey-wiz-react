@@ -1,4 +1,4 @@
-import { db, auth } from '@/config/firebase';
+import { db, auth } from '../config/firebase';
 import { doc, getDoc, updateDoc, addDoc, collection } from 'firebase/firestore';
 import {
   createUserWithEmailAndPassword,
@@ -9,6 +9,7 @@ import {
   User
 } from 'firebase/auth';
 import { ExtendedUser, UserRole } from '../types/auth.types';
+import { signInAnonymously as firebaseSignInAnonymously } from 'firebase/auth';
 
 
 export const FirebaseService = {
@@ -42,6 +43,24 @@ export const FirebaseService = {
       } as ExtendedUser;
     } catch (error) {
       console.error('Sign up failed:', error);
+      throw error;
+    }
+  },
+
+  async signInAnonymously(): Promise<ExtendedUser> {
+    try {
+      const userCredential = await firebaseSignInAnonymously(auth);
+      const guestUser: ExtendedUser = {
+        ...userCredential.user,
+        role: UserRole.GUEST
+      };
+      await this.createUserDocument(userCredential.user.uid, {
+        role: UserRole.GUEST,
+        createdAt: new Date()
+      });
+      return guestUser;
+    } catch (error) {
+      console.error('Anonymous sign in failed:', error);
       throw error;
     }
   },

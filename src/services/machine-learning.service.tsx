@@ -1,4 +1,4 @@
-import { db } from '../firebase';
+import { db } from '../config/firebase';
 import { collection, addDoc, getDocs, query, where, updateDoc as firestoreUpdateDoc } from 'firebase/firestore';
 import { AnalyticsService } from '../services/analytics.service';
 

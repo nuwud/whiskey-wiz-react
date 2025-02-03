@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { GameState, Challenge, ScoringRules, WhiskeySample, SampleGuess, SampleKey, INITIAL_STATE } from '../types/game.types';
-import { db } from '../firebase';
+import { db } from '../config/firebase';
 import { collection, getDocs, query, where, addDoc } from 'firebase/firestore';
 import { quarterService } from '../services/quarter.service';
 
@@ -69,6 +69,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const config = await quarterService.getGameConfiguration(quarter.id);
       if (!config) throw new Error('Game configuration not found');
 
+      // Map database samples to A/B/C/D format
+      const mappedSamples = quarter.samples.map((sample: WhiskeySample, index: number) => ({
+        ...sample,
+        id: String.fromCharCode(65 + index) // Converts 0->A, 1->B, etc.
+      }));
+
       const challengesRef = collection(db, 'challenges');
       const q = query(
         challengesRef,
@@ -87,7 +93,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         currentQuarter: quarter,
         scoringRules: config.scoringRules,
         challenges: challenges.sort(() => Math.random() - 0.5).slice(0, 5),
-        samples: quarter.samples,
+        samples: mappedSamples, // Use our mapped samples
         currentChallengeIndex: 0,
         score: {
           'A': 0, 'B': 0, 'C': 0, 'D': 0

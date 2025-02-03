@@ -1,153 +1,136 @@
+// src/components/game/game-results.component.tsx
+import React, { useEffect, useState } from 'react';
 import { useGameStore } from '../../store/game.store';
-import { WhiskeySample} from '../../types/game.types';
+import { SampleResult } from './sample-result.component';
+import ShareResults from './share-results.component';
+import { useScoreAnalysis } from '../../hooks/use-score-analysis.hook';
+import { Accordion } from '../ui/accordion-ui.component';
+import { quarterService } from '../../services/quarter.service';
+import { WhiskeySample } from '../../types/game.types';
 
-const GuessComparison = ({
-  label,
-  guess,
-  actual,
-  unit = '',
-  exactPoints = 50,
-  bonusPoints = 20,
-  deduction = 5
-}: {
-  label: string;
-  guess: number | string;
-  actual: number | string;
-  unit?: string;
-  exactPoints?: number;
-  bonusPoints?: number;
-  deduction?: number;
-}) => {
-  const isExact = guess === actual;
-  const difference = typeof guess === 'number' && typeof actual === 'number'
-    ? Math.abs(guess - actual)
-    : null;
+export const GameResults: React.FC = () => {
+    const { guesses, totalScore } = useGameStore();
+    const [samples, setSamples] = useState<WhiskeySample[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    
+    useEffect(() => {
+        const loadQuarterData = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                
+                console.log('Loading quarter data...');
+                const quarter = await quarterService.getCurrentQuarter();
+                console.log('Quarter data:', quarter);
+                
+                if (!quarter) {
+                    console.error('No active quarter found');
+                    setError('No active quarter found');
+                    return;
+                }
+                
+                if (!quarter.samples || quarter.samples.length === 0) {
+                    console.error('Quarter has no samples:', quarter);
+                    setError('No samples found for this quarter');
+                    return;
+                }
 
-  const points = isExact
-    ? exactPoints + bonusPoints
-    : difference !== null
-      ? Math.max(exactPoints - (difference * deduction), 0)
-      : 0;
+                console.log('Setting samples:', quarter.samples);
+                setSamples(quarter.samples);
+            } catch (error) {
+                console.error('Error loading quarter data:', error);
+                setError('Failed to load game data');
+            } finally {
+                setLoading(false);
+            }
+        };
 
-  return (
-    <div className="flex items-center justify-between py-2">
-      <div className="flex-1">
-        <span className="text-gray-600">{label}</span>
-      </div>
-      <div className="flex-1 text-center">
-        <span className={isExact ? "text-green-600 font-bold" : "text-gray-900"}>
-          {guess}{unit}
-        </span>
-      </div>
-      <div className="flex-1 text-center">
-        <span className="text-gray-900">
-          {actual}{unit}
-        </span>
-      </div>
-      <div className="flex-1 text-right">
-        <span className={isExact ? "text-green-600 font-bold" : "text-amber-600"}>
-          +{points}
-        </span>
-      </div>
-    </div>
-  );
-};
+        loadQuarterData();
+    }, []);
 
-const SampleResult = ({
-  sampleId,
-  sample,
-  guess
-}: {
-  sampleId: string;
-  sample: WhiskeySample;
-  guess: {
-    age: number;
-    proof: number;
-    mashbill: string;
-    score?: number;
-  };
-}) => {
-  return (
-    <div className="p-6 mb-4 bg-white rounded-lg shadow">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold">Sample {sampleId}</h3>
-        <div className="text-xl font-bold text-amber-600">
-          {guess.score} points
+    const scoreAnalysis = useScoreAnalysis({
+        samples,
+        guesses,
+        totalScore,
+    });
+
+    console.log('Debug state:', { 
+        samplesCount: samples.length, 
+        guessesCount: Object.keys(guesses).length,
+        samples,
+        guesses,
+        currentQuarter: quarterService.getCurrentQuarter()
+    });
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center p-8">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mb-4"></div>
+                    <p className="text-gray-600">Loading results...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="text-center p-8">
+                <p className="text-red-600 mb-4">{error}</p>
+                <p className="text-gray-600">Please try refreshing the page</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="max-w-4xl mx-auto px-4 py-8">
+            <div className="mb-8 text-center">
+                <h2 className="text-3xl font-bold text-gray-900">Results Analysis</h2>
+                <p className="text-xl text-gray-600">Total Score: {scoreAnalysis.totalScore}</p>
+            </div>
+
+            <div className="mb-8">
+                <ShareResults
+                    score={scoreAnalysis.totalScore}
+                    totalSamples={scoreAnalysis.totalSamples}
+                    bestGuess={scoreAnalysis.bestGuess}
+                />
+            </div>
+
+            {guesses && Object.keys(guesses).length > 0 && (
+                <div className="mt-8 border rounded-lg overflow-hidden">
+                    <Accordion type="single" collapsible defaultValue="sample-A" className="bg-white divide-y divide-gray-200">
+                        {Object.entries(guesses).map(([sampleId, guess]) => {
+                            console.log('Trying to find sample for id:', sampleId, 'in samples:', samples);
+                            const sample = samples.find(s => {
+                                console.log('Comparing', s.id, 'with', sampleId);
+                                return s.id === sampleId;
+                            });
+                            
+                            if (!sample) {
+                                console.log('No sample found for id:', sampleId);
+                                return null;
+                            }
+                            
+                            return (
+                                <SampleResult
+                                    key={sampleId}
+                                    sampleId={sampleId}
+                                    sample={sample}
+                                    guess={guess}
+                                />
+                            );
+                        })}
+                    </Accordion>
+                </div>
+            )}
+
+            {(!guesses || Object.keys(guesses).length === 0) && (
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                    <p className="text-gray-600">No guesses available to display</p>
+                </div>
+            )}
         </div>
-      </div>
-
-      <div className="grid grid-cols-4 mb-4 text-sm font-medium text-gray-500">
-        <div>Attribute</div>
-        <div className="text-center">Your Guess</div>
-        <div className="text-center">Actual</div>
-        <div className="text-right">Points</div>
-      </div>
-
-      <GuessComparison
-        label="Age"
-        guess={guess.age}
-        actual={sample.age}
-        unit=" years"
-        exactPoints={50}
-        bonusPoints={20}
-        deduction={5}
-      />
-
-      <GuessComparison
-        label="Proof"
-        guess={guess.proof}
-        actual={sample.proof}
-        unit="°"
-        exactPoints={50}
-        bonusPoints={20}
-        deduction={2}
-      />
-
-      <GuessComparison
-        label="Mashbill"
-        guess={guess.mashbill}
-        actual={sample.mashbill}
-        exactPoints={50}
-        bonusPoints={0}
-        deduction={50}
-      />
-
-      <div className="pt-4 mt-4 border-t">
-        <h4 className="mb-2 font-medium text-gray-900">{sample.name}</h4>
-        <p className="text-sm text-gray-600">{sample.description}</p>
-      </div>
-    </div>
-  );
-};
-
-export const GameResults = () => {
-  const { samples, guesses, totalScore } = useGameStore();
-
-  // Calculate final score from totalScore object
-  const finalScore = Object.values(totalScore).reduce((sum, score) => sum + score, 0);
-
-  return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-8 text-center">
-        <h2 className="text-3xl font-bold text-gray-900">Results Analysis</h2>
-        <p className="text-xl text-gray-600">Total Score: {finalScore}</p>
-      </div>
-
-      <div className="space-y-6">
-        {Object.entries(guesses).map(([sampleId, guess]) => {
-          const sample = samples.find(s => s.id === sampleId);
-          if (!sample) return null;
-          
-          return (
-            <SampleResult
-              key={sampleId}
-              sampleId={sampleId}
-              sample={sample}
-              guess={guess}
-            />
-          );
-        })}
-      </div>
-    </div>
-  );
+    );
 };

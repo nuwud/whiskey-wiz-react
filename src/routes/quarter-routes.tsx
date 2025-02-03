@@ -2,7 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { QuarterFactory } from '../components/quarters/quarter-factory.component';
 import { useAuth } from 'src/contexts/auth.context';
-import { useFeatures } from '@/contexts/feature.context';
+import { useFeatures } from '../contexts/feature.context';
 import { quarterService } from 'src/services/quarter.service';
 
 export const QuarterRoutes: React.FC = () => {

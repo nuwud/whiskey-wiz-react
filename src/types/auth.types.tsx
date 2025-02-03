@@ -3,13 +3,13 @@ import { User as FirebaseUser } from 'firebase/auth';
 export enum UserType {
   PLAYER = 'player',
   ADMIN = 'admin',
-  GUEST = 'guest'
 }
 
 export enum UserRole {
   USER = 'user',
   ADMIN = 'admin',
-  MODERATOR = 'moderator'
+  MODERATOR = 'moderator',
+  GUEST = 'guest'
 }
 
 export interface ExtendedUser extends FirebaseUser {

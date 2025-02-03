@@ -5,6 +5,7 @@ import { LeaderboardEntry } from "../services/leaderboard.service";
 
 export type Score = 'score' | 'score A' | 'score B' | 'score C' | 'score D';
 export type SampleKey = 'A' | 'B' | 'C' | 'D';
+export type SampleId = 'A' | 'B' | 'C' | 'D';
 
 export const MODE_OPTIONS = ['standard', 'default'] as const;
 export const DIFFICULTY_OPTIONS = ['beginner', 'intermediate', 'advanced'] as const;
@@ -55,6 +56,29 @@ export interface WhiskeySample {
   challengeQuestions: ChallengeQuestion[];
   image: string;
 }
+
+export interface SampleGuess {
+  age: number;
+  proof: number;
+  mashbill: string;
+  score?: number;
+  rating: number;
+  notes: string;
+  submitted: boolean;
+}
+
+export const isValidSampleGuess = (guess: unknown): guess is SampleGuess => {
+  const g = guess as SampleGuess;
+  return (
+    typeof g?.age === 'number' &&
+    typeof g?.proof === 'number' &&
+    typeof g?.mashbill === 'string' &&
+    typeof g?.rating === 'number' &&
+    typeof g?.notes === 'string' &&
+    typeof g?.score === 'number' &&
+    typeof g?.submitted === 'boolean'
+  );
+};
 
 // Challenge types
 export interface Challenge {
@@ -129,14 +153,6 @@ export interface Quarter {
 }
 
 // Game state tracking
-export interface SampleGuess {
-  age: number;
-  proof: number;
-  mashbill: string;
-  score?: number;
-  rating: number;  // Add this
-  notes: string;   // Add this
-}
 
 export interface GameState {
   // User and session info
@@ -244,10 +260,10 @@ export const INITIAL_STATE: GameState = {
 
   // Player input and scoring
   guesses: {
-    'A': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '' },
-    'B': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '' },
-    'C': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '' },
-    'D': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '' }
+    'A': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false },
+    'B': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false },
+    'C': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false },
+    'D': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false }
   },
   score: {
     'A': 0,

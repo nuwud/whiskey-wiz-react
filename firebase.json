@@ -4,7 +4,8 @@
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      ".env"
     ],
     "rewrites": [
       {
@@ -13,7 +14,7 @@
       }
     ],
     "predeploy": [
-      "rm -rf dist/",
+      "if exist dist rmdir /s /q dist || rm -rf dist",
       "npm run build"
     ],
     "cleanUrls": true,

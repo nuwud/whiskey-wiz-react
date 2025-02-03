@@ -4,7 +4,6 @@ import { ErrorBoundary } from '../error-boundary.component';
 import { AnalyticsService } from '../../services/analytics.service';
 import { monitoringService } from '../../services/monitoring.service';
 import { Quarter } from '../../types/game.types';
-import { } from '../../components/quarters/base-quarter.component';
 
 interface QuarterFactoryProps {
   quarterId: string;
@@ -38,7 +37,7 @@ export const QuarterFactory: React.FC<QuarterFactoryProps> = ({ quarterId }) => 
             setQuarterComponent(() => module.default);
           } catch (importError) {
             // Fallback to base quarter component if specific component not found
-            const BaseQuarterComponent = await import('@/components/quarters/base-quarter.component');
+            const BaseQuarterComponent = await import('../../components/quarters/base-quarter.component');
             setQuarterComponent(() => BaseQuarterComponent.default);
           }
         };

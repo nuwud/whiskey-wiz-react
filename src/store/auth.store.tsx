@@ -9,32 +9,28 @@ import {
   User as FirebaseUser
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db } from '../config/firebase';
 import { UserRole, PlayerProfile, AdminProfile } from '../types/auth.types';
-import { WhiskeyNode } from '../services/whiskey-knowledge.service';
-
 
 interface AuthState {
   user: PlayerProfile | null;
   profile: PlayerProfile | AdminProfile | null;
   isLoading: boolean;
   error: string | null;
-
-  // Auth actions
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, role: UserRole) => Promise<void>;
   signInAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
-
-  // Profile actions
   updateProfile: (data: Partial<PlayerProfile | AdminProfile>) => Promise<void>;
-
-  // Internal actions
   setUser: (user: PlayerProfile | null) => void;
   setProfile: (profile: PlayerProfile | AdminProfile | null) => void;
   setError: (error: string | null) => void;
   setLoading: (isLoading: boolean) => void;
 }
+
+const isAdminProfile = (profile: any): profile is AdminProfile => {
+  return profile.role === UserRole.ADMIN && 'permissions' in profile;
+};
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
@@ -48,14 +44,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const auth = getAuth();
       const { user: fbUser } = await signInWithEmailAndPassword(auth, email, password);
 
-      // Fetch user profile
       const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
       if (!userDoc.exists()) {
         throw new Error('User profile not found');
       }
 
       const profile = userDoc.data() as PlayerProfile | AdminProfile;
-      set({ profile });
+      // Convert string timestamps back to Date objects
+      const convertedProfile = {
+        ...profile,
+        createdAt: new Date(profile.createdAt),
+        updatedAt: new Date(profile.updatedAt),
+        lastLoginAt: new Date(profile.lastLoginAt)
+      };
+      set({ profile: convertedProfile });
 
     } catch (error) {
       set({ error: (error as Error).message });
@@ -76,9 +78,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         email: fbUser.email ?? '',
         displayName: fbUser.displayName ?? '',
         role,
-        createdAt: new Date(),
-        updatedAt: new Date(),  // Add this line
-        lastLoginAt: new Date()
+        isAnonymous: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        lastLoginAt: new Date().toISOString()
       };
 
       const profile = role === UserRole.ADMIN
@@ -91,10 +94,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             canViewAnalytics: true,
             canModifyGameSettings: true
           }
-        } as AdminProfile
+        } as unknown as AdminProfile
         : {
           ...baseProfile,
-          isAnonymous: false,
           guest: false,
           registrationType: 'email',
           metrics: {
@@ -110,10 +112,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             preferredDifficulty: 'beginner',
             notifications: true
           }
-        } as PlayerProfile;
+        } as unknown as PlayerProfile;
 
       await setDoc(doc(db, 'users', fbUser.uid), profile);
-      set({ user: profile as PlayerProfile, profile });
+      
+      // Convert string timestamps to Date objects for local state
+      const convertedProfile = {
+        ...profile,
+        createdAt: new Date(profile.createdAt),
+        updatedAt: new Date(profile.updatedAt),
+        lastLoginAt: new Date(profile.lastLoginAt)
+      };
+      
+      set({ 
+        user: convertedProfile as PlayerProfile, 
+        profile: convertedProfile 
+      });
     } catch (error) {
       set({ error: (error as Error).message });
       throw error;
@@ -122,21 +136,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  // Fix guest user creation
   signInAsGuest: async () => {
     try {
       set({ isLoading: true, error: null });
       const auth = getAuth();
       const { user: fbUser } = await signInAnonymously(auth);
 
-      const guestProfile: PlayerProfile = {
+      const timestamps = {
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        lastLoginAt: new Date().toISOString()
+      };
+
+      const guestProfile = {
         userId: fbUser.uid,
         displayName: `Guest_${fbUser.uid.slice(0, 6)}`,
-        email: '', // Add the missing email property
+        email: '',
         role: UserRole.USER,
         isAnonymous: true,
         guest: true,
         registrationType: 'guest',
+        ...timestamps,
         metrics: {
           gamesPlayed: 0,
           totalScore: 0,
@@ -149,14 +169,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           favoriteWhiskeys: [],
           preferredDifficulty: 'beginner',
           notifications: true
-        },
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        lastLoginAt: new Date()
+        }
+      } as unknown as PlayerProfile;
+
+      await setDoc(doc(db, 'users', fbUser.uid), guestProfile);
+
+      // Convert timestamps for local state
+      const convertedProfile = {
+        ...guestProfile,
+        createdAt: new Date(guestProfile.createdAt),
+        updatedAt: new Date(guestProfile.updatedAt),
+        lastLoginAt: new Date(guestProfile.lastLoginAt),
+        guest: true
       };
 
-      // Fix: Use guestProfile instead of undefined variable
-      set({ user: guestProfile, profile: guestProfile });
+      set({ user: convertedProfile, profile: convertedProfile });
     } catch (error) {
       set({ error: (error as Error).message });
       throw error;
@@ -185,8 +212,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     try {
       set({ isLoading: true, error: null });
-      await updateDoc(doc(db, 'users', user.userId), data);
-      // Fix: Ensure type safety when updating profile
+      // Convert Date objects to ISO strings for Firestore
+      const processedData = {
+        ...data,
+        updatedAt: new Date().toISOString(),
+        ...(data.createdAt && { createdAt: (data.createdAt as Date).toISOString() }),
+        ...(data.lastLoginAt && { lastLoginAt: (data.lastLoginAt as Date).toISOString() })
+      };
+
+      await updateDoc(doc(db, 'users', user.userId), processedData);
+      
+      // Update local state with Date objects
+      const updatedProfile = {
+        ...get().profile,
+        ...data,
+        updatedAt: new Date(),
+        guest: (data as PlayerProfile).guest ?? (get().profile as PlayerProfile)?.guest ?? false,
+        role: (data as PlayerProfile).role ?? (get().profile as PlayerProfile)?.role ?? UserRole.USER
+      } as PlayerProfile | AdminProfile;
+      set({ profile: updatedProfile });
+      
     } catch (error) {
       set({ error: (error as Error).message });
       throw error;
@@ -195,47 +240,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  // Internal actions
   setUser: (user) => set({ user }),
   setProfile: (profile) => set({ profile }),
   setError: (error) => set({ error }),
   setLoading: (isLoading) => set({ isLoading })
 }));
 
-export const validateProfile = (profile: PlayerProfile): boolean => {
-  const requiredFields = ['userId', 'email', 'displayName', 'role'];
-  return requiredFields.every(field => field in profile);
+export const validateProfile = (profile: PlayerProfile | AdminProfile): boolean => {
+  const requiredFields = ['userId', 'email', 'displayName', 'role', 'isAnonymous'];
+  const hasRequiredFields = requiredFields.every(field => field in profile);
+  
+  if (profile.role === UserRole.ADMIN) {
+    return hasRequiredFields && 'permissions' in profile;
+  }
+  
+  return hasRequiredFields;
 };
 
-export const createGuestProfile = (fbUser: FirebaseUser): PlayerProfile => ({
-  userId: fbUser.uid,
-  displayName: `Guest_${fbUser.uid.slice(0, 6)}`,
-  email: '',
-  role: UserRole.USER,
-  guest: true,
-  isAnonymous: true,
-  registrationType: 'guest',
-  metrics: {
-    gamesPlayed: 0,
-    totalScore: 0,
-    averageScore: 0,
-    bestScore: 0,
-    badges: [],
-    achievements: []
-  },
-  preferences: {
-    favoriteWhiskeys: [],
-    preferredDifficulty: 'beginner',
-    notifications: true
-  },
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  lastLoginAt: new Date()
-});
-
-// Set up auth state listener
+// Auth state listener
 const auth = getAuth();
-// Fix auth state listener
+
 onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
   const { setUser, setProfile, setLoading, setError } = useAuthStore.getState();
 
@@ -248,96 +272,36 @@ onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
       return;
     }
 
-    if (fbUser.isAnonymous) {
-      const guestProfile: PlayerProfile = {
-        userId: fbUser.uid,
-        displayName: `Guest_${fbUser.uid.slice(0, 6)}`,
-        email: '',
-        role: UserRole.USER,
-        isAnonymous: true,
-        guest: true,
-        registrationType: 'guest',
-        metrics: {
-          gamesPlayed: 0,
-          totalScore: 0,
-          averageScore: 0,
-          bestScore: 0,
-          badges: [],
-          achievements: []
-        },
-        preferences: {
-          favoriteWhiskeys: [],
-          preferredDifficulty: 'beginner',
-          notifications: true
-        },
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        lastLoginAt: new Date()
-      };
-
-      setUser(guestProfile);
-      setProfile(guestProfile);
-      return;
-    }
-
     const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
     if (!userDoc.exists()) {
-      setError('User profile not found');
-      return;
+      throw new Error('User profile not found');
     }
 
     const fetchedProfile = userDoc.data();
-    if (fetchedProfile.role === UserRole.ADMIN) {
-      // Format admin whiskeys to match PlayerProfile structure
-      const formattedProfile = {
-        ...fetchedProfile,
-        whiskeys: fetchedProfile.whiskeys?.map((w: Partial<WhiskeyNode>) => ({
-          id: w.id || '',
-          name: w.name || '',
-          type: 'whiskey' as const,
-          properties: {
-            age: w.properties?.age,
-            proof: w.properties?.proof
-          },
-          connections: w.connections || []
-        })) || []
-      };
-      setProfile(formattedProfile as AdminProfile);
-
-      // Convert admin to player profile for user state
-      const playerProfile: PlayerProfile = {
-        userId: fetchedProfile.userId,
-        displayName: fetchedProfile.displayName,
-        email: fetchedProfile.email,
-        role: fetchedProfile.role,
-        createdAt: fetchedProfile.createdAt,
-        updatedAt: fetchedProfile.updatedAt || new Date(),
-        lastLoginAt: fetchedProfile.lastLoginAt,
-        guest: false,
-        isAnonymous: false,
-        registrationType: 'email',
-        metrics: {
-          gamesPlayed: 0,
-          totalScore: 0,
-          averageScore: 0,
-          bestScore: 0,
-          badges: [],
-          achievements: []
-        },
-        preferences: {
-          favoriteWhiskeys: [],
-          preferredDifficulty: 'beginner',
-          notifications: true
-        },
-        whiskeys: formattedProfile.whiskeys
-      };
-      setUser(playerProfile);
-    } else {
-      setProfile(fetchedProfile as PlayerProfile);
-      setUser(fetchedProfile as PlayerProfile);
+    if (!fetchedProfile) {
+      throw new Error('Invalid profile data');
     }
+
+    // Convert string timestamps to Date objects
+    const convertedProfile = {
+      ...fetchedProfile,
+      createdAt: new Date(fetchedProfile.createdAt),
+      updatedAt: new Date(fetchedProfile.updatedAt),
+      lastLoginAt: new Date(fetchedProfile.lastLoginAt)
+    } as PlayerProfile | AdminProfile;
+
+    if (isAdminProfile(convertedProfile)) {
+      setProfile(convertedProfile);
+      setUser(convertedProfile as unknown as PlayerProfile);  // Cast through unknown
+    } else {
+      setProfile(convertedProfile as PlayerProfile);
+      setUser(convertedProfile as PlayerProfile);
+    }
+
   } catch (error) {
     setError((error as Error).message);
+    setUser(null);
+    setProfile(null);
   } finally {
     setLoading(false);
   }

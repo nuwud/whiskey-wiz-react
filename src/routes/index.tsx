@@ -12,6 +12,7 @@ import { VerifyEmail } from '../components/auth/verify-email.component';
 // Game Components
 import { GameContainer } from '../components/game/game-container.component';
 import { QuarterSelection } from '../components/game/quarter-selection.component';
+import { GameResults } from '../components/game/game-results.component'; 
 
 // Admin Components
 import AdminDashboard from '../components/admin/admin-dashboard.component';
@@ -31,6 +32,7 @@ export const AppRoutes: React.FC = () => {
       <Route path="/signup" element={<SignUp />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/game/:quarterId/results" element={<GameResults />} />
 
       {/* Game Routes */}
       <Route element={<PrivateRoute allowedRoles={[UserRole.USER, UserRole.ADMIN]} />}>
@@ -41,6 +43,7 @@ export const AppRoutes: React.FC = () => {
         }} />} />
         <Route path="/game/:quarterId" element={<GameContainer />} />
         <Route path="/game" element={<GameContainer />} />
+        <Route path="/game/:quarterId/results" element={<GameResults />} />
       </Route>
 
       {/* Player Routes */}

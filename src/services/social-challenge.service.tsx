@@ -14,7 +14,7 @@ import {
   Firestore
 } from 'firebase/firestore';
 import { AnalyticsService } from './analytics.service';
-import { Firebase } from 'src/config/firebase';
+import { firebaseConfig } from '../config/firebase';
 import { LeaderboardEntry } from './leaderboard.service';
 
 interface SocialChallenge {
@@ -38,7 +38,7 @@ export class SocialChallengeService {
   private challengeCollection;
 
   private constructor() {
-    const app = initializeApp(Firebase);
+    const app = initializeApp(firebaseConfig);
     this.auth = getAuth(app);
     this.db = getFirestore(app);
     this.challengeCollection = collection(this.db, 'social_challenges');

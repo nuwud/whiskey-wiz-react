@@ -1,4 +1,4 @@
-import { db } from '@/config/firebase';
+import { db } from '../config/firebase';
 import { collection, query, getDocs, where, limit, DocumentData } from 'firebase/firestore';
 import { AnalyticsService } from './analytics.service';
 import { WhiskeySample } from '../types/game.types';

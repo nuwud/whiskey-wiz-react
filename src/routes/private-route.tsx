@@ -2,7 +2,7 @@ import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/auth.context';
 import { UserRole } from '../types';
-import { Spinner } from '@/components/ui/spinner-ui.component';
+import { Spinner } from '../components/ui/spinner-ui.component';
 
 interface PrivateRouteProps {
   allowedRoles?: UserRole[];

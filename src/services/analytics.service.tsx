@@ -38,13 +38,20 @@ interface MetricsData {
 
 export class AnalyticsService {
   private static instance: AnalyticsService;
-  private analytics: Analytics;
+  private analytics!: Analytics;
 
-  constructor() {
+  private constructor() {
     if (!analytics) {
       throw new Error('Firebase analytics is not initialized');
     }
-    this.analytics = analytics;
+    // Initialize analytics asynchronously
+    analytics().then(analyticsInstance => {
+      if (analyticsInstance) {
+        this.analytics = analyticsInstance;
+      } else {
+        throw new Error('Failed to initialize Firebase Analytics');
+      }
+    });
   }
 
   static logQuarter(quarterId: string) {
@@ -423,8 +430,4 @@ export interface SampleAnalytics {
   };
 }
 
-
-
-
-export const analyticsService = new AnalyticsService();
-export const AnalyticsServiceInstance = AnalyticsService.getInstance();
+export const analyticsService = AnalyticsService.getInstance();

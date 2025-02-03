@@ -12,14 +12,14 @@ import {
   serverTimestamp,
   addDoc
 } from 'firebase/firestore';
-import { db } from '@/config/firebase';
+import { db } from '../config/firebase';
 import { AnalyticsService } from './analytics.service';
 import { TimeseriesData } from '../types/game.types';
 import { LeaderboardEntry } from './leaderboard.service';
 import { PlayerProfile } from '../types/auth.types';
 import { Quarter, QuarterAnalytics, WhiskeySample } from '../types/game.types';
 
-export class QuarterService {
+class QuarterService {
   private quartersCollection = collection(db, 'quarters');
   private resultsCollection = collection(db, 'game_results');
 
@@ -551,21 +551,45 @@ export class QuarterService {
     };
   }
 
+  private convertTimestamp(timestamp: any): Date | null {
+    if (!timestamp) return null;
+    
+    // Handle Firestore timestamp
+    if (timestamp.toDate) {
+      return timestamp.toDate();
+    }
+    
+    // Handle timestamp with seconds and nanoseconds
+    if (timestamp.seconds && timestamp.nanoseconds) {
+      return new Date(timestamp.seconds * 1000 + timestamp.nanoseconds / 1000000);
+    }
+    
+    // Handle Date object or timestamp number
+    return new Date(timestamp);
+  }
+
   private convertToQuarter(data: DocumentData, id: string): Quarter {
+    console.log('Converting quarter data:', data);
+    // Extract samples from the nested structure
+    const samples = Object.entries(data.samples || {}).map(([sampleId, sampleData]) =>
+      this.convertToWhiskeySample({ id: sampleId, ...sampleData as DocumentData })
+    );
+    console.log('Converted samples:', samples);
+
     return {
       id,
       name: data.name,
       description: data.description,
-      startTime: data.startTime?.toDate() || new Date(),
-      endTime: data.endTime?.toDate() || new Date(),
+      startTime: (this.convertTimestamp(data.startTime) || new Date()).toISOString(),
+      endTime: (this.convertTimestamp(data.endTime) || new Date()).toISOString(),
       duration: data.duration || 0,
       minimumScore: data.minimumScore || 0,
       maximumScore: data.maximumScore || 0,
       minimumChallengesCompleted: data.minimumChallengesCompleted || 0,
       startDate: data.startDate?.toDate() || new Date(),
       endDate: data.endDate?.toDate() || new Date(),
-      isActive: data.isActive || false,
-      samples: Array.isArray(data.samples) ? data.samples.map(this.convertToWhiskeySample) : [],
+      isActive: data.active || false, // Note: changed from isActive to active to match Firebase
+      samples, // Use our extracted and converted samples
       difficulty: data.difficulty || 'beginner',
       scoringRules: data.scoringRules || {},
       challenges: data.challenges || {},
@@ -575,58 +599,54 @@ export class QuarterService {
   }
 
   private convertToWhiskeySample(data: DocumentData): WhiskeySample {
-    const getMashbillType = (composition: { corn: number, rye: number, wheat: number, barley: number }): WhiskeySample['mashbill'] => {
-      if (composition.corn >= 51) return 'bourbon';
-      if (composition.rye >= 51) return 'rye';
-      if (composition.wheat >= 51) return 'wheat';
-      if (composition.corn >= 80) return 'corn';
-      if (composition.barley >= 51) return 'malted barley';
+    console.log('Converting sample data:', data);
+    const getMashbillType = (mashbill: { corn: number, rye: number, wheat: number, barley: number }): WhiskeySample['mashbill'] => {
+      if (mashbill.corn >= 51) return 'bourbon';
+      if (mashbill.rye >= 51) return 'rye';
+      if (mashbill.wheat >= 51) return 'wheat';
+      if (mashbill.corn >= 80) return 'corn';
+      if (mashbill.barley >= 51) return 'malted barley';
       return 'bourbon'; // default fallback
     };
 
     return {
       id: data.id,
-      name: data.name,
-      age: data.age,
-      proof: data.proof,
-      mashbill: getMashbillType(data.mashbill),
+      name: data.name || 'Unknown Sample',
+      age: data.age || 0,
+      proof: data.proof || 0,
+      mashbill: getMashbillType(data.mashbill || { corn: 51, rye: 0, wheat: 0, barley: 0 }),
       mashbillComposition: {
-        corn: data.mashbill.corn,
-        rye: data.mashbill.rye,
-        wheat: data.mashbill.wheat,
-        barley: data.mashbill.barley
+        corn: data.mashbill?.corn || 0,
+        rye: data.mashbill?.rye || 0,
+        wheat: data.mashbill?.wheat || 0,
+        barley: data.mashbill?.barley || 0
       },
       notes: data.notes || [],
       hints: data.hints || [],
       distillery: data.distillery || 'Unknown',
       description: data.description || '',
-      difficulty: data.difficulty,
-      score: data.score,
-      challengeQuestions: data.challengeQuestions,
+      difficulty: data.difficulty || 'beginner',
+      score: data.score || 'score',
+      challengeQuestions: data.challengeQuestions || [],
       image: data.image || ''
     };
   }
 }
 
-export const quarterService = new QuarterService();
-export const quarter = quarterService.getCurrentQuarter();
-
+// Helper functions
 export const formatTime = (date: Date): string => {
   const options: Intl.DateTimeFormatOptions = {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false
   };
-  
   return date.toLocaleTimeString('en-US', options);
 };
 
 export const parseTimeString = (timeStr: string): Date | null => {
   if (!timeStr) return null;
-  
   const [hours, minutes] = timeStr.split(':').map(Number);
   if (isNaN(hours) || isNaN(minutes)) return null;
-  
   const date = new Date();
   date.setHours(hours, minutes, 0, 0);
   return date;
@@ -636,3 +656,6 @@ export const isValidTimeString = (timeStr: string): boolean => {
   const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
   return timeRegex.test(timeStr);
 };
+
+// Service instances
+export const quarterService = new QuarterService();

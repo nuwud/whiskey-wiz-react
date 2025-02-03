@@ -1,11 +1,11 @@
-import { db, auth } from '../firebase';
+import { db, auth } from '../config/firebase';
 import { collection, doc, setDoc, updateDoc, getDoc, addDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { AnalyticsService } from './analytics.service';
 
 export interface PlayerProfile {
     userId: string;
     role: string;
-    lastLoginAt: Date;
+    lastLoginAt: string | Date; // Allow both string and Date
     email?: string;
     displayName?: string;
     gameStats: {
@@ -25,7 +25,7 @@ export interface PlayerProfile {
         preferredChallengeDifficulty?: 'easy' | 'medium' | 'hard';
     };
     lastActive?: {
-        timestamp: Date;
+        timestamp: string | Date;
         location?: { lat: number; lng: number };
         ipAddress?: string;
         device?: { type: string; model: string };
@@ -59,7 +59,7 @@ export interface SampleAttempt {
 }
 
 export class PlayerTrackingService {
-    playerProfileCollection = collection(db, 'player_profiles');
+    playerProfileCollection = collection(db, 'playerProfiles');  // not 'player_profiles'
     sampleAttemptsCollection = collection(db, 'sample_attempts');
 
     public getSampleAttemptsCollection() {
@@ -79,12 +79,16 @@ export class PlayerTrackingService {
             const updatedProfile: PlayerProfile = existingProfile.exists()
                 ? {
                     ...existingProfile.data() as PlayerProfile,
-                    ...profileData
+                    ...profileData,
+                    lastLoginAt: new Date().toISOString(), // Convert to string
+                    quarterPerformance: {
+                        ...existingProfile.data().quarterPerformance
+                    }
                 }
                 : {
                     userId: currentUser.uid,
                     role: 'player',
-                    lastLoginAt: new Date(),
+                    lastLoginAt: new Date().toISOString(),
                     email: currentUser.email || '',
                     displayName: currentUser.displayName || '',
                     gameStats: {
@@ -112,23 +116,45 @@ export class PlayerTrackingService {
             console.error('Failed to create/update player profile', error);
             throw error;
         }
+        
+    }
+
+    private convertTimestamps(data: any): PlayerProfile {
+        return {
+            ...data,
+            lastLoginAt: new Date(data.lastLoginAt),
+            lastActive: data.lastActive ? {
+                ...data.lastActive,
+                timestamp: new Date(data.lastActive.timestamp)
+            } : undefined,
+            quarterPerformance: data.quarterPerformance ? {
+                ...data.quarterPerformance,
+                timestamp: new Date(data.quarterPerformance.timestamp)
+            } : {}
+        } as PlayerProfile;
     }
 
     async getPlayerByUserId(userId: string): Promise<PlayerProfile | undefined> {
         const q = query(this.playerProfileCollection, where('userId', '==', userId));
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => doc.data() as PlayerProfile).pop();
+        const doc = snapshot.docs[0];
+        return doc ? this.convertTimestamps(doc.data()) : undefined;
     }
+
     async getPlayerByEmail(email: string): Promise<PlayerProfile | undefined> {
         const q = query(this.playerProfileCollection, where('email', '==', email));
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => doc.data() as PlayerProfile).pop();
+        const doc = snapshot.docs[0];
+        return doc ? this.convertTimestamps(doc.data()) : undefined;
     }
+
     async getPlayerByDisplayName(displayName: string): Promise<PlayerProfile | undefined> {
         const q = query(this.playerProfileCollection, where('displayName', '==', displayName));
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => doc.data() as PlayerProfile).pop();
+        const doc = snapshot.docs[0];
+        return doc ? this.convertTimestamps(doc.data()) : undefined;
     }
+
     async updatePlayerProfile(userId: string, updatedProfileData: Partial<PlayerProfile>): Promise<void> {
         await this.createOrUpdatePlayerProfile({ userId, ...updatedProfileData });
     }
@@ -180,7 +206,7 @@ export class PlayerTrackingService {
             );
 
             const snapshot = await getDocs(q);
-            return snapshot.docs.map(doc => doc.data() as PlayerProfile);
+            return snapshot.docs.map(doc => this.convertTimestamps(doc.data()));
         } catch (error) {
             console.error('Failed to fetch quarter performance', error);
             return [];
@@ -191,7 +217,7 @@ export class PlayerTrackingService {
         try {
             const q = query(this.playerProfileCollection);
             const snapshot = await getDocs(q);
-            return snapshot.docs.map(doc => doc.data() as PlayerProfile);
+            return snapshot.docs.map(doc => this.convertTimestamps(doc.data()));
         } catch (error) {
             console.error('Failed to fetch player profiles:', error);
             return [];

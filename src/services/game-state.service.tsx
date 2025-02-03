@@ -32,10 +32,10 @@ export class GameStateService {
       challenges: [],
       samples: [],
       guesses: {
-        A: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 },
-        B: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 },
-        C: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 },
-        D: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 }
+        A: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false },
+        B: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false },
+        C: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false },
+        D: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false }
       },
       answers: {},
       timeRemaining: 0,
@@ -186,10 +186,10 @@ export class GameStateService {
       challenges: data.challenges || [],
       samples: data.samples || [],
       guesses: data.guesses || {
-        'A': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 },
-        'B': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 },
-        'C': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 },
-        'D': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0 }
+        'A': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false },
+        'B': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false },
+        'C': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false },
+        'D': { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false }
       },
       answers: data.answers || {},
       timeRemaining: data.timeRemaining || 0,

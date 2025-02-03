@@ -23,11 +23,17 @@ class MonitoringService {
   ]);
   private readonly MEMORY_THRESHOLD = 0.8; // 80% of heap limit
   private memoryWarningLogged = false;
+  private activeTraces: Map<string, number> = new Map();
 
   startTrace(traceName: string, context?: string) {
     try {
+      if (this.activeTraces.has(traceName)) {
+        console.warn(`Trace ${traceName} already exists`);
+        return;
+      }
       const startTime = performance.now();
       this.performanceEntries.set(traceName, startTime);
+      this.activeTraces.set(traceName, Date.now());
 
       if (context) {
         AnalyticsService.trackError(`Trace started: ${traceName}`, context);
@@ -61,6 +67,15 @@ class MonitoringService {
 
       // Clean up
       this.performanceEntries.delete(traceName);
+
+      const startTimestamp = this.activeTraces.get(traceName);
+      if (!startTimestamp) {
+        console.warn(`No start time found for trace: ${traceName}`);
+        return;
+      }
+      const durationTimestamp = Date.now() - startTimestamp;
+      this.activeTraces.delete(traceName);
+      console.debug(`Trace ${traceName} completed in ${durationTimestamp}ms`);
 
       return duration;
     } catch (error) {
@@ -165,6 +180,10 @@ class MonitoringService {
     } catch (error) {
       console.error('Failed to log memory metrics:', error);
     }
+  }
+
+  clearTrace(traceName: string): void {
+    this.activeTraces.delete(traceName);
   }
 }
 
