@@ -10,7 +10,8 @@ import {
   limit,
   updateDoc,
   serverTimestamp,
-  addDoc
+  addDoc,
+  Timestamp
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { AnalyticsService } from './analytics.service';
@@ -115,7 +116,7 @@ class QuarterService {
   }
 
 
-  private async getQuarterAnalytics(quarterId: string): Promise<QuarterAnalytics | null> {
+  async getQuarterAnalytics(quarterId: string): Promise<QuarterAnalytics | null> {
     try {
       const progressionStats = await this.getPlayerProgressionStats(quarterId);
       const sampleAnalytics = await this.getDetailedSampleAnalytics(quarterId);
@@ -308,7 +309,7 @@ class QuarterService {
     }
   }
 
-  private async calculateTimeSpentMetrics(quarterId: string) {
+  async calculateTimeSpentMetrics(quarterId: string) {
     try {
       const q = query(
         this.resultsCollection,
@@ -351,7 +352,7 @@ class QuarterService {
     }
   }
 
-  private async getQuarterTimeseries(quarterId: string): Promise<TimeseriesData[]> {
+  async getQuarterTimeseries(quarterId: string): Promise<TimeseriesData[]> {
     try {
       const q = query(
         this.resultsCollection,
@@ -407,7 +408,7 @@ class QuarterService {
     return docRef.id;
   }
 
-  private async getPlayerProgressionStats(quarterId: string) {
+  async getPlayerProgressionStats(quarterId: string) {
     try {
       const q = query(this.resultsCollection, where('quarterId', '==', quarterId));
       const snapshot = await getDocs(q);
@@ -451,7 +452,7 @@ class QuarterService {
     }
   }
 
-  private async getDetailedSampleAnalytics(quarterId: string) {
+  async getDetailedSampleAnalytics(quarterId: string) {
     try {
       const quarter = await this.getQuarterById(quarterId);
       if (!quarter) return [];
@@ -523,7 +524,7 @@ class QuarterService {
     }
   }
 
-  public async getQuarterById(quarterId: string): Promise<Quarter | null> {
+  async getQuarterById(quarterId: string): Promise<Quarter | null> {
     try {
       const quarterDoc = await getDoc(doc(this.quartersCollection, quarterId));
       if (!quarterDoc.exists()) {
@@ -537,7 +538,7 @@ class QuarterService {
     }
   }
 
-  private calculateSampleAccuracyStats(results: any[], sample: WhiskeySample) {
+  calculateSampleAccuracyStats(results: any[], sample: WhiskeySample) {
     const totalResults = results.length;
     if (totalResults === 0) return { age: 0, proof: 0, mashbill: 0 };
 
@@ -551,54 +552,44 @@ class QuarterService {
     };
   }
 
-  private convertTimestamp(timestamp: any): Date | null {
-    if (!timestamp) return null;
-    
-    // Handle Firestore timestamp
-    if (timestamp.toDate) {
-      return timestamp.toDate();
-    }
-    
-    // Handle timestamp with seconds and nanoseconds
-    if (timestamp.seconds && timestamp.nanoseconds) {
-      return new Date(timestamp.seconds * 1000 + timestamp.nanoseconds / 1000000);
-    }
-    
-    // Handle Date object or timestamp number
+  convertTimestamp = (timestamp: any): Date => {
+    if (!timestamp) return new Date();
+    if (timestamp instanceof Date) return timestamp;
+    if (timestamp?.seconds) return new Date(timestamp.seconds * 1000);
+    if (typeof timestamp === 'number') return new Date(timestamp);
     return new Date(timestamp);
   }
 
-  private convertToQuarter(data: DocumentData, id: string): Quarter {
+  convertToQuarter(data: DocumentData, id: string): Quarter {
     console.log('Converting quarter data:', data);
-    // Extract samples from the nested structure
-    const samples = Object.entries(data.samples || {}).map(([sampleId, sampleData]) =>
-      this.convertToWhiskeySample({ id: sampleId, ...sampleData as DocumentData })
-    );
-    console.log('Converted samples:', samples);
-
+    
     return {
       id,
       name: data.name,
       description: data.description,
-      startTime: (this.convertTimestamp(data.startTime) || new Date()).toISOString(),
-      endTime: (this.convertTimestamp(data.endTime) || new Date()).toISOString(),
+      startDate: data.startDate || Timestamp.now(),
+      endDate: data.endDate || Timestamp.now(),
+      startTime: data.startTime || Timestamp.now(),
+      endTime: data.endTime || Timestamp.now(),
+      createdAt: data.createdAt || Timestamp.now(),
+      updatedAt: data.updatedAt || Timestamp.now(),
       duration: data.duration || 0,
       minimumScore: data.minimumScore || 0,
-      maximumScore: data.maximumScore || 0,
+      maximumScore: data.maximumScore || 100,
       minimumChallengesCompleted: data.minimumChallengesCompleted || 0,
-      startDate: data.startDate?.toDate() || new Date(),
-      endDate: data.endDate?.toDate() || new Date(),
-      isActive: data.active || false, // Note: changed from isActive to active to match Firebase
-      samples, // Use our extracted and converted samples
+      isActive: data.active || false,
+      samples: data.samples || [],
       difficulty: data.difficulty || 'beginner',
-      scoringRules: data.scoringRules || {},
-      challenges: data.challenges || {},
-      createdAt: data.createdAt?.toDate() || new Date(),
-      updatedAt: data.updatedAt?.toDate() || new Date()
+      scoringRules: data.scoringRules || {
+        age: { maxPoints: 0, pointDeductionPerYear: 0, exactMatchBonus: 0 },
+        proof: { maxPoints: 0, pointDeductionPerProof: 0, exactMatchBonus: 0 },
+        mashbill: { maxPoints: 0, pointDeductionPerType: 0, exactMatchBonus: 0 }
+      },
+      challenges: data.challenges || [],
     };
   }
 
-  private convertToWhiskeySample(data: DocumentData): WhiskeySample {
+  convertToWhiskeySample(data: DocumentData): WhiskeySample {
     console.log('Converting sample data:', data);
     const getMashbillType = (mashbill: { corn: number, rye: number, wheat: number, barley: number }): WhiskeySample['mashbill'] => {
       if (mashbill.corn >= 51) return 'bourbon';
@@ -639,9 +630,9 @@ export const formatTime = (date: Date): string => {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false
-  };
+  }
   return date.toLocaleTimeString('en-US', options);
-};
+}
 
 export const parseTimeString = (timeStr: string): Date | null => {
   if (!timeStr) return null;
@@ -650,12 +641,12 @@ export const parseTimeString = (timeStr: string): Date | null => {
   const date = new Date();
   date.setHours(hours, minutes, 0, 0);
   return date;
-};
+}
 
 export const isValidTimeString = (timeStr: string): boolean => {
   const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
   return timeRegex.test(timeStr);
-};
+}
 
 // Service instances
 export const quarterService = new QuarterService();

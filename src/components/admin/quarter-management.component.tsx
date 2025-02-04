@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, useQuarter } from '../../contexts';
 import { quarterService } from '../../services/quarter.service';
-import { type Quarter, type WhiskeySample, type ScoringRules, type Difficulty, DifficultyEnum, Challenge } from '../../types/game.types';
+import { Quarter, WhiskeySample, ScoringRules, Difficulty, DifficultyEnum, Challenge } from '../../types/game.types';
 import { SampleEditor } from './sample-editor.component';
+import { Timestamp } from 'firebase/firestore';
+import { toFirebaseTimestamp, fromFirebaseTimestamp } from '../../utils/timestamp.utils';
 
 const DIFFICULTY_OPTIONS = Object.values(DifficultyEnum);
 
@@ -22,7 +24,7 @@ interface QuarterFormData {
   description: string;
   scoringRules: ScoringRules;
   challenges: Array<Challenge>;
-}
+};
 
 interface QuarterManagement {
   name: string;
@@ -34,7 +36,7 @@ interface QuarterManagement {
   description: string;
   challenges: Array<Challenge>;
   scoringRules: ScoringRules;
-}
+};
 
 export const isValidTimeString = (time: string): boolean => {
   const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
@@ -105,31 +107,38 @@ export const QuarterManagement: React.FC = () => {
   useEffect(() => {
     const loadQuarters = async () => {
       if (!user) return;
-
+  
       try {
         setLoading(true);
         const fetchedQuarters = await quarterService.getAllQuarters();
-        setQuarters(fetchedQuarters);
+        setQuarters(fetchedQuarters);  // Remove the map function since we're getting Timestamps now
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load quarters');
       } finally {
         setLoading(false);
       }
     };
-
+  
     void loadQuarters();
   }, [user]);
 
 
   const handleQuarterSelect = (quarter: Quarter) => {
     setSelectedQuarter(quarter);
+    const startDate = quarter.startDate instanceof Date ? 
+      quarter.startDate : 
+      quarter.startDate?.toDate?.() || new Date();
+    const endDate = quarter.endDate instanceof Date ? 
+      quarter.endDate : 
+      quarter.endDate?.toDate?.() || new Date();
+      
     setFormData({
       name: quarter.name,
-      startDate: formatDateTimeForInput(quarter.startDate),
-      endDate: formatDateTimeForInput(quarter.endDate),
-      startTime: formatTimeString(quarter.startDate),
-      endTime: formatTimeString(quarter.endDate),
-      duration: calculateDuration(quarter.startDate, quarter.endDate), // Add this function
+      startDate: fromFirebaseTimestamp(quarter.startDate).toISOString().split('T')[0],
+      endDate: fromFirebaseTimestamp(quarter.endDate).toISOString().split('T')[0],
+      startTime: formatTimeString(startDate),
+      endTime: formatTimeString(endDate),
+      duration: calculateDuration(startDate, endDate),
       difficulty: quarter.difficulty as DifficultyEnum,
       minimumScore: quarter.minimumScore,
       maximumScore: quarter.maximumScore,
@@ -142,7 +151,6 @@ export const QuarterManagement: React.FC = () => {
     });
     setIsEditing(true);
   };
-  
   // Add this function to calculate duration
   const calculateDuration = (startDate: Date, endDate: Date): number => {
     return Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -230,20 +238,20 @@ export const QuarterManagement: React.FC = () => {
     try {
       const quarterData: Omit<Quarter, 'id'> = {
         name: formData.name,
-        startDate: new Date(formData.startDate),
-        endDate: new Date(formData.endDate),
-        startTime: formatTimeString(parseTimeString(formData.startTime)),
-        endTime: formatTimeString(parseTimeString(formData.endTime)),
+        startDate: toFirebaseTimestamp(new Date(formData.startDate)), // Convert Date to Firestore Timestamp
+        endDate: toFirebaseTimestamp(new Date(formData.endDate)),
+        startTime: toFirebaseTimestamp(new Date(formData.startTime)), // Ensure Timestamp conversion
+        endTime: toFirebaseTimestamp(new Date(formData.endTime)),
         duration: typeof formData.duration === 'string' 
           ? parseInt(formData.duration, 10) 
           : formData.duration,
         minimumScore: formData.minimumScore,
         maximumScore: formData.maximumScore,
         minimumChallengesCompleted: formData.minimumChallengesCompleted,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: Timestamp.now(), // Direct Firestore Timestamp
+        updatedAt: Timestamp.now(),
         challenges: formData.challenges,
-        difficulty: (formData.difficulty.toLowerCase() as unknown) as Difficulty,
+        difficulty: formData.difficulty.toLowerCase() as Difficulty,
         isActive: formData.isActive,
         description: formData.description,
         samples: formData.samples,
@@ -272,27 +280,39 @@ export const QuarterManagement: React.FC = () => {
     return <div className="p-4">You must be logged in to access this page.</div>;
   }
 
+  // Update handleSubmit
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
       setLoading(true);
       setError(null);
+        
       const quarterData: Omit<Quarter, 'id'> = {
-        ...formData,
-        startDate: new Date(formData.startDate),
-        endDate: new Date(formData.endDate),
+        name: formData.name,
+        startDate: toFirebaseTimestamp(new Date(formData.startDate)),
+        endDate: toFirebaseTimestamp(new Date(formData.endDate)),
+        startTime: toFirebaseTimestamp(parseTimeString(formData.startTime)),
+        endTime: toFirebaseTimestamp(parseTimeString(formData.endTime)),
+        duration: formData.duration,
+        minimumScore: formData.minimumScore,
+        maximumScore: formData.maximumScore,
+        minimumChallengesCompleted: formData.minimumChallengesCompleted,
+        isActive: formData.isActive,
+        samples: formData.samples,
+        description: formData.description,
         challenges: formData.challenges,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        difficulty: (formData.difficulty.toLowerCase() as unknown) as Difficulty
+        difficulty: formData.difficulty.toLowerCase() as Difficulty,
+        scoringRules: formData.scoringRules,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
       };
-
+  
       if (selectedQuarter) {
         await quarterService.updateQuarter(selectedQuarter.id, quarterData);
       } else {
         await quarterService.createQuarter(quarterData);
       }
-
+  
       const fetchedQuarters = await quarterService.getAllQuarters();
       setQuarters(fetchedQuarters);
       setIsEditing(false);
@@ -334,7 +354,7 @@ export const QuarterManagement: React.FC = () => {
           <h3 className="font-medium">Current Active Quarter</h3>
           <p>{currentQuarter.name}</p>
           <p className="text-sm text-gray-600">
-            {currentQuarter.startDate} - {currentQuarter.endDate}
+          {fromFirebaseTimestamp(currentQuarter.startDate).toLocaleDateString()} - {fromFirebaseTimestamp(currentQuarter.endDate).toLocaleDateString()}
           </p>
         </div>
       )}
@@ -506,7 +526,7 @@ export const QuarterManagement: React.FC = () => {
                     {quarter.name}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {quarter.startDate.toLocaleDateString()} - {quarter.endDate.toLocaleDateString()}
+                  {fromFirebaseTimestamp(quarter.startDate).toLocaleDateString()} - {fromFirebaseTimestamp(quarter.endDate).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs rounded-full ${String(quarter.difficulty).toUpperCase() === DifficultyEnum.Beginner

@@ -9,7 +9,11 @@ const router = createBrowserRouter([
     path: "*",
     element: <App />,
   }
-]);
+], {
+  future: {
+    v7_relativeSplatPath: true
+  }
+});
 
 const rootElement = document.getElementById('root');
 

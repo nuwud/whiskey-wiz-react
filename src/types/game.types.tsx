@@ -1,5 +1,6 @@
 import { PlayerProfile } from "./auth.types";
 import { LeaderboardEntry } from "../services/leaderboard.service";
+import { Timestamp } from 'firebase/firestore';
 
 // Sample and basic types
 
@@ -133,11 +134,11 @@ export interface ScoringRules {
 export interface Quarter {
   id: string;
   name: string;
-  startDate: Date;
-  endDate: Date;
+  startDate: Timestamp | Date;
+  endDate: Timestamp | Date;
   duration: number;
-  startTime: string;
-  endTime: string;
+  startTime: Timestamp | Date;
+  endTime: Timestamp | Date;
   difficulty: Difficulty;
   minimumScore: number;
   maximumScore: number;
@@ -147,13 +148,11 @@ export interface Quarter {
   description: string;
   challenges: Challenge[];
   scoringRules: ScoringRules;
-  createdAt: Date;
-  updatedAt: Date;
-
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
 }
 
 // Game state tracking
-
 export interface GameState {
   // User and session info
   userId: string;

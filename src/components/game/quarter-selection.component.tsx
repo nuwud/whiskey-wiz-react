@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Quarter } from '../../types/game.types';
 import { quarterService } from '../../services/quarter.service';
-import { analyticsService } from '../../services/analytics.service';
+import { AnalyticsService } from '../../services/analytics.service';
 import { useAuth } from '../../contexts/auth.context';
 import { Difficulty } from '../../types/game.types';
+import { fromFirebaseTimestamp } from '../../utils/timestamp.utils';
 
 interface QuarterSelectionProps {
   onSelect: (quarter: Quarter) => void;
@@ -31,15 +32,18 @@ export const QuarterSelection: React.FC<QuarterSelectionProps> = ({
 
         // Sort quarters by start date (most recent first)
         const sortedQuarters = [...fetchedQuarters].sort(
-          (a, b) => b.startDate.getTime() - a.startDate.getTime()
+          (a, b) => fromFirebaseTimestamp(b.startDate).getTime() - fromFirebaseTimestamp(a.startDate).getTime()
         );
-
+        
         setQuarters(sortedQuarters);
-        analyticsService.trackError('Quarters loaded', 'quarter_selection', user?.uid);
+        AnalyticsService.trackEvent('quarters_loaded', {
+          count: sortedQuarters.length,
+          userId: user?.uid
+        });
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load quarters';
         setError(errorMessage);
-        analyticsService.trackError(errorMessage, 'quarter_selection', user?.uid);
+        AnalyticsService.trackError(errorMessage, 'quarter_selection', user?.uid);
       } finally {
         setLoading(false);
       }
@@ -47,15 +51,6 @@ export const QuarterSelection: React.FC<QuarterSelectionProps> = ({
 
     fetchQuarters();
   }, [showInactive, user]);
-
-  const handleQuarterSelect = (quarter: Quarter) => {
-    if (!user) return;
-
-    // Track quarter selection
-    analyticsService.trackError('Quarter selected', 'quarter_selection', user.uid);
-
-    onSelect(quarter);
-  };
 
   const getDifficultyColor = (difficulty: Difficulty): string => {
     switch (difficulty) {
@@ -98,6 +93,15 @@ export const QuarterSelection: React.FC<QuarterSelectionProps> = ({
     );
   }
 
+  const handleQuarterSelect = (quarter: Quarter): void => {
+    AnalyticsService.trackEvent('quarter_selected', {
+      quarterId: quarter.id,
+      quarterName: quarter.name,
+      userId: user?.uid
+    });
+    onSelect(quarter);
+  };
+
   return (
     <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ${className}`}>
       {quarters.map((quarter) => (
@@ -121,14 +125,14 @@ export const QuarterSelection: React.FC<QuarterSelectionProps> = ({
             <div className="flex justify-between">
               <span className="text-gray-600">Start Date:</span>
               <span className="text-gray-900">
-                {new Date(quarter.startDate).toLocaleDateString()}
+                {fromFirebaseTimestamp(quarter.startDate)?.toLocaleDateString()}
               </span>
             </div>
 
             <div className="flex justify-between">
               <span className="text-gray-600">End Date:</span>
               <span className="text-gray-900">
-                {new Date(quarter.endDate).toLocaleDateString()}
+                {fromFirebaseTimestamp(quarter.endDate)?.toLocaleDateString()}
               </span>
             </div>
 

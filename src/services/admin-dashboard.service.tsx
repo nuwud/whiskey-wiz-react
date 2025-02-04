@@ -11,6 +11,7 @@ import {
 import { db } from '../config/firebase';
 import { QuarterTemplate } from './quarter-template.service';
 import { PlayerProfile } from '../types/auth.types';
+import { fromFirebaseTimestamp } from '@/utils/timestamp.utils';
 
 export interface AdminDashboardMetrics {
   playerStats: {
@@ -391,10 +392,10 @@ export class AdminDashboardService {
       const quarters = await this.getActiveQuarters();
       const profiles = await this.getPlayerProfiles();
 
-      return quarters.map(quarter => {
+      return quarters.map(Quarter => {
         const quarterPlayers = profiles.filter((profile: PlayerProfile) => {
           // You'll need to add logic to determine which players participated in which quarter
-          return quarter.startDate <= profile.lastLoginAt;
+          return fromFirebaseTimestamp(Quarter.startDate) <= profile.lastLoginAt;
         });
 
         const averageScore = quarterPlayers.reduce(
@@ -409,7 +410,7 @@ export class AdminDashboardService {
           ) : undefined;
 
         return {
-          quarterId: quarter.id || '',
+          quarterId: Quarter.id || '',
           averageScore,
           totalPlayers: quarterPlayers.length,
           topPerformer

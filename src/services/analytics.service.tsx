@@ -1,6 +1,7 @@
 import { logEvent, Analytics, setUserProperties } from 'firebase/analytics';
 import { analytics } from '../config/firebase';
 import { UserRole } from '../types/firebase.types';
+import { toFirebaseTimestamp } from '../utils/timestamp.utils';
 
 interface GameEvent {
   quarterId: string;
@@ -59,7 +60,7 @@ export class AnalyticsService {
       const instance = AnalyticsService.getInstance();
       logEvent(instance.analytics, 'quarter_started', {
         quarter_id: quarterId,
-        timestamp: new Date().toISOString()
+        timestamp: toFirebaseTimestamp(new Date())
       });
     } catch (error) {
       console.error('Analytics error - quarter_started:', error);
@@ -71,7 +72,7 @@ export class AnalyticsService {
       const instance = AnalyticsService.getInstance();
       logEvent(instance.analytics, 'quarter_start', {
         quarter_id: quarterId,
-        timestamp: new Date().toISOString()
+        timestamp: toFirebaseTimestamp(new Date())
       });
     } catch (error) {
       console.error('Analytics error - quarter_start:', error);
@@ -85,7 +86,7 @@ export class AnalyticsService {
         quarter_id: quarterId,
         sample_id: result.sampleId,
         accuracy: result.accuracy,
-        timestamp: new Date().toISOString()
+        timestamp: toFirebaseTimestamp(new Date())
       });
     } catch (error) {
       console.error('Analytics error - sample_guessed:', error);
@@ -109,7 +110,7 @@ export class AnalyticsService {
         difficulty: gameInfo.difficulty || metadata.difficulty,
         mode: gameInfo.mode || metadata.mode,
         device_type: gameInfo.deviceType || metadata.deviceType,
-        timestamp: new Date().toISOString()
+        timestamp: toFirebaseTimestamp(new Date())
       });
     } catch (error) {
       console.error('Analytics error - game_started:', error);
@@ -125,7 +126,7 @@ export class AnalyticsService {
         sample_id: data.sampleId,
         accuracy: data.accuracy,
         time_spent: data.timeSpent,
-        timestamp: new Date().toISOString()
+        timestamp: toFirebaseTimestamp(new Date())
       });
     } catch (error) {
       console.error('Analytics error - sample_guessed:', error);
@@ -145,7 +146,7 @@ export class AnalyticsService {
         time_spent: data.timeSpent,
         score: data.score,
         metadata: data.metadata,
-        timestamp: new Date().toISOString()
+        timestamp: toFirebaseTimestamp(new Date())
       });
     } catch (error) {
       console.error('Analytics error - metrics_tracked:', error);
@@ -160,7 +161,7 @@ export class AnalyticsService {
         user_id: data.userId,
         score: data.score,
         time_spent: data.time_spent,
-        timestamp: new Date().toISOString()
+        timestamp: toFirebaseTimestamp(new Date())
       });
     } catch (error) {
       console.error('Analytics error - game_completed:', error);
@@ -175,7 +176,7 @@ export class AnalyticsService {
         sample_id: sampleId,
         accuracy,
         time_spent: timeSpent,
-        timestamp: new Date().toISOString()
+        timestamp: toFirebaseTimestamp(new Date())
       });
     } catch (error) {
       console.error('Analytics error - sample_guessed:', error);
@@ -188,7 +189,7 @@ export class AnalyticsService {
       logEvent(this.analytics, 'user_signed_up', {
         user_id: userId,
         role,
-        timestamp: new Date().toISOString()
+        timestamp: toFirebaseTimestamp(new Date())
       });
       this.setUserRole(userId, role);
     } catch (error) {
@@ -201,7 +202,7 @@ export class AnalyticsService {
       logEvent(this.analytics, 'user_signed_in', {
         user_id: userId,
         role,
-        timestamp: new Date().toISOString()
+        timestamp: toFirebaseTimestamp(new Date())
       });
     } catch (error) {
       console.error('Analytics error - user_signed_in:', error);
@@ -213,7 +214,7 @@ export class AnalyticsService {
       logEvent(this.analytics, 'preference_set', {
         user_id: userId,
         preference,
-        timestamp: new Date().toISOString()
+        timestamp: toFirebaseTimestamp(new Date())
       });
     } catch (error) {
       console.error('Analytics error - preference_set:', error);
@@ -226,7 +227,7 @@ export class AnalyticsService {
       logEvent(this.analytics, 'score_shared', {
         user_id: userId,
         share_method: action,
-        timestamp: new Date().toISOString()
+        timestamp: toFirebaseTimestamp(new Date())
       });
     } catch (error) {
       console.error('Analytics error - score_shared:', error);
@@ -240,7 +241,7 @@ export class AnalyticsService {
         error_message: errorMessage,
         context,
         user_id: userId,
-        timestamp: new Date().toISOString()
+        timestamp: toFirebaseTimestamp(new Date())
       });
     } catch (error) {
       console.error('Analytics error - error_occurred:', error);
@@ -249,10 +250,11 @@ export class AnalyticsService {
 
   private setUserRole(userId: string, role?: UserRole) {
     try {
-      setUserProperties(this.analytics, {
-        user_id: userId,
-        user_role: role
-      });
+      setUserProperties(this.analytics,  
+        {
+          user_id: userId,
+          user_role: role
+        });
     } catch (error) {
       console.error('Analytics error - setUserRole:', error);
     }
@@ -266,7 +268,7 @@ export class AnalyticsService {
     try {
       logEvent(AnalyticsService.instance.analytics, action, {
         ...data,
-        timestamp: new Date().toISOString()
+        timestamp: toFirebaseTimestamp(new Date())
       });
     } catch (error) {
       console.error('Analytics error - trackUserEngagement:', error);
@@ -284,7 +286,7 @@ export class AnalyticsService {
     try {
       logEvent(AnalyticsService.instance.analytics, _action, {
         ...(_data as Record<string, any>),
-        timestamp: new Date().toISOString()
+        timestamp: toFirebaseTimestamp(new Date())
       });
     } catch (error) {
       console.error('Analytics error - trackEvent:', error);
@@ -308,7 +310,7 @@ export class AnalyticsService {
         error_message: _errorMessage,
         context: _context,
         user_id: _userId,
-        timestamp: new Date().toISOString()
+        timestamp: toFirebaseTimestamp(new Date())
       });
     } catch (error) {
       console.error('Analytics error - trackError:', error);
@@ -320,7 +322,7 @@ export class AnalyticsService {
       logEvent(AnalyticsService.instance.analytics, 'trace_start', {
         trace_name: _traceName,
         context: _context,
-        timestamp: new Date().toISOString()
+        timestamp: toFirebaseTimestamp(new Date())
       });
     } catch (error) {
       console.error('Analytics error - startTrace:', error);
@@ -341,7 +343,7 @@ export class AnalyticsService {
         trace_name: _traceName,
         duration,
         context: _context,
-        timestamp: new Date().toISOString()
+        timestamp: toFirebaseTimestamp(new Date())
       });
       console.log(`Trace ${_traceName} took ${duration}ms`);
       return result;
@@ -359,7 +361,7 @@ export class AnalyticsService {
 
       logEvent(AnalyticsService.instance.analytics, action, {
         ...data,
-        timestamp: new Date().toISOString()
+        timestamp: toFirebaseTimestamp(new Date())
       });
     } catch (error) {
       console.error('Analytics error - trackGameInteraction:', error);

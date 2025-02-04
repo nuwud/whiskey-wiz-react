@@ -1,5 +1,6 @@
 import { useQuarter } from '../../contexts/quarter.context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card-ui.component';
+import { fromFirebaseTimestamp } from '@/utils/timestamp.utils';
 
 export function GameBoard() {
   const { currentQuarter } = useQuarter();
@@ -15,7 +16,7 @@ export function GameBoard() {
         <CardContent>
           <div className="text-2xl font-bold">{currentQuarter?.name || 'Loading...'}</div>
           <p className="text-xs text-muted-foreground">
-            {currentQuarter ? `${new Date(currentQuarter.startDate).toLocaleDateString()} - ${new Date(currentQuarter.endDate).toLocaleDateString()}` : ''}
+            {currentQuarter ? `${fromFirebaseTimestamp(currentQuarter.startDate).toLocaleDateString()} - ${fromFirebaseTimestamp(currentQuarter.endDate).toLocaleDateString()}` : ''}
           </p>
         </CardContent>
       </Card>

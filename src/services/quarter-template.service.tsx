@@ -1,21 +1,19 @@
 import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { AnalyticsService } from '../services/analytics.service';
+import { Quarter, WhiskeySample, ScoringRules, Difficulty } from '../types/game.types';
+import { Timestamp } from 'firebase/firestore';
 
-export interface QuarterTemplate {
+export interface QuarterTemplate extends Omit<Quarter, 'id' | 'createdAt' | 'updatedAt'> {
   id?: string;
   name: string;
-  startDate: Date;
-  endDate: Date;
+  startDate: Timestamp;
+  endDate: Timestamp;
   isActive: boolean;
-  difficulty: string;
-  description?: string;
-  samples: Array<any>; // Consider creating a Sample interface
-  scoringRules?: {
-    age: number;
-    proof: number;
-    mashbill: number;
-  };
+  difficulty: Difficulty;
+  description: string;  
+  samples: WhiskeySample[];
+  scoringRules: ScoringRules;
 }
 
 export class QuarterTemplateService {
@@ -23,6 +21,9 @@ export class QuarterTemplateService {
 
   async createQuarterTemplate(template: QuarterTemplate): Promise<string> {
     try {
+      // Validate scoring rules and samples before adding
+      this.validateTemplate(template);
+
       const docRef = await addDoc(this.templateCollection, template);
 
       AnalyticsService.trackUserEngagement('quarter_template_created', {
@@ -37,7 +38,7 @@ export class QuarterTemplateService {
     }
   }
 
-  async getTemplatesByDifficulty(difficulty: 'easy' | 'medium' | 'hard'): Promise<QuarterTemplate[]> {
+  async getTemplatesByDifficulty(difficulty: Difficulty): Promise<QuarterTemplate[]> {
     try {
       const q = query(this.templateCollection, where('difficulty', '==', difficulty));
       const snapshot = await getDocs(q);
@@ -49,6 +50,26 @@ export class QuarterTemplateService {
     } catch (error) {
       console.error('Failed to fetch templates', error);
       return [];
+    }
+  }
+
+  private validateTemplate(template: QuarterTemplate): void {
+    // Validate samples
+    if (!Array.isArray(template.samples)) {
+      throw new Error('Samples must be an array');
+    }
+    template.samples.forEach(sample => {
+      if (!sample.id || !sample.name || !sample.mashbill) {
+        throw new Error('Invalid sample data');
+      }
+    });
+  
+    // Validate scoring rules if they exist
+    const rules = template.scoringRules;
+    if (rules) {
+      if (!rules.age || !rules.proof || !rules.mashbill) {
+        throw new Error('Missing scoring rules');
+      }
     }
   }
 
@@ -73,15 +94,15 @@ export class QuarterTemplateService {
 
   async generateDynamicQuarters(): Promise<void> {
     try {
-      const difficulties = ['easy', 'medium', 'hard'];
-
+      const difficulties: Difficulty[] = ['beginner', 'intermediate', 'advanced'];
+  
       for (const difficulty of difficulties) {
-        const templates = await this.getTemplatesByDifficulty(difficulty as 'easy' | 'medium' | 'hard');
-
+        const templates = await this.getTemplatesByDifficulty(difficulty);
+  
         templates.forEach(template => {
           // Generate component files or register dynamically
           this.generateQuarterComponent(template);
-
+  
           AnalyticsService.trackUserEngagement('dynamic_quarter_generated', {
             templateId: template.id,
             difficulty: template.difficulty

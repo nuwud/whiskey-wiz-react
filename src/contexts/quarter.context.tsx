@@ -1,16 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { db } from '../config/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-
-interface Quarter {
-  id: string;
-  name: string;
-  startDate: string;
-  endDate: string;
-  difficulty: 'easy' | 'medium' | 'hard';
-  isActive: boolean;
-  samples: any[];
-}
+import { Quarter } from '../types/game.types';
 
 interface QuarterContextType {
   currentQuarter: Quarter | null;
