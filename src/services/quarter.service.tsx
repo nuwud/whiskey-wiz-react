@@ -10,8 +10,7 @@ import {
   limit,
   updateDoc,
   serverTimestamp,
-  addDoc,
-  Timestamp
+  addDoc
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { AnalyticsService } from './analytics.service';
@@ -562,30 +561,119 @@ class QuarterService {
 
   convertToQuarter(data: DocumentData, id: string): Quarter {
     console.log('Converting quarter data:', data);
-    
+
+
+    // Validate and normalize samples data
+    let samples: WhiskeySample[] = [];
+
+    if (data.samples) {
+      if (Array.isArray(data.samples)) {
+        // If it's already an array, validate each sample
+        samples = data.samples.map((sample: any, index: number) => ({
+          id: sample.id || `sample${index + 1}`,
+          name: sample.name || `Sample ${String.fromCharCode(65 + index)}`,
+          age: typeof sample.age === 'number' ? sample.age : 0,
+          proof: typeof sample.proof === 'number' ? sample.proof : 0,
+          mashbill: sample.mashbill || 'bourbon',
+          hints: Array.isArray(sample.hints) ? sample.hints : [],
+          distillery: sample.distillery || 'Unknown',
+          description: sample.description || '',
+          notes: Array.isArray(sample.notes) ? sample.notes : [],
+          difficulty: ['beginner', 'intermediate', 'advanced'].includes(sample.difficulty)
+            ? sample.difficulty
+            : 'beginner',
+          score: sample.score || 'score',
+          challengeQuestions: Array.isArray(sample.challengeQuestions)
+            ? sample.challengeQuestions
+            : [],
+          image: sample.image || ''
+        }));
+      } else if (typeof data.samples === 'object' && data.samples !== null) {
+        // If it's an object (like {sample1: {...}, sample2: {...}}), convert to array
+        samples = Object.entries(data.samples)
+          .filter(([key]) => /^sample\d+$/.test(key))
+          .sort(([a], [b]) => {
+            const aNum = parseInt(a.replace('sample', ''));
+            const bNum = parseInt(b.replace('sample', ''));
+            return aNum - bNum;
+          })
+          .map(([key, value]: [string, any]) => ({
+            id: key,
+            name: `Sample ${String.fromCharCode(65 + parseInt(key.replace('sample', '')) - 1)}`,
+            age: typeof value.age === 'number' ? value.age : 0,
+            proof: typeof value.proof === 'number' ? value.proof : 0,
+            mashbill: value.mashbill || 'bourbon',
+            hints: Array.isArray(value.hints) ? value.hints : [],
+            distillery: value.distillery || 'Unknown',
+            description: value.description || '',
+            notes: Array.isArray(value.notes) ? value.notes : [],
+            difficulty: ['beginner', 'intermediate', 'advanced'].includes(value.difficulty)
+              ? value.difficulty
+              : 'beginner',
+            score: value.score || 'score',
+            challengeQuestions: Array.isArray(value.challengeQuestions)
+              ? value.challengeQuestions
+              : [],
+            image: value.image || ''
+          }));
+      }
+      // Log the normalized samples
+      console.log('Normalized samples:', samples);
+    }
     return {
       id,
-      name: data.name,
-      description: data.description,
-      startDate: data.startDate || Timestamp.now(),
-      endDate: data.endDate || Timestamp.now(),
-      startTime: data.startTime || Timestamp.now(),
-      endTime: data.endTime || Timestamp.now(),
-      createdAt: data.createdAt || Timestamp.now(),
-      updatedAt: data.updatedAt || Timestamp.now(),
-      duration: data.duration || 0,
-      minimumScore: data.minimumScore || 0,
-      maximumScore: data.maximumScore || 100,
-      minimumChallengesCompleted: data.minimumChallengesCompleted || 0,
-      isActive: data.active || false,
-      samples: data.samples || [],
-      difficulty: data.difficulty || 'beginner',
+      name: data.name || '',
+      description: data.description || '',
+      startDate: this.convertTimestamp(data.startDate),
+      endDate: this.convertTimestamp(data.endDate),
+      startTime: this.convertTimestamp(data.startTime),
+      endTime: this.convertTimestamp(data.endTime),
+      createdAt: this.convertTimestamp(data.createdAt),
+      updatedAt: this.convertTimestamp(data.updatedAt),
+      duration: typeof data.duration === 'number' ? data.duration : 0,
+      minimumScore: typeof data.minimumScore === 'number' ? data.minimumScore : 0,
+      maximumScore: typeof data.maximumScore === 'number' ? data.maximumScore : 100,
+      minimumChallengesCompleted: typeof data.minimumChallengesCompleted === 'number'
+        ? data.minimumChallengesCompleted
+        : 0,
+      isActive: Boolean(data.active),
+      samples,  // Use our validated and normalized samples
+      difficulty: ['beginner', 'intermediate', 'advanced'].includes(data.difficulty)
+        ? data.difficulty
+        : 'beginner',
       scoringRules: data.scoringRules || {
-        age: { maxPoints: 0, pointDeductionPerYear: 0, exactMatchBonus: 0 },
-        proof: { maxPoints: 0, pointDeductionPerProof: 0, exactMatchBonus: 0 },
-        mashbill: { maxPoints: 0, pointDeductionPerType: 0, exactMatchBonus: 0 }
+        age: {
+          maxPoints: 0,
+          pointDeductionPerYear: 0,
+          exactMatchBonus: 0,
+          points: 0,
+          penaltyPerYear: 0,
+          minValue: 0,
+          maxValue: 0,
+          hasLowerLimit: false,
+          hasUpperLimit: false,
+          gracePeriod: 0
+        },
+        proof: {
+          maxPoints: 0,
+          pointDeductionPerProof: 0,
+          exactMatchBonus: 0,
+          points: 0,
+          penaltyPerPoint: 0,
+          minValue: 0,
+          maxValue: 0,
+          hasLowerLimit: false,
+          hasUpperLimit: false,
+          gracePeriod: 0
+        },
+        mashbill: {
+          maxPoints: 0,
+          pointDeductionPerType: 0,
+          exactMatchBonus: 0,
+          points: 0
+        }
       },
-      challenges: data.challenges || [],
+      challenges: Array.isArray(data.challenges) ? data.challenges : [],
     };
   }
 

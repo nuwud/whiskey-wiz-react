@@ -1,5 +1,6 @@
 // src/components/game/game-results.component.tsx
 import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { useGameStore } from '../../store/game.store';
 import { SampleResult } from './sample-result.component';
 import ShareResults from './share-results.component';
@@ -7,8 +8,10 @@ import { useScoreAnalysis } from '../../hooks/use-score-analysis.hook';
 import { Accordion } from '../ui/accordion-ui.component';
 import { quarterService } from '../../services/quarter.service';
 import { WhiskeySample } from '../../types/game.types';
+import { transformQuarterSamples } from '../../utils/data-transform.utils';
 
 export const GameResults: React.FC = () => {
+    const { quarterId } = useParams<{ quarterId: string }>();  
     const { guesses, totalScore } = useGameStore();
     const [samples, setSamples] = useState<WhiskeySample[]>([]);
     const [loading, setLoading] = useState(true);
@@ -20,13 +23,18 @@ export const GameResults: React.FC = () => {
                 setLoading(true);
                 setError(null);
                 
+                if (!quarterId) {
+                    setError('No quarter ID found');
+                    return;
+                }
+        
                 console.log('Loading quarter data...');
-                const quarter = await quarterService.getCurrentQuarter();
+                const quarter = await quarterService.getQuarterById(quarterId);
                 console.log('Quarter data:', quarter);
                 
                 if (!quarter) {
-                    console.error('No active quarter found');
-                    setError('No active quarter found');
+                    console.error('Quarter not found');
+                    setError('Quarter not found');
                     return;
                 }
                 
@@ -36,8 +44,14 @@ export const GameResults: React.FC = () => {
                     return;
                 }
 
-                console.log('Setting samples:', quarter.samples);
-                setSamples(quarter.samples);
+                const samplesArray = transformQuarterSamples(quarter.samples);                
+                if (samplesArray.length === 0) {
+                    setError('No valid samples found');
+                    return;
+                }
+
+                console.log('Setting samples:', samplesArray);
+                setSamples(samplesArray);
             } catch (error) {
                 console.error('Error loading quarter data:', error);
                 setError('Failed to load game data');
@@ -45,9 +59,8 @@ export const GameResults: React.FC = () => {
                 setLoading(false);
             }
         };
-
         loadQuarterData();
-    }, []);
+    }, [quarterId]);
 
     const scoreAnalysis = useScoreAnalysis({
         samples,

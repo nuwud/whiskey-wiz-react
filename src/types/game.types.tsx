@@ -112,46 +112,6 @@ export interface ChallengeRules {
   passingScore: number;
 }
 
-// Scoring configuration
-export interface ScoringRules {
-  age: {
-    maxPoints: number;
-    pointDeductionPerYear: number;
-    exactMatchBonus: number;
-  };
-  proof: {
-    maxPoints: number;
-    pointDeductionPerProof: number;
-    exactMatchBonus: number;
-  };
-  mashbill: {
-    maxPoints: number;
-    pointDeductionPerType: number;  // Changed from pointDeductionPerYear
-    exactMatchBonus: number;
-  };
-}
-
-export interface Quarter {
-  id: string;
-  name: string;
-  startDate: Timestamp | Date;
-  endDate: Timestamp | Date;
-  duration: number;
-  startTime: Timestamp | Date;
-  endTime: Timestamp | Date;
-  difficulty: Difficulty;
-  minimumScore: number;
-  maximumScore: number;
-  minimumChallengesCompleted: number;
-  isActive: boolean;
-  samples: WhiskeySample[];
-  description: string;
-  challenges: Challenge[];
-  scoringRules: ScoringRules;
-  createdAt: Timestamp | Date;
-  updatedAt: Timestamp | Date;
-}
-
 // Game state tracking
 export interface GameState {
   // User and session info
@@ -199,23 +159,119 @@ export interface GameState {
   isComplete: boolean;
 }
 
+export interface BaseScoringRule {
+  points: number;
+  maxPoints: number;
+  minValue?: number;
+  maxValue?: number;
+  exactMatchBonus: number;
+  hasLowerLimit: boolean;
+  hasUpperLimit: boolean;
+
+}
+
+export interface AgeScoringRule extends BaseScoringRule {
+  penaltyPerYear: number;
+  gracePeriod: number;
+}
+
+export interface ProofScoringRule extends BaseScoringRule {
+  penaltyPerPoint: number;
+  gracePeriod: number;
+}
+
+export interface MashbillScoringRule extends BaseScoringRule {
+  penaltyPerType: number;
+}
+
+// Scoring configuration
+export interface ScoringRules {
+  age: {
+    points: number;
+    maxPoints: number;
+    penaltyPerYear: number;
+    pointDeductionPerYear: number;
+    exactMatchBonus: number;
+    minValue: number;
+    maxValue: number;
+    hasLowerLimit: boolean;
+    hasUpperLimit: boolean;
+    gracePeriod: number;
+  };
+  proof: {
+    points: number;
+    maxPoints: number;
+    penaltyPerPoint: number;
+    pointDeductionPerProof: number;
+    exactMatchBonus: number;
+    minValue: number;
+    maxValue: number;
+    hasLowerLimit: boolean;
+    hasUpperLimit: boolean;
+    gracePeriod: number;
+  };
+  mashbill: {
+    points: number;
+    maxPoints: number;
+    pointDeductionPerType: number;
+    exactMatchBonus: number;
+  };
+}
+
+// Add a complete default scoring rules export
 export const DEFAULT_SCORING_RULES: ScoringRules = {
   age: {
-    maxPoints: 100,
-    pointDeductionPerYear: 10,
-    exactMatchBonus: 20
+    points: 35,
+    maxPoints: 35,
+    penaltyPerYear: 6,
+    pointDeductionPerYear: 6,
+    exactMatchBonus: 20,
+    minValue: 1,
+    maxValue: 10,
+    hasLowerLimit: true,
+    hasUpperLimit: false,
+    gracePeriod: 1
   },
   proof: {
-    maxPoints: 100,
-    pointDeductionPerProof: 5,
-    exactMatchBonus: 20
+    points: 35,
+    maxPoints: 35,
+    penaltyPerPoint: 3,
+    pointDeductionPerProof: 3,
+    exactMatchBonus: 20,
+    minValue: 80,
+    maxValue: 120,
+    hasLowerLimit: true,
+    hasUpperLimit: false,
+    gracePeriod: 1
   },
   mashbill: {
-    maxPoints: 100,
+    points: 30,
+    maxPoints: 30,
     pointDeductionPerType: 10,
     exactMatchBonus: 20
   }
-} as const;
+};
+
+export interface Quarter {
+  id: string;
+  name: string;
+  startDate: Timestamp | Date;
+  endDate: Timestamp | Date;
+  startTime: Timestamp | Date;
+  endTime: Timestamp | Date;
+  duration: number;
+  difficulty: Difficulty;
+  minimumScore: number;     // Added these required fields
+  maximumScore: number;
+  minimumChallengesCompleted: number;
+  isActive: boolean;
+  samples: WhiskeySample[];
+  description: string;
+  scoringRules: ScoringRules;
+  challenges: Challenge[];
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+}
 
 export const INITIAL_STATE: GameState = {
   // User and session info
@@ -234,7 +290,11 @@ export const INITIAL_STATE: GameState = {
   error: null,
   currentSampleId: null,
   currentQuarter: null,
-  scoringRules: DEFAULT_SCORING_RULES,
+  scoringRules: {
+    age: DEFAULT_SCORING_RULES.age,
+    proof: DEFAULT_SCORING_RULES.proof,
+    mashbill: DEFAULT_SCORING_RULES.mashbill
+  } ,
   
   // Add the missing challenges property
   challenges: [],  // or {} depending on your type definition

@@ -38,9 +38,9 @@ export class GameStateService {
         D: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false }
       },
       answers: {},
-      timeRemaining: 0,
-      lives: 0,
-      hints: 0,
+      timeRemaining: 300,
+      lives: 3,
+      hints: 3,
       isComplete: false,
       totalChallenges: 0,
       hasSubmitted: false,
@@ -54,22 +54,19 @@ export class GameStateService {
       error: null,
       currentSampleId: null,
       currentQuarter: null,
-      scoringRules: DEFAULT_SCORING_RULES
+      scoringRules: { ...DEFAULT_SCORING_RULES }  // Use spread to clone default rules
     };
-
+  
     try {
       const gameStateRef = doc(this.gameStateCollection, userId);
       await setDoc(gameStateRef, {
         ...initialState,
-        lastUpdated: new Date().toISOString() // Ensure proper date serialization
+        lastUpdated: new Date().toISOString()
       });
-
-      AnalyticsService.trackError('Game state initialized', 'game_state_service');
-
+  
       return initialState;
     } catch (error) {
       console.error('Failed to initialize game state', error);
-      AnalyticsService.trackError('Failed to initialize game state', 'game_state_service');
       throw error;
     }
   }

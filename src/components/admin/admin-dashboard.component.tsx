@@ -5,7 +5,7 @@ import { Spinner } from '../ui/spinner-ui.component';
 import { AdminMetricsPanel } from './admin-metrics-panel.component';
 import UserManagement from './user-management.component';
 import { QuarterAnalytics } from './quarter-analytics.component';
-import { QuarterManagement } from './quarter-management.component';
+import QuarterManagement from './quarter-management.component';
 import { QuarterProvider } from '../../contexts/quarter.context';
 
 const AdminDashboard = () => {

@@ -8,6 +8,7 @@ import {
     CardTitle,
 } from "../../components/ui/card-ui.component";
 import { Alert } from "../../components/ui/alert-ui.component";
+import { useLocation } from 'react-router-dom';
 
 interface ShareResultsProps {
     score: number;
@@ -19,14 +20,24 @@ interface ShareResultsProps {
     };
 }
 
-const ShareResults: React.FC<ShareResultsProps> = ({ score, totalSamples, bestGuess }) => {
+const ShareResults: React.FC<ShareResultsProps> = ({ score = 0, totalSamples = 0, bestGuess }) => {
     const [showCopied, setShowCopied] = useState(false);
+    const location = useLocation();
+
+    // Normalize and validate data
+    const normalizedScore = Math.max(0, Math.round(score));
+    const normalizedSamples = Math.max(0, totalSamples);
+    const normalizedAccuracy = Math.min(100, Math.max(0, Math.round(bestGuess?.accuracy ?? 0)));
+    const sampleName = bestGuess?.name || 'Sample';
 
     // Generate the share text
-    const shareText = `🥃 I scored ${score} points on ${totalSamples} whiskey samples in Whiskey Wiz! My best guess was ${bestGuess.name} with ${bestGuess.accuracy}% accuracy. Can you beat my score?`;
+    const shareText = normalizedSamples > 0 
+        ? `🥃 I scored ${normalizedScore} points on ${normalizedSamples} whiskey samples in Whiskey Wiz! My best guess was ${sampleName} with ${normalizedAccuracy}% accuracy. Can you beat my score?`
+        : `🥃 Check out Whiskey Wiz - test your whiskey knowledge!`;
 
-    // Generate the share URL (update with your actual domain)
-    const shareUrl = `${window.location.origin}/play`;
+    // Generate the share URL using current location
+    const baseUrl = window.location.origin;
+    const shareUrl = `${baseUrl}${location.pathname}`;
 
     // Handle copy to clipboard
     const handleCopy = async () => {

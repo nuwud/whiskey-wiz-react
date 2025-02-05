@@ -57,7 +57,7 @@ export const SampleResult: React.FC<SampleResultProps> = ({
     // Calculate detailed scores
     const ageAccuracy = Math.max(0, 100 - (Math.abs(sample.age - guess.age) * 10));
     const proofAccuracy = Math.max(0, 100 - (Math.abs(sample.proof - guess.proof) * 2));
-    const mashbillAccuracy = sample.mashbill === guess.mashbill ? 100 : 0;
+    const mashbillAccuracy = sample.mashbill.toLowerCase() === guess.mashbill.toLowerCase() ? 100 : 0;
 
     // Calculate explanations
     const getAgeExplanation = () => {
@@ -75,7 +75,7 @@ export const SampleResult: React.FC<SampleResultProps> = ({
     };
 
     const getMashbillExplanation = () => {
-        return sample.mashbill === guess.mashbill
+        return sample.mashbill.toLowerCase() === guess.mashbill.toLowerCase()
             ? "Correct mashbill type! Full points awarded."
             : "Incorrect mashbill type. No points awarded for this category.";
     };
@@ -89,7 +89,7 @@ export const SampleResult: React.FC<SampleResultProps> = ({
                         <span className="text-sm text-gray-600">({sample.name})</span>
                     </div>
                     <div className="flex items-center gap-4">
-                        <div className="text-xl font-bold text-amber-600">{guess.score} points</div>
+                        <div className="text-xl font-bold text-amber-600">{guess.score ?? 0} points</div>
                     </div>
                 </div>
             </AccordionTrigger>

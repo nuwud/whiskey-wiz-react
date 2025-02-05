@@ -6,7 +6,7 @@ import { AnalyticsService } from '../../services/analytics.service';
 import { monitoringService } from '../../services/monitoring.service';
 import { FirebaseService } from '../../services/firebase.service';
 import { Spinner } from '../../components/ui/spinner-ui.component';
-import { SampleKey, SampleGuess, WhiskeySample, SampleId } from '../../types/game.types';
+import { SampleKey, SampleGuess, WhiskeySample, SampleId, Score } from '../../types/game.types';
 import { SampleGuessing, createInitialGuesses } from './sample-guessing.component';
 import { useGameProgression } from '../../store/game-progression.store';
 
@@ -15,6 +15,55 @@ const calculateTimeSpent = (startTime: number): number => {
 };
 
 const SAMPLE_IDS: SampleId[] = ['A', 'B', 'C', 'D'];
+
+const validateFirestoreSample = (sample: any): boolean => {
+  return (
+    sample &&
+    typeof sample === 'object' &&
+    typeof sample.age === 'number' &&
+    typeof sample.proof === 'number' &&
+    typeof sample.mashbill === 'string'
+  );
+};
+
+const convertFirestoreSampleToWhiskeySample = (sampleData: any, index: number): WhiskeySample => {
+  if (!validateFirestoreSample(sampleData)) {
+    throw new Error(`Invalid sample data at index ${index}`);
+  }
+
+  return {
+    id: `sample${index + 1}`,
+    name: `Sample ${String.fromCharCode(65 + index)}`,
+    age: sampleData.age,
+    proof: sampleData.proof,
+    mashbill: sampleData.mashbill.toLowerCase() as WhiskeySample['mashbill'],
+    mashbillComposition: sampleData.mashbillComposition || {
+      corn: 0,
+      rye: 0,
+      wheat: 0,
+      barley: 0
+    },
+    hints: sampleData.hints || [],          // Required by WhiskeySample
+    distillery: sampleData.distillery || 'Unknown',  // Required by WhiskeySample
+    description: sampleData.description || '',  // Required by WhiskeySample
+    notes: sampleData.notes || [],         // Required by WhiskeySample
+    difficulty: sampleData.difficulty || 'beginner',  // Required by WhiskeySample
+    score: `score ${String.fromCharCode(65 + index)}` as Score,  // This will create "score A", "score B", etc.
+    challengeQuestions: sampleData.challengeQuestions || [],  // Required by WhiskeySample
+    image: sampleData.image || ''  // Required by WhiskeySample
+  };
+};
+
+const transformQuarterSamples = (samples: Record<string, any>): Record<SampleId, WhiskeySample> => {
+  return Object.entries(samples)
+    .filter(([key]) => key.startsWith('sample'))
+    .reduce((acc, [_, data], index) => {
+      if (index < SAMPLE_IDS.length) {
+        acc[SAMPLE_IDS[index]] = convertFirestoreSampleToWhiskeySample(data, index);
+      }
+      return acc;
+    }, {} as Record<SampleId, WhiskeySample>);
+};
 
 export const GameContainer: React.FC = () => {
   const { quarterId } = useParams<{ quarterId: string }>();
@@ -73,27 +122,20 @@ export const GameContainer: React.FC = () => {
         const quarter = await quarterService.getQuarterById(quarterId);
         if (!quarter) throw new Error('Quarter not found');
 
-        // Track game start
-        AnalyticsService.gameStarted(
-          { quarterId, userId: user.uid },
-          { difficulty: quarter.difficulty, mode: 'standard', deviceType: 'web' },
-          { quarterId, userId: user.uid },
-          { difficulty: quarter.difficulty, mode: 'standard', deviceType: 'web' }
-        );
+        if (!quarter.samples) {
+          throw new Error('No samples found in quarter');
+        }
 
-        // Transform quarter samples into a record by sample ID
-        const quarterSamples = quarter.samples.reduce((acc, sample, index) => {
-          const sampleId = SAMPLE_IDS[index];
-          acc[sampleId] = sample;
-          return acc;
-        }, {} as Record<SampleId, WhiskeySample>);
+        const quarterSamples = transformQuarterSamples(quarter.samples);
+        if (Object.keys(quarterSamples).length === 0) {
+          throw new Error('No valid samples found');
+        }
 
-        // Initialize all state
         setSamples(quarterSamples);
         setCurrentSample(SAMPLE_IDS[0]);
         setCurrentSampleIndex(0);
-        
         setLoading(false);
+
       } catch (error) {
         console.error('Game initialization failed:', error);
         setError('Failed to initialize game. Please try again.');

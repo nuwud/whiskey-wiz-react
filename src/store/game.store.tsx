@@ -100,7 +100,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
         } as Record<SampleKey, number>,
         answers: {},
         timeRemaining: 300,
-        lives: 3,
         hints: 3,
         isComplete: false
       });

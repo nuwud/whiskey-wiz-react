@@ -17,7 +17,7 @@ import { GameResults } from '../components/game/game-results.component';
 // Admin Components
 import AdminDashboard from '../components/admin/admin-dashboard.component';
 import UserManagement from '../components/admin/user-management.component';
-import { QuarterManagement } from '../components/admin/quarter-management.component';
+import QuarterManagement from '../components/admin/quarter-management.component';
 
 // Player Components
 import { PlayerDashboard } from '../components/player/player-dashboard.component';
