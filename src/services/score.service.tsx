@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { Timestamp } from 'firebase/firestore';
+import { ScoringCalculator, AdminScoringConfig } from '../utils/scoring';
 
 // Score submission structure
 export interface ScoreSubmission {
@@ -26,6 +27,11 @@ export interface ScoreSubmission {
       proof: number;
       mashbill: string;
       score?: number;
+      breakdown?: {
+        age: number;
+        proof: number;
+        mashbill: number;
+      };
     }
   };
   createdAt?: Timestamp;
@@ -38,44 +44,39 @@ interface ScoreDocument extends ScoreSubmission {
 
 // Core Score Service
 export class ScoreService {
+  private static calculator: ScoringCalculator;
+
+  static initializeScoring(config?: AdminScoringConfig) {
+    this.calculator = new ScoringCalculator(config);
+  }
+
   static calculateScore(userGuess: any, correctAnswer: any): number {
-    let totalScore = 0;
-
-    // ✅ Mashbill Scoring (Correct or Incorrect)
-    if (userGuess.mashbill === correctAnswer.mashbill) {
-      totalScore += 30;
+    if (!this.calculator) {
+      this.initializeScoring();
     }
+    
+    const result = this.calculator.calculate({
+      actual: correctAnswer,
+      guess: userGuess
+    });
 
-    // ✅ Proof Scoring
-    const proofDifference = Math.abs(userGuess.proof - correctAnswer.proof);
-    if (proofDifference === 0) {
-      totalScore += 35;
-    } else if (proofDifference === 1) {
-      totalScore += 30;
-    } else if (proofDifference <= 11) {
-      totalScore += Math.max(0, 30 - (proofDifference - 1) * 3);
-    }
-
-    // ✅ Age Scoring
-    const ageDifference = Math.abs(userGuess.age - correctAnswer.age);
-    if (ageDifference === 0) {
-      totalScore += 35;
-    } else if (ageDifference === 1) {
-      totalScore += 30;
-    } else if (ageDifference <= 6) {
-      totalScore += Math.max(0, 30 - (ageDifference - 1) * 6);
-    }
-
-    return totalScore;
+    return result.totalScore;
   }
 
   // ✅ Rank based on Score
   static getRank(score: number): string {
-    if (score >= 90) return 'Whiskey Wizard';
-    if (score >= 80) return 'Oak Overlord';
-    if (score >= 60) return 'Cask Commander';
-    if (score >= 40) return 'Whiskey Explorer';
-    if (score >= 20) return 'Whiskey Rookie';
+    if (!this.calculator) {
+      this.initializeScoring();
+    }
+
+    const maxScore = this.calculator.getMaxPossibleScore();
+    const percentage = (score / maxScore) * 100;
+
+    if (percentage >= 90) return 'Whiskey Wizard';
+    if (percentage >= 80) return 'Oak Overlord';
+    if (percentage >= 60) return 'Cask Commander';
+    if (percentage >= 40) return 'Whiskey Explorer';
+    if (percentage >= 20) return 'Whiskey Rookie';
     return 'Barrel Beginner';
   }
 }
@@ -98,7 +99,7 @@ export const scoreService = {
   async getScore(scoreId: string): Promise<ScoreDocument> {
     try {
       const docRef = doc(db, 'scores', scoreId);
-      const docSnap = await getDoc(docRef);  // <-- Ensure this is still being used
+      const docSnap = await getDoc(docRef);
       if (!docSnap.exists()) {
         throw new Error('Score not found');
       }
@@ -114,7 +115,9 @@ export const scoreService = {
 
   async getPlayerScores(playerId: string, quarterId?: string): Promise<ScoreDocument[]> {
     try {
-      let baseQuery = query(collection(db, 'scores'), where('playerId', '==', playerId));
+      let baseQuery = query(collection(db, 'scores'), 
+                           where('playerId', '==', playerId),
+                           orderBy('createdAt', 'desc'));
       if (quarterId) {
         baseQuery = query(baseQuery, where('quarterId', '==', quarterId));
       }
@@ -123,7 +126,7 @@ export const scoreService = {
       return snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(), // Convert Timestamp to Date
+        createdAt: doc.data().createdAt?.toDate(),
       })) as ScoreDocument[];
     } catch (error) {
       console.error('Error fetching player scores:', error);
@@ -142,7 +145,7 @@ export const scoreService = {
       return snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(), // Convert Timestamp to Date
+        createdAt: doc.data().createdAt?.toDate(),
       })) as ScoreDocument[];
     } catch (error) {
       console.error('Error fetching leaderboard:', error);
@@ -161,10 +164,11 @@ export const scoreService = {
     }
   },
 
-  async updateScoreGuess(scoreId: string, guessIndex: number, guessData: Partial<ScoreSubmission['guesses'][string]>): Promise<void> {
+  async updateScoreGuess(scoreId: string, guessIndex: number, 
+    guessData: Partial<ScoreSubmission['guesses'][string]>): Promise<void> {
     try {
       const docRef = doc(db, 'scores', scoreId);
-      await updateDoc(docRef, { [`guesses.${guessIndex}`]: guessData });  // <-- Ensure this is still being used
+      await updateDoc(docRef, { [`guesses.${guessIndex}`]: guessData });
     } catch (error) {
       console.error('Error updating score guess:', error);
       throw error;
@@ -174,7 +178,7 @@ export const scoreService = {
   async deleteScoreGuess(scoreId: string, guessIndex: number): Promise<void> {
     try {
       const docRef = doc(db, 'scores', scoreId);
-      await updateDoc(docRef, { [`guesses.${guessIndex}`]: deleteField() });  // <-- Ensure this is still being used
+      await updateDoc(docRef, { [`guesses.${guessIndex}`]: deleteField() });
     } catch (error) {
       console.error('Error deleting score guess:', error);
       throw error;

@@ -55,18 +55,18 @@ export const getScoreExplanation = (
 ): { age: string; proof: string; mashbill: string } => {
     const ageDiff = Math.abs(actual.age - guess.age);
     const proofDiff = Math.abs(actual.proof - guess.proof);
-    
+
     return {
         age: ageDiff === 0 ? "Perfect match!" :
-             ageDiff <= AGE_GRACE_YEARS ? `Close! Off by ${ageDiff} years` :
-             `Off by ${ageDiff} years - outside grace period`,
-             
+            ageDiff <= AGE_GRACE_YEARS ? `Close! Off by ${ageDiff} years` :
+                `Off by ${ageDiff} years - outside grace period`,
+
         proof: proofDiff === 0 ? "Perfect match!" :
-               proofDiff <= PROOF_GRACE_POINTS ? `Close! Off by ${proofDiff} proof points` :
-               `Off by ${proofDiff} proof points - outside grace period`,
-               
+            proofDiff <= PROOF_GRACE_POINTS ? `Close! Off by ${proofDiff} proof points` :
+                `Off by ${proofDiff} proof points - outside grace period`,
+
         mashbill: actual.mashbill.toLowerCase() === guess.mashbill.toLowerCase() ?
-                 "Correct mashbill type!" :
-                 "Incorrect mashbill type"
+            "Correct mashbill type!" :
+            "Incorrect mashbill type"
     };
 };
