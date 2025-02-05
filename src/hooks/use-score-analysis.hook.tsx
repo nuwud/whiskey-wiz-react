@@ -74,13 +74,23 @@ export const useScoreAnalysis = ({
                     name: 'No samples available'
                 },
                 averageAccuracy: 0,
-                individualScores: {} as Record<SampleId, any>
+                individualScores: {
+                    'A': { age: 0, proof: 0, mashbill: 0, total: 0 },
+                    'B': { age: 0, proof: 0, mashbill: 0, total: 0 },
+                    'C': { age: 0, proof: 0, mashbill: 0, total: 0 },
+                    'D': { age: 0, proof: 0, mashbill: 0, total: 0 }
+                }
             };
         }
 
         const totalSamples = samples.length;
         const finalScore = Object.values(totalScore).reduce((sum, score) => sum + score, 0);
-        const individualScores: Record<SampleId, any> = {};
+        const individualScores: Record<SampleId, any> = {
+            'A': { age: 0, proof: 0, mashbill: 0, total: 0 },
+            'B': { age: 0, proof: 0, mashbill: 0, total: 0 },
+            'C': { age: 0, proof: 0, mashbill: 0, total: 0 },
+            'D': { age: 0, proof: 0, mashbill: 0, total: 0 }
+        };
 
         // Calculate accuracy and scores for each guess
         const accuracies = samples
