@@ -1,36 +1,38 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",      // Changed from ES2020
-    "module": "ES2022",      // Changed from ES2020
-    "useDefineForClassFields": true,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],  // Updated to ES2022
-    "skipLibCheck": true,
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true,
-    "composite": true,
-    "jsx": "react-jsx",
-    "strict": true,
-    "strictNullChecks": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
+    "compilerOptions": {
+      "target": "ES2022",
+      "module": "ES2022",
+      "useDefineForClassFields": true,
+      "lib": ["ES2022", "DOM", "DOM.Iterable"],
+      "skipLibCheck": true,
+      "moduleResolution": "bundler",
+      "allowImportingTsExtensions": true,
+      "resolveJsonModule": true,
+      "isolatedModules": true,
+      "noEmit": true,
+      "composite": true,
+      "jsx": "react-jsx",         // This is correct
+      "jsxImportSource": "react", // Add this line
+      "strict": true,
+      "strictNullChecks": true,
+      "noUnusedLocals": true,
+      "noUnusedParameters": true,
+      "noFallthroughCasesInSwitch": true,
+      "forceConsistentCasingInFileNames": true,
+      "baseUrl": ".",
+      "paths": {
+        "@/*": ["./src/*"]
+      },
+      "types": [
+        "node", 
+        "vite/client",
+        "react/jsx-runtime"    // Add this line
+      ],
+      "allowSyntheticDefaultImports": true,
+      "esModuleInterop": true
     },
-    "types": [
-      "node", 
-      "vite/client"
-    ],
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true
-  },
-  "include": ["src"],
-  "references": [
-    { "path": "./tsconfig.node.json" }
-  ]
+    "include": ["src"],
+    "references": [
+      { "path": "./tsconfig.node.json" }
+    ]
 }

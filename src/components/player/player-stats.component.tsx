@@ -46,7 +46,7 @@ export const PlayerStatsComponent: React.FC = () => {
 
             try {
                 const resultsRef = collection(db, 'gameResults');
-                const q = query(resultsRef, where('userId', '==', user.uid));
+                const q = query(resultsRef, where('userId', '==', user.userId));
                 const querySnapshot = await getDocs(q);
 
                 const results = querySnapshot.docs.map(doc => ({
@@ -60,7 +60,7 @@ export const PlayerStatsComponent: React.FC = () => {
                 const bestScore = Math.max(...results.map(r => r.score));
 
                 setStats({
-                  totalScore: totalScore,
+                    totalScore: totalScore,
                     totalGames: totalGames,
                     averageScore: totalGames > 0 ? totalScore / totalGames : 0,
                     bestQuarterScore: bestScore,

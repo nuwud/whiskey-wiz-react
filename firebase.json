@@ -14,10 +14,13 @@
       }
     ],
     "predeploy": [
-      "if exist dist rmdir /s /q dist || rm -rf dist",
       "npm run build"
     ],
     "cleanUrls": true,
     "trailingSlash": false
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   }
 }

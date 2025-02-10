@@ -12,11 +12,11 @@ export const GameOver = ({ onPlayAgain }: GameOverProps) => {
   const { score, guesses, samples, challenges, answers, hints, lives } = useGameStore();
   const totalChallenges = challenges.length;
   const calculateSampleAccuracy = () => {
-    if (!samples.length) return 0;
+    if (Object.keys(samples).length === 0) return 0;
     let totalAccuracy = 0;
 
     Object.entries(guesses).forEach(([id, guess]) => {
-      const sample = samples.find(s => s.id === id);
+      const sample = Object.values(samples).find(s => s.id === id);
       if (!sample || !guess.score) return;
 
       // Each sample can score up to 140 points (50 + 20 bonus for age and proof, 50 for mashbill)
@@ -24,7 +24,7 @@ export const GameOver = ({ onPlayAgain }: GameOverProps) => {
       totalAccuracy += accuracyPercentage;
     });
 
-    return totalAccuracy / samples.length;
+    return totalAccuracy / Object.keys(samples).length;
   };
   const sampleAccuracy = calculateSampleAccuracy();
   const calculateTotalScore = (scores: Record<SampleKey, number>): number => {

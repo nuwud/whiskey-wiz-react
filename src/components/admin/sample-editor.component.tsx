@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { WhiskeySample } from '../../types/game.types';
+import { useState, useEffect, FC } from 'react';
+import { WhiskeySample, MashbillType, MASHBILL_TYPES } from '../../types/game.types';
 import { Dialog } from '../../components/ui/dialog';
 import { shopifyService, ShopifyProduct } from '../../services/shopify-integration.service';
 
@@ -7,7 +7,7 @@ interface SampleFormData {
   name: string;
   age: number;
   proof: number;
-  mashbill: "bourbon" | "rye" | "wheat" | "corn" | "malted barley";
+  mashbill: MashbillType;
   distillery: string;
   description: string;
   shopifyProduct: ShopifyProduct | null;
@@ -23,7 +23,7 @@ const defaultSampleData: SampleFormData = {
   name: '',
   age: 0,
   proof: 80,
-  mashbill: 'bourbon',
+  mashbill: MASHBILL_TYPES.BOURBON,  // Use the constant
   distillery: '',
   description: '',
   shopifyProduct: null,
@@ -45,7 +45,7 @@ interface SampleEditorProps {
   onClose: () => void;
 }
 
-export const SampleEditor = ({ samples, onUpdate, onClose }: SampleEditorProps) => {
+export const SampleEditor: FC<SampleEditorProps> = ({ samples, onUpdate, onClose }) => {
   const [editingSample, setEditingSample] = useState<SampleFormData>(defaultSampleData);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [shopifyProducts, setShopifyProducts] = useState<ShopifyProduct[]>([]);
@@ -102,22 +102,7 @@ export const SampleEditor = ({ samples, onUpdate, onClose }: SampleEditorProps) 
         name: sampleData.name || '',
         age: sampleData.age || 0,
         proof: sampleData.proof || 80,
-        mashbill: sampleData.mashbill || 'bourbon',
-        distillery: sampleData.distillery || '',
-        description: sampleData.description || '',
-        shopifyProduct: product,
-        isDialogOpen: false,
-        shopifyProductError: null,
-        onSave,
-        onDialogClose,
-        onProductChange: handleProductChange,
-        onProductSelect: handleProductSelect
-      });
-      setEditingSample({
-        name: sampleData.name || '',
-        age: sampleData.age || 0,
-        proof: sampleData.proof || 80,
-        mashbill: sampleData.mashbill || 'bourbon',
+        mashbill: sampleData.mashbill || MASHBILL_TYPES.BOURBON,
         distillery: sampleData.distillery || '',
         description: sampleData.description || '',
         shopifyProduct: product,
@@ -150,7 +135,12 @@ export const SampleEditor = ({ samples, onUpdate, onClose }: SampleEditorProps) 
         difficulty: samples[editingIndex]?.difficulty || 1,
         score: samples[editingIndex]?.score || 0,
         challengeQuestions: samples[editingIndex]?.challengeQuestions || [],
-        image: samples[editingIndex]?.image || ''
+        image: samples[editingIndex]?.image || '',
+        rating: samples[editingIndex]?.rating || 0,
+        type: samples[editingIndex]?.type || '',
+        region: samples[editingIndex]?.region || '',
+        imageUrl: samples[editingIndex]?.imageUrl || '',
+        price: samples[editingIndex]?.price || 0
       };
       onUpdate(newSamples);
     }

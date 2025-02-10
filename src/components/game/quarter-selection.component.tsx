@@ -38,12 +38,15 @@ export const QuarterSelection: React.FC<QuarterSelectionProps> = ({
         setQuarters(sortedQuarters);
         AnalyticsService.trackEvent('quarters_loaded', {
           count: sortedQuarters.length,
-          userId: user?.uid
+          userId: user?.userId
         });
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load quarters';
         setError(errorMessage);
-        AnalyticsService.trackError(errorMessage, 'quarter_selection', user?.uid);
+        AnalyticsService.trackEvent('quarter_selection_error', {
+          error: errorMessage,
+          userId: user?.userId
+        });
       } finally {
         setLoading(false);
       }
@@ -97,7 +100,7 @@ export const QuarterSelection: React.FC<QuarterSelectionProps> = ({
     AnalyticsService.trackEvent('quarter_selected', {
       quarterId: quarter.id,
       quarterName: quarter.name,
-      userId: user?.uid
+      userId: user?.userId
     });
     onSelect(quarter);
   };

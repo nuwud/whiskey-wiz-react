@@ -11,7 +11,11 @@ import {
 import { db } from '../config/firebase';
 import { QuarterTemplate } from './quarter-template.service';
 import { PlayerProfile } from '../types/auth.types';
-import { fromFirebaseTimestamp } from '@/utils/timestamp.utils';
+import { fromFirebaseTimestamp } from '../utils/timestamp.utils';
+import { AnalyticsService } from './analytics.service';
+import { monitoringService } from './monitoring.service';
+import { UserType } from '../types/auth.types';
+
 
 export interface AdminDashboardMetrics {
   playerStats: {
@@ -40,9 +44,27 @@ export interface AdminDashboardMetrics {
     topPerformer?: PlayerProfile;
   }>;
   machineLearningSuggestions: {
-    marketingSegments: string[];
-    recommendedMerchandise: string[];
-    potentialSubscriptionTargets: string[];
+    marketingSegments: Array<{
+      name: string;
+      size: number;
+      characteristics: string[];
+      recommendedActions: string[];
+    }>;
+    recommendedMerchandise: Array<{
+      itemId: string;
+      name: string;
+      confidence: number;
+      reason: string;
+    }>;
+    potentialSubscriptionTargets: Array<{
+      userId: string;
+      likelihood: number;
+      engagementMetrics: {
+        gamesPlayed: number;
+        averageScore: number;
+        lastActive: Date;
+      };
+    }>;
   };
 }
 
@@ -124,31 +146,6 @@ export class AdminDashboardService {
     }
   }
 
-  async getDashboardMetrics(): Promise<AdminDashboardMetrics> {
-    const profiles = await this.getProfiles();
-    const quarterPerf = await this.calculateQuarterPerformance();
-    const demographics = this.analyzePlayerDemographics(profiles);
-    const mlInsights = this.generateMachineLearningInsights(profiles);
-
-    return {
-      playerStats: {
-        total: profiles.length,
-        active: this.getActivePlayerCount(profiles),
-        revenue: this.calculateRevenueProjections(profiles),
-        demographics: {
-          countryDistribution: demographics.countryDistribution,
-          authMethodBreakdown: demographics.authMethodBreakdown
-        }
-      },
-      topPerformers: this.getTopPerformers(profiles, 5),
-      quarterPerformance: quarterPerf,
-      machineLearningSuggestions: {
-        marketingSegments: mlInsights.marketingSegments.map((segment: MLInsights['marketingSegments'][0]) => segment.name),
-        recommendedMerchandise: mlInsights.recommendedMerchandise.map((item: MLInsights['recommendedMerchandise'][0]) => item.name),
-        potentialSubscriptionTargets: mlInsights.potentialSubscriptionTargets.map((target: MLInsights['potentialSubscriptionTargets'][0]) => target.userId)
-      }
-    };
-  }
 
   mapFirestoreDataToPlayerProfile(data: DocumentData): PlayerProfile {
     return {
@@ -156,13 +153,16 @@ export class AdminDashboardService {
       displayName: data.displayName || '',
       email: data.email || '',
       role: data.role || 'user',
+      type: data.type || UserType.GUEST,
       isAnonymous: !!data.isAnonymous,
       createdAt: data.createdAt?.toDate() || new Date(),
-      updatedAt: data.updatedAt?.toDate() || new Date(), // Add this line
+      updatedAt: data.updatedAt?.toDate() || new Date(),
       lastLoginAt: data.lastLoginAt?.toDate() || new Date(),
+      lastActive: data.lastActive?.toDate() || new Date(),
       guest: !!data.guest,
       registrationType: data.registrationType || 'guest',
       geographicData: data.geographicData || {},
+      achievements: data.achievements || [],
       metrics: data.metrics || {
         gamesPlayed: 0,
         totalScore: 0,
@@ -171,11 +171,21 @@ export class AdminDashboardService {
         badges: [],
         achievements: []
       },
+      statistics: data.statistics || {
+        gamesWon: 0,
+        gamesLost: 0,
+        totalPlayTime: 0
+      },
       preferences: data.preferences || {
         favoriteWhiskeys: [],
         preferredDifficulty: 'beginner',
         notifications: false
-      }
+      },
+      totalGames: data.totalGames || 0,
+      averageScore: data.averageScore || 0,
+      lifetimeScore: data.lifetimeScore || 0,
+      totalQuartersCompleted: data.totalQuartersCompleted || 0,
+      quarterPerformance: data.quarterPerformance || []
     };
   }
 
@@ -192,14 +202,81 @@ export class AdminDashboardService {
     ).length;
   }
 
+  private async getDashboardMetrics(): Promise<AdminDashboardMetrics> {
+    const TRACE_NAME = 'dashboard_metrics_fetch';
+    let startTime = 0;
+
+    try {
+        startTime = monitoringService.startTrace(TRACE_NAME);
+        const profiles = await this.getProfiles();
+        
+        const metrics: AdminDashboardMetrics = {
+            playerStats: {
+                total: profiles.length,
+                active: this.getActivePlayerCount(profiles),
+                revenue: this.calculateRevenueProjections(profiles),
+                demographics: this.analyzePlayerDemographics(profiles)
+            },
+            topPerformers: this.getTopPerformers(profiles),
+            quarterPerformance: await this.calculateQuarterPerformance(),
+            machineLearningSuggestions: this.generateMachineLearningInsights(profiles)
+        };
+
+        // Track metrics generation
+        AnalyticsService.trackEvent('dashboard_metrics_generated', {
+            totalPlayers: metrics.playerStats.total,
+            activePlayers: metrics.playerStats.active,
+            revenueProjected: metrics.playerStats.revenue.subscriptionConversions
+        });
+
+        return metrics;
+
+    } catch (error) {
+        console.error('Failed to get dashboard metrics:', error);
+        AnalyticsService.trackEvent('dashboard_metrics_failed', {
+            error: error instanceof Error ? error.message : 'Unknown error'
+        });
+        throw error;
+    } finally {
+        if (startTime) {
+            monitoringService.endTrace(TRACE_NAME, startTime);
+        }
+    }
+  }
+
   getPlayerAnalytics = async () => {
-    const profiles = await this.getProfiles();
-    return {
-      totalPlayers: profiles.length,
-      activePlayers: this.getActivePlayerCount(profiles),
-      averageScore: this.calculateAverageScore(profiles),
-      topPerformers: this.getTopPerformers(profiles, 5)
-    };
+    const TRACE_NAME = 'player_analytics_fetch';
+    let startTime = 0;
+
+    try {
+        startTime = monitoringService.startTrace(TRACE_NAME);
+        const profiles = await this.getProfiles();
+        
+        const analytics = {
+            totalPlayers: profiles.length,
+            activePlayers: this.getActivePlayerCount(profiles),
+            averageScore: this.calculateAverageScore(profiles),
+            topPerformers: this.getTopPerformers(profiles, 5)
+        };
+
+        AnalyticsService.trackEvent('player_analytics_generated', {
+            totalPlayers: analytics.totalPlayers,
+            activePlayers: analytics.activePlayers
+        });
+
+        return analytics;
+
+    } catch (error) {
+        console.error('Failed to get player analytics:', error);
+        AnalyticsService.trackEvent('player_analytics_failed', {
+            error: error instanceof Error ? error.message : 'Unknown error'
+        });
+        throw error;
+    } finally {
+        if (startTime) {
+            monitoringService.endTrace(TRACE_NAME, startTime);
+        }
+    }
   };
 
   private calculateAverageScore(profiles: PlayerProfile[]): number {
@@ -359,19 +436,24 @@ export class AdminDashboardService {
         countryDistribution[country] = (countryDistribution[country] || 0) + 1;
       }
 
-      // Handle auth method breakdown
-      switch (profile.registrationType) {
-        case 'guest':
+      // Handle auth method breakdown based on UserType
+      switch (profile.type) {
+        case UserType.GUEST:
           authMethodBreakdown.guest++;
           break;
-        case 'email':
+        case UserType.REGISTERED:
+          // For registered users, check registrationType to determine specific method
+          if (profile.type === UserType.REGISTERED) {
+            authMethodBreakdown.email++;
+          } else if (profile.type === UserType.REGISTERED) {
+            authMethodBreakdown.gmail++;
+          } else if (profile.type === UserType.REGISTERED) {
+            authMethodBreakdown.shopify++;
+          }
+          break;
+        case UserType.ADMIN:
+          // Admins are counted as registered email users
           authMethodBreakdown.email++;
-          break;
-        case 'google':
-          authMethodBreakdown.gmail++;
-          break;
-        case 'facebook':
-          // Could add facebook category if needed
           break;
       }
     });

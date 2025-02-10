@@ -5,13 +5,13 @@ import { sendEmailVerification } from 'firebase/auth';
 
 export const VerifyEmail: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, firebaseUser } = useAuth();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [message, setMessage] = useState<string>('');
 
   const handleResendVerification = async () => {
-    if (!user) {
+    if (!firebaseUser) {
       navigate('/login');
       return;
     }
@@ -21,7 +21,7 @@ export const VerifyEmail: React.FC = () => {
     setMessage('');
 
     try {
-      await sendEmailVerification(user);
+      await sendEmailVerification(firebaseUser);
       setMessage('Verification email sent! Please check your inbox.');
     } catch (err) {
       setError('Failed to send verification email');

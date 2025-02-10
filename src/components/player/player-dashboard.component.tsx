@@ -1,6 +1,6 @@
 import { useAuthStore } from '../../store/auth.store';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card-ui.component';
-import { useFeatures } from '../../contexts/feature.context';
+import { useFeatures } from '../../config/feature-flags.config';
 import { PlayerProfile } from '../../types/auth.types';
 import { Spinner } from '../ui/spinner-ui.component';
 

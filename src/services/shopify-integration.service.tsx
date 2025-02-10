@@ -75,17 +75,22 @@ export class ShopifyIntegrationService {
           difficulty: challengeData.whiskeySample.difficulty,
           image: challengeData.whiskeySample.image,
           score: challengeData.whiskeySample.score,
-          challengeQuestions: challengeData.whiskeySample.challengeQuestions
+          challengeQuestions: challengeData.whiskeySample.challengeQuestions,
+          region: challengeData.whiskeySample.region,
+          type: challengeData.whiskeySample.type,
+          rating: challengeData.whiskeySample.rating,
+          imageUrl: challengeData.whiskeySample.imageUrl,
+          price: challengeData.whiskeySample.price
         }
       };
 
       this.shopifyMetadataCollection.set(productId, updatedMetadata);
       this.injectWebComponent(productId, challengeData);
 
-      AnalyticsService.trackError('Shopify challenge embedded', 'shopify_integration');
+      AnalyticsService.trackEvent('Shopify challenge embedded', { service: 'shopify_integration' });
     } catch (error) {
       console.error('Failed to embed challenge in Shopify product:', error);
-      AnalyticsService.trackError('Failed to embed Shopify challenge', 'shopify_integration');
+      AnalyticsService.trackEvent('Failed to embed Shopify challenge', { service: 'shopify_integration' });
     }
   }
 
@@ -99,7 +104,7 @@ export class ShopifyIntegrationService {
       this.shopifyMetadataCollection.delete(productId);
     } catch (error) {
       console.error('Failed to remove Shopify challenge:', error);
-      AnalyticsService.trackError('Failed to remove Shopify challenge', 'shopify_integration');
+      AnalyticsService.trackEvent('Failed to remove Shopify challenge', { service: 'shopify_integration' });
     }
   }
 

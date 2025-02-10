@@ -1,4 +1,35 @@
-import { Component } from 'react';
+import { Component, useContext } from 'react';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import { FeatureContext, FeatureContextType } from '../contexts/feature.context';
+
+const CACHE_KEY = 'feature_flags_cache';
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+interface CachedFlags {
+    flags: FeatureFlags;
+    timestamp: number;
+}
+
+const getCachedFlags = (): FeatureFlags | null => {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) return null;
+
+    const { flags, timestamp }: CachedFlags = JSON.parse(cached);
+    if (Date.now() - timestamp > CACHE_DURATION) {
+        localStorage.removeItem(CACHE_KEY);
+        return null;
+    }
+
+    return flags;
+};
+
+const cacheFlags = (flags: FeatureFlags): void => {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+        flags,
+        timestamp: Date.now()
+    }));
+};
 
 export class FeatureFlagComponent extends Component<FeatureFlagProps> {
     render() {
@@ -11,8 +42,25 @@ export class FeatureFlagComponent extends Component<FeatureFlagProps> {
         return children;
     }
 
-    componentDidMount() {
-        // Fetch and update feature flag state from server or cache
+    async componentDidMount() {
+        try {
+            // Check cache first
+            const cached = getCachedFlags();
+            if (cached) {
+                this.setState({ flags: cached });
+                return;
+            }
+
+            // Fetch from Firestore if not cached
+            const flagsDoc = await getDoc(doc(db, 'features', 'flags'));
+            if (flagsDoc.exists()) {
+                const flags = flagsDoc.data() as FeatureFlags;
+                cacheFlags(flags);
+                this.setState({ flags });
+            }
+        } catch (error) {
+            console.error('Error fetching feature flags:', error);
+        }
     }
 }
 
@@ -21,7 +69,7 @@ interface FeatureFlagProps {
     children: React.ReactNode;
 }
 
-interface FeatureFlags {
+export interface FeatureFlags {
     enabledFeature: boolean;
     'advanced-stats': boolean;
     GUEST_MODE: boolean;
@@ -37,8 +85,6 @@ export const featureFlags: FeatureFlags = {
     SOCIAL_FEATURES: true,
     SHOPIFY_INTEGRATION: false,
     'advanced-stats': false,
-    // Add more feature flags here
-    // Example: 'VIP_ACCESS': false
 };
 
 export const enableFeature = (flag: keyof FeatureFlags): void => {
@@ -47,4 +93,32 @@ export const enableFeature = (flag: keyof FeatureFlags): void => {
 
 export const isEnabled = (flag: keyof FeatureFlags): boolean => {
     return featureFlags[flag];
+};
+
+export const handleToggle = async (id: string, enabled: boolean): Promise<void> => {
+    try {
+        const featureRef = doc(db, 'features', id);
+        await updateDoc(featureRef, {
+            enabled,
+            updatedAt: new Date().toISOString()
+        });
+
+        // Update local state
+        featureFlags[id as keyof FeatureFlags] = enabled;
+
+    } catch (error) {
+        console.error('Failed to update feature flag:', error);
+        // Revert local state if server update fails
+        featureFlags[id as keyof FeatureFlags] = !enabled;
+        throw error;
+    }
+};
+
+export const useFeatures = (): FeatureContextType => {
+    const context = useContext(FeatureContext);
+    if (context === undefined) {
+        throw new Error('useFeatures must be used within a FeatureProvider');
+    }
+
+    return context;
 };

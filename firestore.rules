@@ -2,58 +2,117 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isAdmin() {
-      return request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
 
+    // 🛠 Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Allow authenticated users to read their own profile
-    match /playerProfiles/{profileId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin() || (isAuthenticated() && request.auth.uid == profileId);
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
     }
 
-    match /playerStats/{userId} {
-      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+    function isAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Allow all authenticated users to read active quarters
+    // Game content - public read, admin write
     match /quarters/{quarterId} {
-      allow read: if isAuthenticated();
+      allow read: if true;  // Anyone can view quarters
+      allow create, update: if isAdmin();  // Only admins can modify
+      allow delete: if false;  // Prevent quarter deletion
+      
+      match /samples/{sampleId} {
+        allow read: if true;  // Anyone can view samples
+        allow create, update: if isAdmin();
+        allow delete: if false;  // Prevent sample deletion
+      }
+    }
+
+    // Current quarter state
+    match /currentQuarter/{document=**} {
+      allow read: if true;  // Public can view current quarter
       allow write: if isAdmin();
     }
 
-    // Allow users to submit their own scores
-    match /scores/{scoreId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAdmin();
+    // Quarter results
+    match /quarterResults/{resultId} {
+      allow read: if true;  // Public leaderboard
+      allow create: if request.auth != null;  // Auth users can submit
+      allow update, delete: if isOwner(resource.data.userId) || isAdmin();
     }
 
-    match /game_results/{resultId} {
-    allow read: if isAuthenticated();
-    allow write: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-}
-
-    // Allow authenticated users to read game data
-    match /sampleAnalytics/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
-    match /quarterAnalytics/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
+    // User-specific data - requires authentication
     match /users/{userId} {
-      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow read: if true;  // Allow reading profiles for leaderboards
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if isOwner(userId) || isAdmin();
+    }
+
+    // Game states - requires authentication to save
+    match /gameStates/{userId} {
+      allow read: if true;  // Allow reading game states
+      allow create: if request.auth != null;
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId) || isAdmin();
+      
+      match /{document=**} {
+        allow read: if true;
+        allow write: if isOwner(userId);
+      }
+    }
+
+    // Game results and scores
+    match /game_results/{resultId} {
+      allow read: if true;  // Public leaderboard
+      allow create: if true;  // Allow guest scores
+      allow update, delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+
+    match /scores/{scoreId} {
+      allow read: if true;  // Public leaderboard
+      allow create: if true;  // Allow guest scores
+      allow update, delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+
+    // Progress tracking - authenticated only
+    match /gameProgress/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Analytics and sessions
+    match /analytics/{sessionId} {
+      allow create: if true;  // Allow anonymous analytics
+      allow read: if isAdmin();
+      allow update: if isAuthenticated();
+    }
+
+    match /sessions/{sessionId} {
+      allow create: if true;  // Allow guest sessions
+      allow read: if true;
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || !resource.data.userId);
+    }
+
+    // ⚙️ Configuration (Admins only)
+    match /config/{configId} {
+      allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // 🎭 Custom Events
+    match /customEvents/{eventId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ⏳ Game State Checkpoints
+    match /gameState_checkpoints/{checkpointId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if checkpointId.matches(request.auth.uid + '_.*');
     }
   }
 }

@@ -16,3 +16,7 @@ export { scoreService } from './score.service';
 export { ShopifyIntegrationService } from './shopify-integration.service';
 export { StateRecoveryService } from './state-recovery.service';
 export { whiskeyKnowledgeService } from './whiskey-knowledge.service';
+export { ErrorTrackingService } from './error-tracking.service';
+export { MemoryMonitoringService } from './memory-monitoring.service';
+export { PerformanceService } from './performance.service';
+export { seasonalTrendsService } from './seasonal-trends.service'

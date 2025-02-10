@@ -1,6 +1,6 @@
 import { useQuarter } from '../../contexts/quarter.context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card-ui.component';
-import { fromFirebaseTimestamp } from '@/utils/timestamp.utils';
+import { fromFirebaseTimestamp } from '../../utils/timestamp.utils';
 
 export function GameBoard() {
   const { currentQuarter } = useQuarter();

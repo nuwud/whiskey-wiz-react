@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../services/auth.service';
+import { useAuth } from '../../contexts/auth.context';
 import { FirebaseService } from '../../services/firebase.service';
 import { AnalyticsService } from '../../services/analytics.service';
 

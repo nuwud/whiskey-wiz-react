@@ -16,9 +16,11 @@ export const QuarterFactory: React.FC<QuarterFactoryProps> = ({ quarterId }) => 
 
   React.useEffect(() => {
     const loadQuarterComponent = async () => {
+      const traceStartTime = performance.now(); // Start timing
+
       try {
         // Use monitoring to track component loading performance
-        monitoringService.startTrace(`quarter_load_${quarterId}`);
+        let traceStartTime = monitoringService.startTrace(`quarter_load_${quarterId}`);
 
         // Fetch quarter data
         const quarter = await quarterService.getQuarterById(quarterId);
@@ -52,15 +54,30 @@ export const QuarterFactory: React.FC<QuarterFactoryProps> = ({ quarterId }) => 
             name: quarter.name
           }
         });
+
+        // Record the performance metric
+        const duration = performance.now() - traceStartTime;
+        console.debug(`Quarter creation took ${duration}ms`);
+
+        // Optional: Send to monitoring service
+        monitoringService.recordMetric('quarter_creation_time', duration);
       } catch (error) {
+        // Still record timing even on failure
+        const duration = performance.now() - traceStartTime;
+        console.error(`Quarter creation failed after ${duration}ms:`, error);
+
         // Handle loading errors
         AnalyticsService.logError({
           type: 'quarter_load_error',
           message: (error as Error).message,
           quarterId
         });
+
+        throw error;
       } finally {
-        monitoringService.endTrace(`quarter_load_${quarterId}`);
+        if (traceStartTime) {
+          monitoringService.endTrace(`quarter_load_${quarterId}`, traceStartTime);
+        }
       }
     };
 

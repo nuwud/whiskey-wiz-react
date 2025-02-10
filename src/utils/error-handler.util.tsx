@@ -9,8 +9,7 @@ export class ErrorHandler {
     AnalyticsService.logError({
       type: 'application_error',
       message: error.message,
-      stack: error.stack,
-      context
+      quarterId: context || 'unknown',
     });
 
     // Potential UI notification or error reporting

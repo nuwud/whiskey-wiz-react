@@ -29,10 +29,12 @@ export class ScoringCalculator {
     private isAdminConfig: boolean;
 
     constructor(adminConfig?: AdminScoringConfig) {
+        console.log('Initializing ScoringCalculator with config:', adminConfig);
         this.isAdminConfig = adminConfig?.enabled ?? false;
         this.config = adminConfig?.enabled && adminConfig.rules 
             ? adminConfig.rules 
             : DEFAULT_SCORING_CONFIG;
+        console.log('Using config:', this.config);
     }
 
     public calculate(input: ScoreCalculationInput): ScoringResult {
@@ -110,8 +112,8 @@ export class ScoringCalculator {
 
     public getMaxPossibleScore(): number {
         return (this.config.age.points + this.config.age.exactMatchBonus) +
-               (this.config.proof.points + this.config.proof.exactMatchBonus) +
-               (this.config.mashbill.points + this.config.mashbill.exactMatchBonus);
+                (this.config.proof.points + this.config.proof.exactMatchBonus) +
+                (this.config.mashbill.points + this.config.mashbill.exactMatchBonus);
     }
 
     public isEnabled(): boolean {

@@ -1,326 +1,212 @@
-import { db, auth } from '../config/firebase';
-import { collection, doc, setDoc, updateDoc, getDoc, addDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import {
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    Timestamp,
+    runTransaction
+} from 'firebase/firestore';
 import { AnalyticsService } from './analytics.service';
+import { retryOperation } from '../utils/retry.utils';
 
 export interface PlayerProfile {
     userId: string;
     role: string;
-    lastLoginAt: string | Date; // Allow both string and Date
-    email?: string;
     displayName?: string;
-    gameStats: {
-        totalGames: number;
-        averageScore: number;
-    };
-    totalQuartersPlayed: number;
+    email?: string;
+    lastLoginAt: Timestamp;
+    lastActive: Timestamp;
+    totalGames: number;
+    averageScore: number;
     lifetimeScore: number;
+    totalQuartersCompleted: number;
     quarterPerformance: Record<string, QuarterPerformance>;
-    registrationType: 'guest' | 'email' | 'gmail' | 'shopify';
-    geographicData?: {
-        country?: string;
-        region?: string;
-    };
-    preferences?: {
-        favoriteWhiskeyTypes?: string[];
-        preferredChallengeDifficulty?: 'easy' | 'medium' | 'hard';
-    };
-    lastActive?: {
-        timestamp: string | Date;
-        location?: { lat: number; lng: number };
-        ipAddress?: string;
-        device?: { type: string; model: string };
-        browser?: { name: string; version: string };
-        operatingSystem?: { name: string; version: string };
-    }
-    totalGames?: number;
-    averageScore?: number;
+    preferences: PlayerPreferences;
+    statistics: PlayerStatistics;
+    achievements: Achievement[];
+    version: number;
+}
+
+export interface PlayerPreferences {
+    favoriteWhiskeyTypes: string[];
+    challengeDifficulty: 'easy' | 'medium' | 'hard';
+    notifications: boolean;
+    theme: 'light' | 'dark';
+}
+
+export interface PlayerStatistics {
+    totalSamplesGuessed: number;
+    correctGuesses: number;
+    hintsUsed: number;
+    averageAccuracy: number;
+    bestScore: number;
+    worstScore: number;
+    lastUpdated: Timestamp;
+}
+
+export interface Achievement {
+    id: string;
+    name: string;
+    description: string;
+    unlockedAt: Timestamp;
+    progress: number;
+    maxProgress: number;
 }
 
 export interface QuarterPerformance {
     quarterId: string;
-    quarterName: string;
-    totalScore: number;
-    samplesAttempted: number;
-    accuracyPercentage: number;
-    timestamp: Date;
-}
-
-export interface SampleAttempt {
-    sampleId: string;
-    quarterId: string;
-    userId: string;
     score: number;
-    guesses: {
-        age: { guess: number; accuracy: number },
-        proof: { guess: number; accuracy: number },
-        mashbillType: { guess: string; correct: boolean }
-    };
-    timestamp: Date;
+    samplesCompleted: number;
+    accuracy: number;
+    completedAt: Timestamp;
 }
 
 export class PlayerTrackingService {
-    playerProfileCollection = collection(db, 'playerProfiles');  // not 'player_profiles'
-    sampleAttemptsCollection = collection(db, 'sample_attempts');
+    private readonly COLLECTION_NAME = 'player_profiles';
+    private readonly MAX_RETRY_ATTEMPTS = 3;
+    private readonly CURRENT_VERSION = 1;
 
-    public getSampleAttemptsCollection() {
-        return this.sampleAttemptsCollection;
+    private readonly collection = collection(db, this.COLLECTION_NAME);
+    private readonly cache = new Map<string, { data: PlayerProfile; timestamp: number }>();
+    private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+    constructor() {
+        // Clear expired cache entries periodically
+        setInterval(() => this.clearExpiredCache(), this.CACHE_TTL);
     }
 
-    async createOrUpdatePlayerProfile(profileData: Partial<PlayerProfile>): Promise<PlayerProfile> {
-        const currentUser = auth.currentUser;
-        if (!currentUser) throw new Error('No authenticated user');
+    private clearExpiredCache(): void {
+        const now = Date.now();
+        for (const [key, value] of this.cache.entries()) {
+            if (now - value.timestamp > this.CACHE_TTL) {
+                this.cache.delete(key);
+            }
+        }
+    }
 
+    async getProfile(userId: string): Promise<PlayerProfile | null> {
         try {
-            const profileRef = doc(this.playerProfileCollection, currentUser.uid);
+            // Check cache first
+            const cached = this.cache.get(userId);
+            if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+                return cached.data;
+            }
 
-            // Fetch existing profile
-            const existingProfile = await getDoc(profileRef);
+            const profileRef = doc(this.collection, userId);
+            const profileDoc = await getDoc(profileRef);
 
-            const updatedProfile: PlayerProfile = existingProfile.exists()
-                ? {
-                    ...existingProfile.data() as PlayerProfile,
-                    ...profileData,
-                    lastLoginAt: new Date().toISOString(), // Convert to string
-                    quarterPerformance: {
-                        ...existingProfile.data().quarterPerformance
+            if (!profileDoc.exists()) {
+                return null;
+            }
+
+            let profile = profileDoc.data() as PlayerProfile;
+
+            // Check version and migrate if necessary
+            if (profile.version !== this.CURRENT_VERSION) {
+                profile = await this.migrateProfile(profile);
+            }
+
+            // Update cache
+            this.cache.set(userId, {
+                data: profile,
+                timestamp: Date.now()
+            });
+
+            return profile;
+        } catch (error) {
+            console.error('Failed to get profile:', error);
+            throw new Error('Failed to retrieve player profile');
+        }
+    }
+
+    async getAllPlayerProfiles(): Promise<PlayerProfile[]> {
+        try {
+            const snapshot = await getDocs(this.collection);
+            const profiles = snapshot.docs.map(doc => {
+                const data = doc.data() as PlayerProfile;
+                return this.migrateProfile(data);
+            });
+            return Promise.all(profiles);
+        } catch (error) {
+            console.error('Failed to fetch all player profiles:', error);
+            return [];
+        }
+    }
+
+    async updateAchievements(userId: string, achievements: Achievement[]): Promise<void> {
+        return retryOperation(async () => {
+            try {
+                const profileRef = doc(this.collection, userId);
+                await runTransaction(db, async (transaction) => {
+                    const profileDoc = await transaction.get(profileRef);
+
+                    if (!profileDoc.exists()) {
+                        throw new Error('Player profile not found');
                     }
-                }
-                : {
-                    userId: currentUser.uid,
-                    role: 'player',
-                    lastLoginAt: new Date().toISOString(),
-                    email: currentUser.email || '',
-                    displayName: currentUser.displayName || '',
-                    gameStats: {
-                        totalGames: 0,
-                        averageScore: 0
-                    },
-                    totalQuartersPlayed: 0,
-                    lifetimeScore: 0,
-                    quarterPerformance: {},
-                    registrationType: 'email',
-                    ...profileData
+
+                    const profile = profileDoc.data() as PlayerProfile;
+                    profile.achievements = achievements;
+                    profile.lastActive = Timestamp.now();
+
+                    transaction.set(profileRef, profile);
+
+                    // Update cache
+                    this.cache.set(userId, {
+                        data: profile,
+                        timestamp: Date.now()
+                    });
+                });
+
+                // Track achievements
+                achievements.forEach(achievement => {
+                    if (achievement.progress === achievement.maxProgress) {
+                        AnalyticsService.trackUserEngagement('achievement_unlocked', {
+                            userId,
+                            achievementId: achievement.id
+                        });
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to update achievements:', error);
+                throw new Error('Failed to update achievements');
+            }
+        }, { maxAttempts: this.MAX_RETRY_ATTEMPTS });
+    }
+
+    private async migrateProfile(profile: PlayerProfile): Promise<PlayerProfile> {
+        // Handle migration based on version
+        switch (profile.version) {
+            case undefined:
+                return {
+                    ...profile,
+                    preferences: profile.preferences 
+                        ? { ...profile.preferences }
+                        : {
+                            favoriteWhiskeyTypes: [],
+                            challengeDifficulty: 'easy',
+                            notifications: true,
+                            theme: 'light'
+                        },
+                    statistics: profile.statistics
+                        ? { ...profile.statistics }
+                        : {
+                            totalSamplesGuessed: 0,
+                            correctGuesses: 0,
+                            hintsUsed: 0,
+                            averageAccuracy: 0,
+                            bestScore: 0,
+                            worstScore: 0,
+                            lastUpdated: Timestamp.now()
+                        },
+                    achievements: profile.achievements || [],
+                    version: this.CURRENT_VERSION
                 };
-
-            // Update profile
-            await setDoc(profileRef, updatedProfile, { merge: true });
-
-            // Track profile update
-            AnalyticsService.trackUserEngagement('player_profile_updated', {
-                userId: currentUser.uid,
-                registrationType: updatedProfile.registrationType
-            });
-
-            return updatedProfile;
-        } catch (error) {
-            console.error('Failed to create/update player profile', error);
-            throw error;
-        }
-        
-    }
-
-    private convertTimestamps(data: any): PlayerProfile {
-        return {
-            ...data,
-            lastLoginAt: new Date(data.lastLoginAt),
-            lastActive: data.lastActive ? {
-                ...data.lastActive,
-                timestamp: new Date(data.lastActive.timestamp)
-            } : undefined,
-            quarterPerformance: data.quarterPerformance ? {
-                ...data.quarterPerformance,
-                timestamp: new Date(data.quarterPerformance.timestamp)
-            } : {}
-        } as PlayerProfile;
-    }
-
-    async getPlayerByUserId(userId: string): Promise<PlayerProfile | undefined> {
-        const q = query(this.playerProfileCollection, where('userId', '==', userId));
-        const snapshot = await getDocs(q);
-        const doc = snapshot.docs[0];
-        return doc ? this.convertTimestamps(doc.data()) : undefined;
-    }
-
-    async getPlayerByEmail(email: string): Promise<PlayerProfile | undefined> {
-        const q = query(this.playerProfileCollection, where('email', '==', email));
-        const snapshot = await getDocs(q);
-        const doc = snapshot.docs[0];
-        return doc ? this.convertTimestamps(doc.data()) : undefined;
-    }
-
-    async getPlayerByDisplayName(displayName: string): Promise<PlayerProfile | undefined> {
-        const q = query(this.playerProfileCollection, where('displayName', '==', displayName));
-        const snapshot = await getDocs(q);
-        const doc = snapshot.docs[0];
-        return doc ? this.convertTimestamps(doc.data()) : undefined;
-    }
-
-    async updatePlayerProfile(userId: string, updatedProfileData: Partial<PlayerProfile>): Promise<void> {
-        await this.createOrUpdatePlayerProfile({ userId, ...updatedProfileData });
-    }
-    async deletePlayerProfile(userId: string): Promise<void> {
-        await deleteDoc(doc(this.playerProfileCollection, userId));
-    }
-
-    async recordSampleAttempt(attempt: SampleAttempt): Promise<void> {
-        try {
-            await addDoc(this.sampleAttemptsCollection, attempt);
-
-            // Update player profile with performance
-            const profileRef = doc(this.playerProfileCollection, attempt.userId);
-            await updateDoc(profileRef, {
-                [`quarterPerformance.${attempt.quarterId}`]: {
-                    quarterId: attempt.quarterId,
-                    totalScore: attempt.score,
-                    samplesAttempted: 1,
-                    accuracyPercentage: this.calculateAccuracy(attempt),
-                    timestamp: new Date()
-                }
-            });
-
-            AnalyticsService.trackUserEngagement('sample_attempt_recorded', {
-                quarterId: attempt.quarterId,
-                score: attempt.score
-            });
-        } catch (error) {
-            console.error('Failed to record sample attempt', error);
-            throw error;
+            default:
+                return profile;
         }
     }
-
-    private calculateAccuracy(attempt: SampleAttempt): number {
-        const { age, proof, mashbillType } = attempt.guesses;
-
-        const ageAccuracy = 100 - Math.abs(age.accuracy);
-        const proofAccuracy = 100 - Math.abs(proof.accuracy);
-        const mashbillAccuracy = mashbillType.correct ? 100 : 0;
-
-        return (ageAccuracy + proofAccuracy + mashbillAccuracy) / 3;
-    }
-
-    async getPlayerPerformanceByQuarter(quarterId: string): Promise<PlayerProfile[]> {
-        try {
-            const q = query(
-                this.playerProfileCollection,
-                where(`quarterPerformance.${quarterId}`, '!=', null)
-            );
-
-            const snapshot = await getDocs(q);
-            return snapshot.docs.map(doc => this.convertTimestamps(doc.data()));
-        } catch (error) {
-            console.error('Failed to fetch quarter performance', error);
-            return [];
-        }
-    }
-
-    async getAllPlayerProfiles(): Promise<PlayerProfile[]> {
-        try {
-            const q = query(this.playerProfileCollection);
-            const snapshot = await getDocs(q);
-            return snapshot.docs.map(doc => this.convertTimestamps(doc.data()));
-        } catch (error) {
-            console.error('Failed to fetch player profiles:', error);
-            return [];
-        }
-    }
-
 }
 
-export class PlayerService {
-    private playerProfileService = new PlayerTrackingService();
-
-    async createOrUpdatePlayerProfile(profileData: Partial<PlayerProfile>): Promise<PlayerProfile> {
-        return this.playerProfileService.createOrUpdatePlayerProfile(profileData);
-    }
-
-    async recordSampleAttempt(attempt: SampleAttempt): Promise<void> {
-        await this.playerProfileService.recordSampleAttempt(attempt);
-    }
-
-    async getPlayerPerformanceByQuarter(quarterId: string): Promise<PlayerProfile[]> {
-        return this.playerProfileService.getPlayerPerformanceByQuarter(quarterId);
-    }
-
-    async updateSampleAttempt(attemptId: string, updatedAttemptData: Partial<SampleAttempt>): Promise<void> {
-        await updateDoc(doc(this.playerProfileService.sampleAttemptsCollection, attemptId), updatedAttemptData);
-    }
-    async deleteSampleAttempt(attemptId: string): Promise<void> {
-        await deleteDoc(doc(this.playerProfileService.sampleAttemptsCollection, attemptId));
-    }
-    async getSampleAttemptsByUserId(userId: string): Promise<SampleAttempt[]> {
-        const q = query(this.playerProfileService.sampleAttemptsCollection, where('userId', '==', userId));
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => doc.data() as SampleAttempt);
-    }
-    async getSampleAttemptsByQuarter(quarterId: string): Promise<SampleAttempt[]> {
-        const q = query(this.playerProfileService.sampleAttemptsCollection, where('quarterId', '==', quarterId));
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => doc.data() as SampleAttempt);
-    }
-    async getSampleAttemptsByEmail(email: string): Promise<SampleAttempt[]> {
-        const player = await this.getPlayerByEmail(email);
-        if (!player) return [];
-        return this.getSampleAttemptsByUserId(player.userId);
-    }
-    async getSampleAttemptsByDisplayName(displayName: string): Promise<SampleAttempt[]> {
-        const player = await this.getPlayerByDisplayName(displayName);
-        if (!player) return [];
-        return this.getSampleAttemptsByUserId(player.userId);
-    }
-    async getSampleAttemptById(attemptId: string): Promise<SampleAttempt | undefined> {
-        const docRef = doc(this.playerProfileService.sampleAttemptsCollection, attemptId);
-        const docSnap = await getDoc(docRef);
-        return docSnap.data() as SampleAttempt | undefined;
-    }
-    async getSampleAttemptBySampleId(sampleId: string): Promise<SampleAttempt | undefined> {
-        const q = query(this.playerProfileService.sampleAttemptsCollection, where('sampleId', '==', sampleId));
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => doc.data() as SampleAttempt).pop();
-    }
-    async getSampleAttemptByUserIdAndSampleId(userId: string, sampleId: string): Promise<SampleAttempt | undefined> {
-        const q = query(
-            this.playerProfileService.sampleAttemptsCollection,
-            where('userId', '==', userId),
-            where('sampleId', '==', sampleId)
-        );
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => doc.data() as SampleAttempt).pop();
-    }
-    async getSampleAttemptByDisplayNameAndSampleId(displayName: string, sampleId: string): Promise<SampleAttempt | undefined> {
-        const player = await this.getPlayerByDisplayName(displayName);
-        if (!player) return;
-        return this.getSampleAttemptByUserIdAndSampleId(player.userId, sampleId);
-    }
-    async getSampleAttemptByEmailAndSampleId(email: string, sampleId: string): Promise<SampleAttempt | undefined> {
-        const player = await this.getPlayerByEmail(email);
-        if (!player) return;
-        return this.getSampleAttemptByUserIdAndSampleId(player.userId, sampleId);
-    }
-    async getSampleAttemptByUserIdAndQuarterId(userId: string, quarterId: string): Promise<SampleAttempt[]> {
-        const q = query(
-            this.playerProfileService.sampleAttemptsCollection,
-            where('userId', '==', userId),
-            where('quarterId', '==', quarterId)
-        );
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => doc.data() as SampleAttempt);
-    }
-    async getSampleAttemptByDisplayNameAndQuarterId(displayName: string, quarterId: string): Promise<SampleAttempt[]> {
-        const player = await this.getPlayerByDisplayName(displayName);
-        if (!player) return [];
-        return this.getSampleAttemptByUserIdAndQuarterId(player.userId, quarterId);
-    }
-
-    private async getPlayerByEmail(email: string): Promise<PlayerProfile | undefined> {
-        return this.playerProfileService.getPlayerByEmail(email);
-    }
-    private async getPlayerByDisplayName(displayName: string): Promise<PlayerProfile | undefined> {
-        return this.playerProfileService.getPlayerByDisplayName(displayName);
-    }
-    async getPlayerByUserId(userId: string): Promise<PlayerProfile | undefined> {
-        return this.playerProfileService.getPlayerByUserId(userId);
-    }
-    async getAllPlayerProfiles(): Promise<PlayerProfile[]> {
-        return this.playerProfileService.getAllPlayerProfiles();
-    }
-}
+// Export singleton instance
+export const playerTrackingService = new PlayerTrackingService();

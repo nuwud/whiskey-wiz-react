@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card-ui.component';
 import { whiskeyKnowledgeService, WhiskeyNode, NodeStats } from '../../services/whiskey-knowledge.service';
-import { analyticsService } from '../../services/analytics.service';
+import { AnalyticsService } from '../../services/analytics.service';
 import { useAuth } from '../../contexts/auth.context';
 
 export const KnowledgeGraph: React.FC = () => {
@@ -36,11 +36,17 @@ export const KnowledgeGraph: React.FC = () => {
         }));
 
         setStats(calculatedStats);
-        analyticsService.trackError('Knowledge graph loaded', 'knowledge_graph_component', user?.uid);
+        AnalyticsService.trackEvent('Knowledge graph loaded', {
+          component: 'knowledge_graph_component',
+          userId: user?.userId
+        });
       } catch (error) {
         console.error('Failed to fetch knowledge graph:', error);
         setError('Failed to load knowledge graph. Please try again later.');
-        analyticsService.trackError('Failed to load knowledge graph', 'knowledge_graph_component', user?.uid);
+        AnalyticsService.trackEvent('knowledge_graph_error', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          userId: user?.userId
+        });
       } finally {
         setLoading(false);
       }

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { SampleId, WhiskeySample } from '../types/game.types';
 
 interface GuessAccuracy {
@@ -39,6 +39,8 @@ interface UseScoreAnalysisProps {
         score?: number;
     }>;
     totalScore: Record<SampleId, number>;
+    playerId?: string;  
+    quarterId?: string; 
 }
 
 function isSampleId(id: string): id is SampleId {
@@ -46,7 +48,10 @@ function isSampleId(id: string): id is SampleId {
 }
 
 const calculateAgeScore = (actual: number, guess: number): number => {
-    return Math.round(Math.max(0, 100 - (Math.abs(actual - guess) * 10)) / 2);
+    const diff = Math.abs(actual - guess);
+    if (diff === 0) return 35 + 20; // maxPoints + exactMatchBonus
+    if (diff <= 2) return Math.round(35 * (1 - (diff / 3))); // gracePeriod handling
+    return Math.max(0, 35 - (diff * 6));
 };
 
 const calculateProofScore = (actual: number, guess: number): number => {
@@ -61,17 +66,38 @@ export const useScoreAnalysis = ({
     samples,
     guesses,
     totalScore,
+    playerId,
+    quarterId
 }: UseScoreAnalysisProps): ScoreAnalysis => {
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchScores = async () => {
+            try {
+                if (!playerId) return;
+                
+                setLoading(true);
+            } catch (err) {
+                console.error("Failed to fetch scores", err);
+                // Handle error appropriately - maybe set an error state if you plan to display it
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchScores();
+    }, [playerId, quarterId]);
+
     return useMemo(() => {
-        // Handle empty states
-        if (!samples.length) {
+        // Handle loading state
+        if (loading) {
             return {
                 totalScore: 0,
                 totalSamples: 0,
                 bestGuess: {
                     sampleId: 'A',
                     accuracy: 0,
-                    name: 'No samples available'
+                    name: 'Loading...'
                 },
                 averageAccuracy: 0,
                 individualScores: {
@@ -95,7 +121,6 @@ export const useScoreAnalysis = ({
         // Calculate accuracy and scores for each guess
         const accuracies = samples
             .map(sample => {
-                // Type guard to ensure we only process valid SampleIds
                 if (!isSampleId(sample.id)) {
                     console.warn(`Invalid sample ID: ${sample.id}`);
                     return null;
@@ -133,7 +158,6 @@ export const useScoreAnalysis = ({
             })
             .filter((item): item is GuessAccuracy => item !== null);
 
-        // Find best guess, defaulting to first sample if no accuracies
         const defaultBestGuess = samples[0] ? {
             accuracy: 0,
             sampleId: samples[0].id as SampleId,
@@ -155,8 +179,7 @@ export const useScoreAnalysis = ({
             name: bestGuessResult.name
         };
 
-        // Calculate average accuracy only if we have valid guesses
-        const averageAccuracy = accuracies.length 
+        const averageAccuracy = accuracies.length
             ? Math.round(accuracies.reduce((sum, acc) => sum + acc.accuracy, 0) / accuracies.length)
             : 0;
 
@@ -167,5 +190,5 @@ export const useScoreAnalysis = ({
             averageAccuracy,
             individualScores
         };
-    }, [samples, guesses, totalScore]);
+    }, [samples, guesses, totalScore, loading]);
 };

@@ -109,8 +109,8 @@ export function AdminMetricsPanel() {
             <div>
               <h4 className="font-medium">Marketing Segments</h4>
               <ul className="list-disc pl-4">
-                {metrics.machineLearningSuggestions && metrics.machineLearningSuggestions.marketingSegments.map((segment: string, i: number) => (
-                  <li key={i}>{segment}</li>
+                {metrics.machineLearningSuggestions && metrics.machineLearningSuggestions.marketingSegments.map((segment, i) => (
+                  <li key={i}>{segment.name}</li>
                 ))}
               </ul>
             </div>

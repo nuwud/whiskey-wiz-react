@@ -8,33 +8,44 @@ export const useStateRecovery = (quarterId: string) => {
   const stateRecoveryService = new StateRecoveryService();
 
   useEffect(() => {
+    let isSubscribed = true;
+
     const attemptStateRecovery = async () => {
-      if (!user) return;
+        if (!user) return;
 
-      try {
-        const recoveryState = await stateRecoveryService.recoverGameState(user.uid);
-
-        if (recoveryState && recoveryState.quarterId === quarterId) {
-          setRecoveredState(recoveryState.lastSavedState);
+        try {
+            const recoveryState = await stateRecoveryService.getRecoveryState(user.userId);
+            
+            // Only update state if component is still mounted
+            if (isSubscribed && recoveryState && recoveryState.quarterId === quarterId) {
+                setRecoveredState(recoveryState.lastSavedState);
+            }
+        } catch (error) {
+            console.error('State recovery failed', error);
+            if (isSubscribed) {
+                // Handle error state if needed
+            }
         }
-      } catch (error) {
-        console.error('State recovery failed', error);
-      }
     };
 
     attemptStateRecovery();
-  }, [user, quarterId]);
+
+    // Cleanup function
+    return () => {
+        isSubscribed = false;
+    };
+}, [user, quarterId]);
 
   const savePartialState = async (partialState: any) => {
     if (!user) return;
 
-    await stateRecoveryService.savePartialState(user.uid, quarterId, partialState);
+    await stateRecoveryService.savePartialState(user.userId, quarterId, partialState);
   };
 
   const clearRecoveryState = async () => {
     if (!user) return;
 
-    await stateRecoveryService.clearRecoveryState(user.uid);
+    await stateRecoveryService.clearRecoveryState(user.userId);
     setRecoveredState(null);
   };
 

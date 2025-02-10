@@ -53,11 +53,10 @@ class RecommendationService {
       return scoredWhiskies;
     } catch (error) {
       console.error('Failed to get recommendations:', error);
-      AnalyticsService.trackError(
-        'Failed to get recommendations',
-        'recommendation_service',
-        userId
-      );
+      AnalyticsService.trackEvent('Failed to get recommendations', {
+        service: 'recommendation_service',
+        userId: userId
+      });
       throw error;
     }
   }

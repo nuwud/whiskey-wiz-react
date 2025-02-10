@@ -52,7 +52,7 @@ class WhiskeyKnowledgeGraphService {
       return { nodes: nodesWithConnections, relations };
     } catch (error) {
       console.error('Failed to fetch complete whiskey knowledge graph', error);
-      AnalyticsService.trackError('Failed to fetch knowledge graph', 'whiskey_knowledge_service');
+      AnalyticsService.trackEvent('Failed to fetch knowledge graph', { service: 'whiskey_knowledge_service' });
       return { nodes: [], relations: [] };
     }
   }
@@ -68,7 +68,7 @@ class WhiskeyKnowledgeGraphService {
       } as WhiskeyNode;
     } catch (error) {
       console.error('Failed to fetch whiskey node', error);
-      AnalyticsService.trackError('Failed to fetch whiskey node', 'whiskey_knowledge_service');
+      AnalyticsService.trackEvent('Failed to fetch whiskey node', { service: 'whiskey_knowledge_service' });
       return null;
     }
   }
@@ -90,7 +90,7 @@ class WhiskeyKnowledgeGraphService {
       return nodes.filter((node): node is WhiskeyNode => node !== null);
     } catch (error) {
       console.error('Failed to fetch related whiskey nodes', error);
-      AnalyticsService.trackError('Failed to fetch related nodes', 'whiskey_knowledge_service');
+      AnalyticsService.trackEvent('Failed to fetch related nodes', { service: 'whiskey_knowledge_service' });
       return [];
     }
   }
@@ -106,7 +106,7 @@ class WhiskeyKnowledgeGraphService {
         );
     } catch (error) {
       console.error('Failed to search whiskey nodes', error);
-      AnalyticsService.trackError('Failed to search nodes', 'whiskey_knowledge_service');
+      AnalyticsService.trackEvent('Failed to search nodes', { service: 'whiskey_knowledge_service' });
       return [];
     }
   }
@@ -120,7 +120,7 @@ class WhiskeyKnowledgeGraphService {
       } as WhiskeyNode));
     } catch (error) {
       console.error('Failed to fetch all whiskey nodes', error);
-      AnalyticsService.trackError('Failed to fetch all nodes', 'whiskey_knowledge_service');
+      AnalyticsService.trackEvent('Failed to fetch all nodes', { service: 'whiskey_knowledge_service' });
       return [];
     }
   }
@@ -133,7 +133,7 @@ class WhiskeyKnowledgeGraphService {
       } as WhiskeyRelation));
     } catch (error) {
       console.error('Failed to fetch all whiskey relations', error);
-      AnalyticsService.trackError('Failed to fetch all relations', 'whiskey_knowledge_service');
+      AnalyticsService.trackEvent('Failed to fetch all relations', { service: 'whiskey_knowledge_service' });
       return [];
     }
   }
@@ -148,7 +148,7 @@ class WhiskeyKnowledgeGraphService {
       } as WhiskeyNode));
     } catch (error) {
       console.error('Failed to fetch whiskey nodes by type', error);
-      AnalyticsService.trackError('Failed to fetch nodes by type', 'whiskey_knowledge_service');
+      AnalyticsService.trackEvent('Failed to fetch nodes by type', { service: 'whiskey_knowledge_service' });
       return [];
     }
   }
@@ -162,7 +162,7 @@ class WhiskeyKnowledgeGraphService {
       } as WhiskeyRelation));
     } catch (error) {
       console.error('Failed to fetch whiskey relations by type', error);
-      AnalyticsService.trackError('Failed to fetch relations by type', 'whiskey_knowledge_service');
+      AnalyticsService.trackEvent('Failed to fetch relations by type', { service: 'whiskey_knowledge_service' });
       return [];
     }
   }

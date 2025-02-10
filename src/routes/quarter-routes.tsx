@@ -2,7 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { QuarterFactory } from '../components/quarters/quarter-factory.component';
 import { useAuth } from 'src/contexts/auth.context';
-import { useFeatures } from '../contexts/feature.context';
+import { useFeatures } from '../config/feature-flags.config';
 import { quarterService } from 'src/services/quarter.service';
 
 export const QuarterRoutes: React.FC = () => {
@@ -14,20 +14,20 @@ export const QuarterRoutes: React.FC = () => {
 
   React.useEffect(() => {
     const fetchAvailableQuarters = async () => {
-      try {
-        const quartersService = quarterService;
-        const quarters = await quartersService.getAllQuarters();
-
-        // Generate routes for each quarter
-        const routes: string[] = quarters.map((quarter: { id: string }) => `/quarters/${quarter.id}`);
-        setQuarterRoutes(routes);
-      } catch (error) {
-        console.error('Failed to fetch quarters', error);
-      }
+        try {
+            const quarters = await quarterService.getAllQuarters();
+            if (!quarters.length) {
+                console.warn("No quarters found");
+                return;
+            }
+            setQuarterRoutes(quarters.map(q => `/quarters/${q.id}`));
+        } catch (error) {
+            console.error("Failed to fetch quarters", error);
+        }
     };
 
     fetchAvailableQuarters();
-  }, []);
+}, []);
 
   // Check if user is allowed to access quarters
   const canAccessQuarters = () => {

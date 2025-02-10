@@ -7,6 +7,7 @@ import {
     AccordionContent,
 } from '../ui/accordion-ui.component';
 import { WhiskeySample } from '../../types/game.types';
+import { getAgeExplanation, getProofExplanation, getMashbillExplanation } from '../../utils/scoring.utils';
 
 interface SampleResultProps {
     sampleId: string;
@@ -16,6 +17,16 @@ interface SampleResultProps {
         proof: number;
         mashbill: string;
         score?: number;
+        breakdown?: {
+            age: number;
+            proof: number;
+            mashbill: number;
+        };
+        explanations?: {
+            age: string;
+            proof: string;
+            mashbill: string;
+        };
         rating: number;
         notes: string;
     };
@@ -33,7 +44,9 @@ const ScoringDetail: React.FC<{
     <div className="py-2">
         <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-600">{label}</span>
-            <span className="text-sm font-medium text-amber-600">{points} / {maxPoints} points</span>
+            <span className="text-sm font-medium text-amber-600">
+                {points} / {maxPoints} points
+            </span>
         </div>
         <div className="grid grid-cols-2 gap-4 mb-2">
             <div>
@@ -54,31 +67,6 @@ export const SampleResult: React.FC<SampleResultProps> = ({
     sample,
     guess
 }) => {
-    // Calculate detailed scores
-    const ageAccuracy = Math.max(0, 100 - (Math.abs(sample.age - guess.age) * 10));
-    const proofAccuracy = Math.max(0, 100 - (Math.abs(sample.proof - guess.proof) * 2));
-    const mashbillAccuracy = sample.mashbill.toLowerCase() === guess.mashbill.toLowerCase() ? 100 : 0;
-
-    // Calculate explanations
-    const getAgeExplanation = () => {
-        const diff = Math.abs(sample.age - guess.age);
-        if (diff === 0) return "Perfect guess! Full points awarded.";
-        if (diff <= 2) return "Very close! Small deduction for minor difference.";
-        return `Off by ${diff} years. Points deducted based on difference.`;
-    };
-
-    const getProofExplanation = () => {
-        const diff = Math.abs(sample.proof - guess.proof);
-        if (diff === 0) return "Perfect proof guess! Full points awarded.";
-        if (diff <= 5) return "Very close! Small deduction for minor difference.";
-        return `Off by ${diff} proof points. Points deducted proportionally.`;
-    };
-
-    const getMashbillExplanation = () => {
-        return sample.mashbill.toLowerCase() === guess.mashbill.toLowerCase()
-            ? "Correct mashbill type! Full points awarded."
-            : "Incorrect mashbill type. No points awarded for this category.";
-    };
 
     return (
         <AccordionItem value={`sample-${sampleId}`} className="bg-white rounded-lg shadow mb-4">
@@ -103,28 +91,27 @@ export const SampleResult: React.FC<SampleResultProps> = ({
                             label="Age"
                             guess={`${guess.age} years`}
                             actual={`${sample.age} years`}
-                            points={Math.round(ageAccuracy / 2)}
+                            points={guess.breakdown?.age ?? 0}
                             maxPoints={50}
-                            explanation={getAgeExplanation()}
-                        />
-                        <ScoringDetail
+                            explanation={guess.explanations?.age ?? getAgeExplanation(sample.age, guess.age)}
+                            />
+                            <ScoringDetail
                             label="Proof"
                             guess={`${guess.proof}°`}
                             actual={`${sample.proof}°`}
-                            points={Math.round(proofAccuracy / 2)}
+                            points={guess.breakdown?.proof ?? 0}
                             maxPoints={50}
-                            explanation={getProofExplanation()}
-                        />
-                        <ScoringDetail
+                            explanation={guess.explanations?.proof ?? getProofExplanation(sample.proof, guess.proof)}
+                            />
+                            <ScoringDetail
                             label="Mashbill"
                             guess={guess.mashbill}
                             actual={sample.mashbill}
-                            points={Math.round(mashbillAccuracy / 2)}
+                            points={guess.breakdown?.mashbill ?? 0}
                             maxPoints={50}
-                            explanation={getMashbillExplanation()}
-                        />
-                    </div>
-
+                            explanation={guess.explanations?.mashbill ?? getMashbillExplanation(sample.mashbill, guess.mashbill)}
+                            />
+                        </div>
                     {/* Rating and Notes */}
                     <div>
                         <h4 className="text-sm font-medium text-gray-900 mb-2">Your Rating</h4>
@@ -133,8 +120,8 @@ export const SampleResult: React.FC<SampleResultProps> = ({
                                 <Star
                                     key={i}
                                     className={`w-4 h-4 shrink-0 ${i < guess.rating
-                                            ? "text-amber-500 fill-amber-500"
-                                            : "text-gray-300"
+                                        ? "text-amber-500 fill-amber-500"
+                                        : "text-gray-300"
                                         }`}
                                 />
                             ))}
@@ -170,3 +157,5 @@ export const SampleResult: React.FC<SampleResultProps> = ({
         </AccordionItem>
     );
 };
+
+export default SampleResult;

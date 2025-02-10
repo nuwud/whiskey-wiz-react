@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { PrivateRoute } from '../routes/private-route';
 import { UserRole } from '../types/auth.types';
+import { GameErrorBoundary } from '../components/game/game-error-boundary.component';
 
 // Auth Components
 import { Login } from '../components/auth/login.component';
@@ -35,19 +36,27 @@ export const AppRoutes: React.FC = () => {
       <Route path="/game/:quarterId/results" element={<GameResults />} />
 
       {/* Game Routes */}
-      <Route element={<PrivateRoute allowedRoles={[UserRole.USER, UserRole.ADMIN]} />}>
+      <Route element={<PrivateRoute allowedRoles={[UserRole.PLAYER, UserRole.ADMIN]} />}>
         <Route path="/" element={<QuarterSelection onSelect={(quarter) => {
           if (quarter?.id) {
             navigate(`/game/${quarter.id}`);
           }
         }} />} />
-        <Route path="/game/:quarterId" element={<GameContainer />} />
-        <Route path="/game" element={<GameContainer />} />
+        <Route path="/game/:quarterId" element={
+          <GameErrorBoundary>
+            <GameContainer />
+          </GameErrorBoundary>
+        } />
+        <Route path="/game" element={
+          <GameErrorBoundary>
+            <GameContainer />
+          </GameErrorBoundary>
+        } />
         <Route path="/game/:quarterId/results" element={<GameResults />} />
       </Route>
 
       {/* Player Routes */}
-      <Route element={<PrivateRoute allowedRoles={[UserRole.USER, UserRole.ADMIN]} />}>
+      <Route element={<PrivateRoute allowedRoles={[UserRole.PLAYER, UserRole.ADMIN]} />}>
         <Route path="/dashboard" element={<PlayerDashboard />} />
         <Route path="/profile" element={<PlayerProfile />} />
       </Route>

@@ -1,22 +1,7 @@
-import {
-  collection,
-  addDoc,
-  getDocs,
-  getDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  serverTimestamp,
-  doc,
-  deleteField
-} from 'firebase/firestore';
-import { db } from '../config/firebase';
 import { Timestamp } from 'firebase/firestore';
-import { ScoringCalculator, AdminScoringConfig } from '../utils/scoring';
+import { SampleGuess, WhiskeySample } from '../types/game.types'
 
-// Score submission structure
+// Score interfaces
 export interface ScoreSubmission {
   playerId: string;
   quarterId: string;
@@ -32,44 +17,176 @@ export interface ScoreSubmission {
         proof: number;
         mashbill: number;
       };
+      explanations?: {
+        age: string;
+        proof: string;
+        mashbill: string;
+      };
     }
   };
   createdAt?: Timestamp;
 }
 
-// Firebase Score Document
-interface ScoreDocument extends ScoreSubmission {
+export interface ScoreDocument extends ScoreSubmission {
   id: string;
 }
 
-// Core Score Service
+export interface ScoreBreakdown {
+  age: number;
+  proof: number;
+  mashbill: number;
+}
+
+export interface ScoringResult {
+  totalScore: number;
+  breakdown: ScoreBreakdown;
+  explanations: {
+    age: string;
+    proof: string;
+    mashbill: string;
+  };
+}
+
+// Core scoring configuration
+const SCORING_CONFIG = {
+  age: {
+    maxPoints: 35,
+    penaltyPerYear: 6,
+    exactMatchBonus: 20,
+    gracePeriod: 2
+  },
+  proof: {
+    maxPoints: 35,
+    penaltyPerPoint: 3,
+    exactMatchBonus: 20,
+    gracePeriod: 5
+  },
+  mashbill: {
+    maxPoints: 30,
+    exactMatchBonus: 20
+  }
+};
+
 export class ScoreService {
-  private static calculator: ScoringCalculator;
+  private static instance: ScoreService;
+  private constructor() { }
 
-  static initializeScoring(config?: AdminScoringConfig) {
-    this.calculator = new ScoringCalculator(config);
+  static getInstance(): ScoreService {
+    if (!ScoreService.instance) {
+      ScoreService.instance = new ScoreService();
+    }
+    return ScoreService.instance;
   }
 
-  static calculateScore(userGuess: any, correctAnswer: any): number {
-    if (!this.calculator) {
-      this.initializeScoring();
-    }
+  static calculateScore(guess: SampleGuess, sample: WhiskeySample): { totalScore: number; breakdown: ScoreBreakdown; explanations: string[] } {
+    const scoreService = ScoreService.getInstance();
+    const ageScore = scoreService.calculateAgeScore(guess.age, sample.age);
+    const proofScore = scoreService.calculateProofScore(guess.proof, sample.proof);
+    const mashbillScore = scoreService.calculateMashbillScore(guess.mashbill, sample.mashbill);
+    const totalScore = ageScore + proofScore + mashbillScore;
     
-    const result = this.calculator.calculate({
-      actual: correctAnswer,
-      guess: userGuess
-    });
-
-    return result.totalScore;
+    return {
+      totalScore,
+      breakdown: {
+        age: ageScore,
+        proof: proofScore,
+        mashbill: mashbillScore
+      },
+      explanations: [
+        scoreService.getAgeExplanation(guess.age, sample.age),
+        scoreService.getProofExplanation(guess.proof, sample.proof),
+        scoreService.getMashbillExplanation(guess.mashbill, sample.mashbill)
+      ]
+    };
   }
 
-  // ✅ Rank based on Score
-  static getRank(score: number): string {
-    if (!this.calculator) {
-      this.initializeScoring();
+  // Individual scoring calculations
+  calculateAgeScore(guessed: number, actual: number): number {
+    const diff = Math.abs(guessed - actual);
+    const config = SCORING_CONFIG.age;
+
+    if (diff === 0) return config.maxPoints + config.exactMatchBonus;
+    if (diff <= config.gracePeriod) {
+      return Math.round(config.maxPoints * (1 - (diff / (config.gracePeriod + 1))));
+    }
+    return Math.max(0, config.maxPoints - (diff * config.penaltyPerYear));
+  }
+
+  calculateProofScore(guessed: number, actual: number): number {
+    const diff = Math.abs(guessed - actual);
+    const config = SCORING_CONFIG.proof;
+
+    if (diff === 0) return config.maxPoints + config.exactMatchBonus;
+    if (diff <= config.gracePeriod) {
+      return Math.round(config.maxPoints * (1 - (diff / (config.gracePeriod + 1))));
+    }
+    return Math.max(0, config.maxPoints - (diff * config.penaltyPerPoint));
+  }
+
+  calculateMashbillScore(guessed: string, actual: string): number {
+    const config = SCORING_CONFIG.mashbill;
+    return guessed.toLowerCase() === actual.toLowerCase()
+      ? config.maxPoints + config.exactMatchBonus
+      : 0;
+  }
+
+  // Helper methods
+  calculateStringSimilarity(str1: string, str2: string): number {
+    if (str1 === str2) return 1;
+    const editDistance = this.levenshteinDistance(str1, str2);
+    const maxLength = Math.max(str1.length, str2.length);
+    return Math.max(0, 1 - editDistance / maxLength);
+  }
+
+  levenshteinDistance(str1: string, str2: string): number {
+    const matrix: number[][] = Array(str2.length + 1).fill(null).map(() =>
+      Array(str1.length + 1).fill(null)
+    );
+
+    for (let i = 0; i <= str2.length; i++) matrix[i][0] = i;
+    for (let j = 0; j <= str1.length; j++) matrix[0][j] = j;
+
+    for (let i = 1; i <= str2.length; i++) {
+      for (let j = 1; j <= str1.length; j++) {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j - 1] + (str2[i - 1] === str1[j - 1] ? 0 : 1)
+        );
+      }
     }
 
-    const maxScore = this.calculator.getMaxPossibleScore();
+    return matrix[str2.length][str1.length];
+  }
+
+  // Explanation generators
+  getAgeExplanation(guessed: number, actual: number): string {
+    const diff = Math.abs(guessed - actual);
+    if (diff === 0) return "Perfect match! Full points awarded.";
+    if (diff <= SCORING_CONFIG.age.gracePeriod) {
+      return `Close! Off by ${diff} years. Partial points awarded.`;
+    }
+    return `Off by ${diff} years. Points deducted based on difference.`;
+  }
+
+  getProofExplanation(guessed: number, actual: number): string {
+    const diff = Math.abs(guessed - actual);
+    if (diff === 0) return "Perfect proof guess! Full points awarded.";
+    if (diff <= SCORING_CONFIG.proof.gracePeriod) {
+      return `Very close! Off by ${diff} proof points. Partial points awarded.`;
+    }
+    return `Off by ${diff} proof points. Points deducted proportionally.`;
+  }
+
+  getMashbillExplanation(guessed: string, actual: string): string {
+    return guessed.toLowerCase() === actual.toLowerCase()
+      ? "Correct mashbill type! Full points awarded."
+      : "Incorrect mashbill type. No points awarded.";
+  }
+
+  // Rank calculation
+  getRank(score: number): string {
+    const maxScore = this.getMaxPossibleScore();
     const percentage = (score / maxScore) * 100;
 
     if (percentage >= 90) return 'Whiskey Wizard';
@@ -79,118 +196,11 @@ export class ScoreService {
     if (percentage >= 20) return 'Whiskey Rookie';
     return 'Barrel Beginner';
   }
+
+  getMaxPossibleScore(): number {
+    return Object.values(SCORING_CONFIG).reduce((total, config) =>
+      total + config.maxPoints + (config.exactMatchBonus || 0), 0);
+  }
 }
 
-// Firebase Score Service
-export const scoreService = {
-  async submitScore(scoreData: ScoreSubmission): Promise<string> {
-    try {
-      const scoreRef = await addDoc(collection(db, 'scores'), {
-        ...scoreData,
-        createdAt: serverTimestamp()
-      });
-      return scoreRef.id;
-    } catch (error) {
-      console.error('Error submitting score:', error);
-      throw error;
-    }
-  },
-
-  async getScore(scoreId: string): Promise<ScoreDocument> {
-    try {
-      const docRef = doc(db, 'scores', scoreId);
-      const docSnap = await getDoc(docRef);
-      if (!docSnap.exists()) {
-        throw new Error('Score not found');
-      }
-      return {
-        id: docSnap.id,
-        ...docSnap.data()
-      } as ScoreDocument;
-    } catch (error) {
-      console.error('Error fetching score:', error);
-      throw error;
-    }
-  },  
-
-  async getPlayerScores(playerId: string, quarterId?: string): Promise<ScoreDocument[]> {
-    try {
-      let baseQuery = query(collection(db, 'scores'), 
-                           where('playerId', '==', playerId),
-                           orderBy('createdAt', 'desc'));
-      if (quarterId) {
-        baseQuery = query(baseQuery, where('quarterId', '==', quarterId));
-      }
-
-      const snapshot = await getDocs(baseQuery);
-      return snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-      })) as ScoreDocument[];
-    } catch (error) {
-      console.error('Error fetching player scores:', error);
-      throw error;
-    }
-  },
-
-  async getLeaderboard(quarterId?: string): Promise<ScoreDocument[]> {
-    try {
-      let leaderboardQuery = query(collection(db, 'scores'), orderBy('totalScore', 'desc'));
-      if (quarterId) {
-        leaderboardQuery = query(leaderboardQuery, where('quarterId', '==', quarterId));
-      }
-
-      const snapshot = await getDocs(leaderboardQuery);
-      return snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-      })) as ScoreDocument[];
-    } catch (error) {
-      console.error('Error fetching leaderboard:', error);
-      throw error;
-    }
-  },
-
-  async getLeaderboardRank(playerId: string, quarterId?: string): Promise<number> {
-    try {
-      const scores = await this.getLeaderboard(quarterId);
-      const playerIndex = scores.findIndex(score => score.playerId === playerId);
-      return playerIndex === -1 ? -1 : playerIndex + 1;
-    } catch (error) {
-      console.error('Error getting leaderboard rank:', error);
-      throw error;
-    }
-  },
-
-  async updateScoreGuess(scoreId: string, guessIndex: number, 
-    guessData: Partial<ScoreSubmission['guesses'][string]>): Promise<void> {
-    try {
-      const docRef = doc(db, 'scores', scoreId);
-      await updateDoc(docRef, { [`guesses.${guessIndex}`]: guessData });
-    } catch (error) {
-      console.error('Error updating score guess:', error);
-      throw error;
-    }
-  },
-
-  async deleteScoreGuess(scoreId: string, guessIndex: number): Promise<void> {
-    try {
-      const docRef = doc(db, 'scores', scoreId);
-      await updateDoc(docRef, { [`guesses.${guessIndex}`]: deleteField() });
-    } catch (error) {
-      console.error('Error deleting score guess:', error);
-      throw error;
-    }
-  },
-
-  async deleteScore(scoreId: string): Promise<void> {
-    try {
-      await deleteDoc(doc(db, 'scores', scoreId));
-    } catch (error) {
-      console.error('Error deleting score:', error);
-      throw error;
-    }
-  }
-};
+export const scoreService = ScoreService.getInstance();

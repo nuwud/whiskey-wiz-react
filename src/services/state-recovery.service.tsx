@@ -1,84 +1,79 @@
 import { db } from '../config/firebase';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { AnalyticsService } from '../services/analytics.service';
+import { doc, setDoc, deleteDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { debounce } from 'lodash';
+import { addToRetryQueue } from '../utils/retry.utils';
 
-export interface GameStateRecovery {
+interface SavedState {
   userId: string;
   quarterId: string;
   lastSavedState: any;
   timestamp: Date;
-  recoveryAttempts: number;
+  version: number;
+  lastModified: any;
 }
 
 export class StateRecoveryService {
-  private recoveryCollection = 'state_recovery';
+  readonly COLLECTION = 'game_states';
+  readonly DEBOUNCE_MS = 1000;
+  version = 1;
 
-  async savePartialState(userId: string, quarterId: string, partialState: any): Promise<void> {
+  // Debounced save to prevent too frequent writes
+  debouncedSave = debounce(async (userId: string, quarterId: string, state: any) => {
     try {
-      const recoveryRef = doc(db, this.recoveryCollection, userId);
+        // First get the current state
+        const docRef = doc(db, this.COLLECTION, userId);
+        const docSnap = await getDoc(docRef);
+        const currentState = docSnap.exists() ? docSnap.data() : null;
 
-      await setDoc(recoveryRef, {
-        userId,
-        quarterId,
-        lastSavedState: partialState,
-        timestamp: new Date(),
-        recoveryAttempts: 0
-      }, { merge: true });
-
-      AnalyticsService.trackUserEngagement('state_partially_saved', {
-        userId,
-        quarterId
-      });
+        // Only update if our state is newer
+        if (!currentState || 
+            new Date(state.timestamp) > new Date(currentState.timestamp)) {
+            
+            const timestamp = new Date();
+            const savedState: SavedState = {
+                userId,
+                quarterId,
+                lastSavedState: state,
+                timestamp,
+                version: this.version,
+                lastModified: serverTimestamp()
+            };
+            await setDoc(docRef, savedState, { merge: true });
+            console.log('State saved successfully', { timestamp });
+        }
     } catch (error) {
-      console.error('Failed to save partial state', error);
+        console.error('Failed to save state:', error);
+        addToRetryQueue(userId, quarterId, state);
     }
+}, this.DEBOUNCE_MS);
+
+  async savePartialState(
+    userId: string,
+    quarterId: string,
+    partialState: any
+  ): Promise<void> {
+    return Promise.resolve(this.debouncedSave(userId, quarterId, partialState));
   }
 
-  async recoverGameState(userId: string): Promise<GameStateRecovery | null> {
+  async getRecoveryState(userId: string) {
     try {
-      const recoveryRef = doc(db, this.recoveryCollection, userId);
-      const recoveryDoc = await getDoc(recoveryRef);
-
-      if (!recoveryDoc.exists()) return null;
-
-      const recoveryData = recoveryDoc.data() as GameStateRecovery;
-
-      // Check if state is recent (within last 24 hours)
-      const twentyFourHoursAgo = new Date();
-      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
-
-      if (recoveryData.timestamp < twentyFourHoursAgo) {
-        // Delete stale recovery state
-        await deleteDoc(recoveryRef);
-        return null;
-      }
-
-      // Increment recovery attempts
-      await updateDoc(recoveryRef, {
-        recoveryAttempts: (recoveryData.recoveryAttempts || 0) + 1
-      });
-
-      AnalyticsService.trackUserEngagement('state_recovery_attempted', {
-        userId,
-        quarterId: recoveryData.quarterId,
-        recoveryAttempts: recoveryData.recoveryAttempts + 1
-      });
-
-      return recoveryData;
+      const docRef = doc(db, this.COLLECTION, userId);
+      const docSnap = await getDoc(docRef);
+      return docSnap.exists() ? docSnap.data() : null;
     } catch (error) {
-      console.error('Failed to recover game state', error);
+      console.error('Failed to get recovery state:', error);
       return null;
     }
   }
 
   async clearRecoveryState(userId: string): Promise<void> {
     try {
-      const recoveryRef = doc(db, this.recoveryCollection, userId);
-      await deleteDoc(recoveryRef);
-
-      AnalyticsService.trackUserEngagement('state_recovery_cleared', { userId });
+      const docRef = doc(db, this.COLLECTION, userId);
+      await deleteDoc(docRef);
     } catch (error) {
-      console.error('Failed to clear recovery state', error);
+      console.error('Failed to clear recovery state:', error);
     }
   }
 }
+
+export default StateRecoveryService;

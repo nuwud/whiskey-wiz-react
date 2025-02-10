@@ -16,6 +16,11 @@ interface Feature {
 export function FeatureToggleAdmin() {
   const [features, setFeatures] = useState<Feature[]>([])
   const [loading, setLoading] = useState(true)
+  const handleToggle = async (id: string, enabled: boolean) => {
+    const featureRef = doc(db, 'features', id);
+    await updateDoc(featureRef, { enabled });
+};
+
 
   useEffect(() => {
     const featuresRef = collection(db, 'features')
@@ -31,10 +36,6 @@ export function FeatureToggleAdmin() {
     return () => unsubscribe()
   }, [])
 
-  const handleToggle = async (id: string, enabled: boolean) => {
-    const featureRef = doc(db, 'features', id)
-    await updateDoc(featureRef, { enabled })
-  }
 
   if (loading) return <div>Loading...</div>
 

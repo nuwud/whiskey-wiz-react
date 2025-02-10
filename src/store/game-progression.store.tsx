@@ -1,53 +1,14 @@
 import { create } from 'zustand';
-import { 
-    Quarter, 
-    SampleId, 
+import {
+    Quarter,
+    SampleId,
     Challenge,
     GameState,
-    WhiskeySample,
     SampleGuess,
-    ScoringRules,
     INITIAL_STATE
 } from '../types/game.types';
 import { PlayerStats } from '../components/player/player-stats.component';
-
-// Calculate score based on scoring rules
-const calculateScore = (
-    sample: WhiskeySample,
-    guess: { age: number; proof: number; mashbill: string },
-    rules: ScoringRules
-) => {
-    let score = 0;
-
-    // Age scoring
-    const ageDeviation = Math.abs(sample.age - guess.age);
-    if (ageDeviation === 0) {
-        score += rules.age.maxPoints + rules.age.exactMatchBonus;
-    } else {
-        score += Math.max(
-            rules.age.maxPoints - (ageDeviation * rules.age.pointDeductionPerYear),
-            0
-        );
-    }
-
-    // Proof scoring
-    const proofDeviation = Math.abs(sample.proof - guess.proof);
-    if (proofDeviation === 0) {
-        score += rules.proof.maxPoints + rules.proof.exactMatchBonus;
-    } else {
-        score += Math.max(
-            rules.proof.maxPoints - (proofDeviation * rules.proof.pointDeductionPerProof),
-            0
-        );
-    }
-
-    // Mashbill scoring
-    if (sample.mashbill === guess.mashbill) {
-        score += rules.mashbill.exactMatchBonus;
-    }
-
-    return score;
-};
+import { ScoreService } from '../services/score.service';
 
 // Extend GameState to include stats
 interface ExtendedGameState extends GameState {
@@ -56,28 +17,19 @@ interface ExtendedGameState extends GameState {
 
 // Define the store interface
 interface GameProgressionStore extends ExtendedGameState {
-    // Update methods
     setCurrentSample: (sample: SampleId) => void;
     updateQuarter: (quarter: Quarter) => void;
     updateSample: (sample: SampleId) => void;
     updateCompletedSamples: (samples: string[]) => void;
     updateChallenges: (challenges: Challenge[]) => void;
     updateStats: (stats: PlayerStats) => void;
-    
-    // Game progression methods
     calculateAverageScorePerQuarter: () => number;
     resetGameProgression: () => void;
-    
-    // Guessing and scoring
     submitGuess: (sampleId: SampleId, guessData: SampleGuess) => Promise<void>;
-    
-    // Game state checks
     isGameCompleted: () => boolean;
     hasCompletedAllQuarters: () => boolean;
     canUnlockNextQuarter: () => boolean;
     canUnlockPreviousQuarter: () => boolean;
-    
-    // Challenge methods
     hasCompletedChallenge: (challengeId: string) => boolean;
     canUnlockChallenge: (challengeId: string) => boolean;
     hasCompletedChallengeOfType: (type: Challenge['type']) => boolean;
@@ -96,56 +48,52 @@ const useGameProgressionStore = create<GameProgressionStore>((set, get) => ({
         averageScorePerQuarter: 0
     },
 
-    // Basic setters
-    setCurrentSample: (sample: SampleId) => 
-        set({ currentSample: sample }),
-
-    updateQuarter: (quarter: Quarter) => 
-        set({ currentQuarter: quarter }),
-
-    updateSample: (sample: SampleId) => 
-        set({ currentSampleId: sample }),
-
-    updateCompletedSamples: (samples: string[]) => 
-        set({ completedSamples: samples }),
-
-    updateChallenges: (challenges: Challenge[]) => 
-        set({ challenges }),
-
-    updateStats: (stats: PlayerStats) => 
+    setCurrentSample: (sample: SampleId) => set({ currentSample: sample }),
+    updateQuarter: (quarter: Quarter) => {
         set(state => ({
             ...state,
-            stats: {
-                ...state.stats,
-                ...stats
-            }
-        })),
+            currentQuarter: quarter
+        }));
+        localStorage.setItem("currentQuarter", JSON.stringify(quarter));
+    },
+    updateSample: (sample: SampleId) => set({ currentSampleId: sample }),
+    updateCompletedSamples: (samples: string[]) => set({ completedSamples: samples }),
+    updateChallenges: (challenges: Challenge[]) => set({ challenges }),
+    updateStats: (stats: PlayerStats) => set(state => ({
+        ...state,
+        stats: { ...state.stats, ...stats }
+    })),
 
-    // Main game mechanics
     submitGuess: async (sampleId: SampleId, guessData: SampleGuess) => {
         const state = get();
-        const sample = state.samples.find(s => s.id === sampleId);
-        
+        if (!state.samples || Object.keys(state.samples).length === 0) {
+            console.error('No samples available');
+            return;
+        }
+
+        const sample = state.samples[sampleId];
+        if (!sample) {
+            console.error(`Sample ${sampleId} not found`);
+            return;
+        }
+
         if (!sample || !state.scoringRules) return;
 
-        const score = calculateScore(sample, guessData, state.scoringRules);
+        const scoreResult = ScoreService.calculateScore(guessData, sample);
 
         set(state => ({
             guesses: {
                 ...state.guesses,
-                [sampleId]: { ...guessData, score }
+                [sampleId]: { ...guessData, score: scoreResult.totalScore }
             },
             score: {
                 ...state.score,
-                [sampleId]: state.score[sampleId as SampleId] + score
+                [sampleId]: (state.score[sampleId] || 0) + scoreResult.totalScore
             },
-            completedSamples: [
-                ...state.completedSamples,
-                sampleId
-            ].filter((value, index, self) => self.indexOf(value) === index), // Ensure uniqueness
+            completedSamples: [...new Set([...state.completedSamples, sampleId])],
             stats: {
                 ...state.stats,
-                totalScore: state.stats.totalScore + score
+                totalScore: state.stats.totalScore + scoreResult.totalScore
             }
         }));
     },
@@ -156,7 +104,7 @@ const useGameProgressionStore = create<GameProgressionStore>((set, get) => ({
         return state.stats.totalScore / state.stats.totalQuartersCompleted;
     },
 
-    resetGameProgression: () => set({ 
+    resetGameProgression: () => set({
         ...INITIAL_STATE,
         stats: {
             totalScore: 0,
@@ -171,19 +119,16 @@ const useGameProgressionStore = create<GameProgressionStore>((set, get) => ({
 
     isGameCompleted: () => {
         const state = get();
-        return state.completedSamples.length === state.samples.length;
+        return Object.keys(state.samples).length > 0 && state.completedSamples.length === Object.keys(state.samples).length;
     },
 
     hasCompletedAllQuarters: () => {
         const state = get();
-        if (!state.currentQuarter) return false;
-        return state.challenges.length > 0 && 
-               state.challenges.every(challenge => challenge.completed);
+        return Boolean(state.currentQuarter && state.challenges.length > 0 && state.challenges.every(challenge => challenge.completed));
     },
 
     canUnlockNextQuarter: () => {
         const state = get();
-        if (!state.currentQuarter) return false;
         return state.progress >= 100;
     },
 
@@ -194,33 +139,24 @@ const useGameProgressionStore = create<GameProgressionStore>((set, get) => ({
 
     hasCompletedChallenge: (challengeId: string) => {
         const state = get();
-        return state.challenges.some(challenge => 
-            challenge.id === challengeId && challenge.completed
-        );
+        return state.challenges.some(challenge => challenge.id === challengeId && challenge.completed);
     },
 
     canUnlockChallenge: (challengeId: string) => {
         const state = get();
-        return state.challenges.some(challenge => 
-            challenge.id === challengeId
-        );
+        return state.challenges.some(challenge => challenge.id === challengeId);
     },
 
     hasCompletedChallengeOfType: (type: Challenge['type']) => {
         const state = get();
-        return state.challenges.some(challenge => 
-            challenge.type === type && challenge.completed
-        );
+        return state.challenges.some(challenge => challenge.type === type && challenge.completed);
     },
 
     canUnlockChallengeOfType: (type: Challenge['type']) => {
         const state = get();
-        return state.challenges.some(challenge => 
-            challenge.type === type
-        );
+        return state.challenges.some(challenge => challenge.type === type);
     }
 }));
 
-// Export both ways to maintain compatibility
 export const useGameProgression = useGameProgressionStore;
 export default useGameProgressionStore;

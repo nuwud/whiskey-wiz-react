@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { GameStateService, GameEvent } from '../services/game-state.service';
-import { GameState, SampleKey } from '../types/game.types';
+import { GameStateService } from '../services/game-state.service';
+import { GameState, SampleKey, GameEvent } from '../types/game.types';
 import { useAuth } from '../contexts/auth.context';
 import { AnalyticsService } from '../services/analytics.service';
-import { cn } from '@/lib/utils';
+import { cn } from '../lib/utils';
 
 interface GameProgressTrackerProps {
+  userId: string;
   quarterId: string;
+  gameState: GameState;
   totalSamples: number;
   onProgress: (callback: (sampleId: string) => Promise<void>) => void;
 }
 export const GameProgressTracker: React.FC<GameProgressTrackerProps> = ({
+  userId,
   quarterId,
   totalSamples,
   onProgress
@@ -24,35 +27,36 @@ export const GameProgressTracker: React.FC<GameProgressTrackerProps> = ({
   };
 
   useEffect(() => {
-    if (!user) return;
+    if ( !user || !quarterId || !gameState ) return;
 
     const initializeOrRecoverGameState = async () => {
       try {
-        const recoveredSession = await gameStateService.recoverIncompleteSession(user.uid);
+        const recoveredSession = await gameStateService.recoverIncompleteSession(user.userId);
 
         if (recoveredSession) {
           setGameState(recoveredSession);
           AnalyticsService.trackUserEngagement('game_start', {
+            userId,
             quarterId,
-            userId: user.uid,
+            progress: gameState.progress,
+            timestamp: new Date().toISOString(),
             event: 'resume' as GameEvent
           });
         } else {
-          const newGameState = await gameStateService.initializeGameState(user.uid, quarterId);
+          const newGameState = await gameStateService.initializeGameState(user.userId, quarterId);
           setGameState(newGameState);
           AnalyticsService.trackUserEngagement('game_start', {
             quarterId,
-            userId: user.uid,
+            userId: user.userId,
             event: 'start' as GameEvent
           });
         }
       } catch (error) {
         console.error('Failed to initialize game state:', error);
-        AnalyticsService.trackError(
-          'Game state initialization failed',
-          'game_progress_tracker',
-          user.uid
-        );
+        AnalyticsService.trackEvent('Failed to track game progress', {
+          component: 'GameProgressTracker',
+          userId: user.userId
+        });
       }
     };
 
@@ -61,7 +65,7 @@ export const GameProgressTracker: React.FC<GameProgressTrackerProps> = ({
       if (!user || !gameState) return;
 
       try {
-        const updatedState = await gameStateService.updateGameState(user.uid, {
+        const updatedState = await gameStateService.updateGameState(user.userId, {
           ...gameState,
           completedSamples: [...gameState.completedSamples, completedSampleId],
           progress: (gameState.completedSamples.length + 1) / totalSamples * 100
@@ -72,7 +76,7 @@ export const GameProgressTracker: React.FC<GameProgressTrackerProps> = ({
         // Track sample completion
         AnalyticsService.trackUserEngagement('sample_guessed', {
           quarterId,
-          userId: user.uid,
+          userId: user.userId,
           sampleId: completedSampleId,
           accuracy: calculateTotalScore(updatedState.score) - calculateTotalScore(gameState.score),
           timeSpent: Math.floor((Date.now() - startTime) / 1000)
@@ -82,7 +86,7 @@ export const GameProgressTracker: React.FC<GameProgressTrackerProps> = ({
         if (updatedState.completedSamples.length === totalSamples) {
           AnalyticsService.trackUserEngagement('game_complete', {
             quarterId,
-            userId: user.uid,
+            userId: user.userId,
             score: updatedState.score,
             timeSpent: Math.floor((Date.now() - startTime) / 1000),
             event: 'complete' as GameEvent
@@ -90,13 +94,12 @@ export const GameProgressTracker: React.FC<GameProgressTrackerProps> = ({
         }
       } catch (error) {
         console.error('Failed to update game progress:', error);
-        AnalyticsService.trackError(
-          'Game progress update failed',
-          'game_progress_tracker',
-          user.uid
-        );
+        AnalyticsService.trackEvent('Game progress update failed', {
+          component: 'game_progress_tracker',
+          userId: user.userId
+        });
       }
-    }, [gameState, user, quarterId, startTime, totalSamples]);
+    }, [userId, quarterId, gameState, startTime, totalSamples]);
 
     useEffect(() => {
       if (onProgress) {
@@ -137,3 +140,5 @@ export const GameProgressTracker: React.FC<GameProgressTrackerProps> = ({
     </div>
   );
 }
+
+export default GameProgressTracker;

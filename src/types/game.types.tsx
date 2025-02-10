@@ -4,18 +4,37 @@ import { Timestamp } from 'firebase/firestore';
 
 // Sample and basic types
 
-export type Score = 'score' | 'score A' | 'score B' | 'score C' | 'score D';
+export type Score = number | 'score A' | 'score B' | 'score C' | 'score D';
 export type SampleKey = 'A' | 'B' | 'C' | 'D';
 export type SampleId = 'A' | 'B' | 'C' | 'D';
+export type GameEvent = 'start' | 'resume' | 'complete' | 'sample_guessed';
 
 export const MODE_OPTIONS = ['standard', 'default'] as const;
 export const DIFFICULTY_OPTIONS = ['beginner', 'intermediate', 'advanced'] as const;
 export const SAMPLE_OPTIONS = ['Sample A', 'Sample B', 'Sample C', 'Sample D'] as const;
+export const MASHBILL_TYPES = { BOURBON: 'Bourbon', RYE: 'Rye', WHEAT: 'Wheat', SINGLE_MALT: 'Single Malt' } as const;
 
 // Define the type based on the options
 export type Difficulty = typeof DIFFICULTY_OPTIONS[number];
 export type Mode = typeof MODE_OPTIONS[number];
 export type Sample = typeof SAMPLE_OPTIONS[number];
+export type MashbillType = typeof MASHBILL_TYPES[keyof typeof MASHBILL_TYPES];
+
+export const normalizeMashbill = (mashbill: string): MashbillType => {
+  const normalized = mashbill.toLowerCase();
+  
+  if (normalized.includes('single malt') || normalized.includes('malted')) {
+    return MASHBILL_TYPES.SINGLE_MALT;
+  }
+  if (normalized.includes('rye') && !normalized.includes('bourbon')) {
+    return MASHBILL_TYPES.RYE;
+  }
+  if (normalized.includes('wheat') && !normalized.includes('bourbon')) {
+    return MASHBILL_TYPES.WHEAT;
+  }
+  // Default to bourbon for any corn-based or unspecified
+  return MASHBILL_TYPES.BOURBON;
+};
 
 export enum DifficultyEnum {
   Beginner = 'beginner',
@@ -41,7 +60,8 @@ export interface WhiskeySample {
   name: string;
   age: number;
   proof: number;
-  mashbill: 'bourbon' | 'rye' | 'wheat' | 'corn' | 'malted barley';
+  mashbill: MashbillType;
+  rating: number;
   mashbillComposition?: {
     corn: number;
     rye: number;
@@ -52,6 +72,10 @@ export interface WhiskeySample {
   distillery: string;
   description: string;
   notes: string[];
+  type: string;
+  region: string;
+  imageUrl: string;
+  price: number;
   difficulty: Difficulty;
   score: Score;
   challengeQuestions: ChallengeQuestion[];
@@ -66,6 +90,16 @@ export interface SampleGuess {
   rating: number;
   notes: string;
   submitted: boolean;
+  breakdown?: {
+    age: number;
+    proof: number;
+    mashbill: number;
+  };
+  explanations?: {
+    age: string;
+    proof: string;
+    mashbill: string;
+  };
 }
 
 export const isValidSampleGuess = (guess: unknown): guess is SampleGuess => {
@@ -76,8 +110,18 @@ export const isValidSampleGuess = (guess: unknown): guess is SampleGuess => {
     typeof g?.mashbill === 'string' &&
     typeof g?.rating === 'number' &&
     typeof g?.notes === 'string' &&
-    typeof g?.score === 'number' &&
-    typeof g?.submitted === 'boolean'
+    (typeof g?.score === 'number' || g?.score === undefined) &&
+    typeof g?.submitted === 'boolean' &&
+    (g?.breakdown === undefined || (
+      typeof g.breakdown?.age === 'number' &&
+      typeof g.breakdown?.proof === 'number' &&
+      typeof g.breakdown?.mashbill === 'number'
+    )) &&
+    (g?.explanations === undefined || (
+      typeof g.explanations?.age === 'string' &&
+      typeof g.explanations?.proof === 'string' &&
+      typeof g.explanations?.mashbill === 'string'
+    ))
   );
 };
 
@@ -117,14 +161,15 @@ export interface GameState {
   // User and session info
   userId: string;
   quarterId: string;
-  isPlaying: boolean;
   isLoading: boolean;
+  isInitialized: boolean;
+  isPlaying: boolean;
   error: string | null;
   lastUpdated: Date;
   startTime: Date;
   endTime: Date;
   currentSampleId: string | null;
-  samples: WhiskeySample[]; 
+  samples: Record<SampleId, WhiskeySample>,
   currentRound: number;
   totalRounds: number;
 
@@ -148,7 +193,7 @@ export interface GameState {
   // Player input and scoring
   guesses: Record<SampleKey, SampleGuess>;
   score: Record<SampleKey, number>;
-  totalScore: Record<SampleKey, number>;
+  totalScore: number;
   scores: Record<SampleKey, SampleKey>;
   answers: Record<string, string | boolean>;
 
@@ -278,6 +323,7 @@ export const INITIAL_STATE: GameState = {
   userId: '',
   quarterId: '',
   isLoading: false,
+  isInitialized: false,
   isPlaying: false,
   lastUpdated: new Date(),
   startTime: new Date(),
@@ -301,15 +347,10 @@ export const INITIAL_STATE: GameState = {
 
   // Game elements
   currentSample: 'A',
-  samples: [],
+  samples: {} as Record<SampleId, WhiskeySample>,
   difficulty: 'beginner',
   mode: 'standard',
-  totalScore: {
-    'A': 0,
-    'B': 0,
-    'C': 0,
-    'D': 0
-  },
+  totalScore: 0,
 
   // Progress tracking
   completedSamples: [],
@@ -775,6 +816,8 @@ export interface QuarterAnalytics {
     predictions: Record<string, number>;
   };
 }
+
+export const MASHBILL_TYPE_OPTIONS = Object.values(MASHBILL_TYPES);
 
 export interface SampleFormData {
   name: string;

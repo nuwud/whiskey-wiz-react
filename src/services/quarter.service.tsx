@@ -17,9 +17,20 @@ import { AnalyticsService } from './analytics.service';
 import { TimeseriesData } from '../types/game.types';
 import { LeaderboardEntry } from './leaderboard.service';
 import { PlayerProfile } from '../types/auth.types';
-import { Quarter, QuarterAnalytics, WhiskeySample } from '../types/game.types';
+import { Quarter, QuarterAnalytics, WhiskeySample, MashbillType, MASHBILL_TYPES } from '../types/game.types';
 
-class QuarterService {
+export class QuarterService {
+  private static instance: QuarterService;
+
+  private constructor() { }
+
+  public static getInstance(): QuarterService {
+    if (!QuarterService.instance) {
+      QuarterService.instance = new QuarterService();
+    }
+    return QuarterService.instance;
+  }
+
   private quartersCollection = collection(db, 'quarters');
   private resultsCollection = collection(db, 'game_results');
 
@@ -28,9 +39,8 @@ class QuarterService {
     try {
       const q = query(
         this.quartersCollection,
-        where('active', '==', true),
+        where('isActive', '==', true),  // Changed to consistently use isActive
         orderBy('startDate', 'desc')
-        // Removed endDate check to allow historical quarters
       );
 
       const snapshot = await getDocs(q);
@@ -42,7 +52,7 @@ class QuarterService {
       return this.convertToQuarter(quarterDoc.data(), quarterDoc.id);
     } catch (error) {
       console.error('Failed to fetch current quarter', error);
-      AnalyticsService.trackError('Failed to fetch current quarter', 'quarter_service');
+      AnalyticsService.trackEvent('Failed to fetch current quarter', { service: 'quarter_service' });
       return null;
     }
   }
@@ -58,7 +68,7 @@ class QuarterService {
       return snapshot.docs.map(doc => this.convertToQuarter(doc.data(), doc.id));
     } catch (error) {
       console.error('Failed to fetch active quarters', error);
-      AnalyticsService.trackError('Failed to fetch active quarters', 'quarter_service');
+      AnalyticsService.trackEvent('Failed to fetch active quarters', { service: 'quarter_service' });
       return [];
     }
   }
@@ -73,7 +83,7 @@ class QuarterService {
       return this.convertToQuarter(quarterDoc.data(), quarterDoc.id);
     } catch (error) {
       console.error('Failed to fetch game configuration', error);
-      AnalyticsService.trackError('Failed to fetch game configuration', 'quarter_service');
+      AnalyticsService.trackEvent('Failed to fetch game configuration', { service: 'quarter_service' });
       return null;
     }
   }
@@ -109,7 +119,7 @@ class QuarterService {
       });
     } catch (error) {
       console.error('Failed to fetch quarter leaderboard', error);
-      AnalyticsService.trackError('Failed to fetch quarter leaderboard', 'quarter_service');
+      AnalyticsService.trackEvent('Failed to fetch quarter leaderboard', { service: 'quarter_service' });
       return [];
     }
   }
@@ -303,7 +313,7 @@ class QuarterService {
       };
     } catch (error) {
       console.error('Failed to fetch quarter analytics', error);
-      AnalyticsService.trackError('Failed to fetch quarter analytics', 'quarter_service');
+      AnalyticsService.trackEvent('Failed to fetch quarter analytics', { service: 'quarter_service' });
       return null;
     }
   }
@@ -342,12 +352,84 @@ class QuarterService {
 
   async getAllQuarters(): Promise<Quarter[]> {
     try {
-      const snapshot = await getDocs(this.quartersCollection);
-      return snapshot.docs.map(doc => this.convertToQuarter(doc.data(), doc.id));
+      // Get all active quarters
+      const q = query(
+        this.quartersCollection,
+        where("isActive", "==", true),
+        orderBy("startDate", "desc")
+      );
+
+      console.log('Fetching quarters...');
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        console.log('No active quarters found');
+        return [];
+      }
+
+      const quarters: Quarter[] = [];
+
+      // Process each quarter
+      for (const doc of snapshot.docs) {
+        try {
+          const quarterData = doc.data();
+          console.log(`Processing quarter ${doc.id}:`, quarterData);
+
+          // Fetch samples for this quarter
+          const samplesRef = collection(db, `quarters/${doc.id}/samples`);
+          const samplesSnapshot = await getDocs(samplesRef);
+
+          console.log(`Found ${samplesSnapshot.size} samples for quarter ${doc.id}`);
+
+          // Convert samples
+          const samples = samplesSnapshot.docs.map(sampleDoc => {
+            const sampleData = sampleDoc.data();
+            console.log(`Converting sample ${sampleDoc.id}:`, sampleData);
+
+            return this.convertToWhiskeySample({
+              id: sampleDoc.id,
+              ...sampleData
+            });
+          });
+
+          // Convert and validate quarter
+          const quarter = this.convertToQuarter({
+            ...quarterData,
+            samples: samples
+          }, doc.id);
+
+          if (!this.validateQuarter(quarter)) {
+            console.warn(`Skipping invalid quarter ${doc.id}`);
+            continue;
+          }
+
+          quarters.push(quarter);
+
+        } catch (quarterError) {
+          console.error(`Error processing quarter ${doc.id}:`, quarterError);
+          AnalyticsService.trackEvent('quarter_processing_failed', {
+            quarterId: doc.id,
+            error: quarterError instanceof Error ? quarterError.message : 'Unknown error'
+          });
+          // Continue processing other quarters
+          continue;
+        }
+      }
+
+      // Track successful retrieval
+      AnalyticsService.trackEvent('quarters_retrieved', {
+        count: quarters.length,
+        quartersWithSamples: quarters.filter(q => q.samples?.length > 0).length
+      });
+
+      return quarters;
+
     } catch (error) {
-      console.error('Failed to fetch all quarters', error);
-      AnalyticsService.trackError('Failed to fetch all quarters', 'quarter_service');
-      return [];
+      console.error('Failed to fetch quarters:', error);
+      AnalyticsService.trackEvent('quarters_retrieval_failed', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
     }
   }
 
@@ -385,7 +467,7 @@ class QuarterService {
       return Array.from(resultsByDay.values());
     } catch (error) {
       console.error('Failed to fetch quarter timeseries', error);
-      AnalyticsService.trackError('Failed to fetch quarter timeseries', 'quarter_service');
+      AnalyticsService.trackEvent('Failed to fetch quarter timeseries', { service: 'quarter_service' });
       return [];
     }
   }
@@ -446,7 +528,7 @@ class QuarterService {
       return stats;
     } catch (error) {
       console.error('Failed to fetch player progression stats', error);
-      AnalyticsService.trackError('Failed to fetch player progression stats', 'quarter_service');
+      AnalyticsService.trackEvent('Failed to fetch player progression stats', { service: 'quarter_service' });
       return null;
     }
   }
@@ -518,22 +600,91 @@ class QuarterService {
     }
     catch (error) {
       console.error('Failed to fetch detailed sample analytics', error);
-      AnalyticsService.trackError('Failed to fetch detailed sample analytics', 'quarter_service');
+      AnalyticsService.trackEvent('Failed to fetch detailed sample analytics', { service: 'quarter_service' });
       return [];
     }
   }
 
+  // In QuarterService class
+
   async getQuarterById(quarterId: string): Promise<Quarter | null> {
     try {
-      const quarterDoc = await getDoc(doc(this.quartersCollection, quarterId));
+      if (!quarterId) {
+        throw new Error("Quarter ID is required");
+      }
+
+      // Get main quarter document
+      const quarterDoc = await getDoc(doc(db, 'quarters', quarterId));
       if (!quarterDoc.exists()) {
+        console.error('Quarter not found:', quarterId);
         return null;
       }
-      return this.convertToQuarter(quarterDoc.data(), quarterDoc.id);
+
+      let samples: WhiskeySample[] = [];
+
+      // First try to get samples from the main document
+      const quarterData = quarterDoc.data();
+      if (quarterData.samples) {
+        console.log('Found samples in main document:', quarterData.samples);
+        if (Array.isArray(quarterData.samples)) {
+          samples = quarterData.samples;
+        } else if (typeof quarterData.samples === 'object') {
+          samples = Object.values(quarterData.samples);
+        }
+      }
+
+      // If no samples in main document, try the subcollection
+      if (samples.length === 0) {
+        console.log('No samples in main document, checking subcollection...');
+        const samplesRef = collection(db, 'quarters', quarterId, 'samples');
+        const samplesSnapshot = await getDocs(samplesRef);
+
+        if (!samplesSnapshot.empty) {
+          samples = samplesSnapshot.docs.map(doc => this.convertToWhiskeySample({
+            id: doc.id,
+            ...doc.data()
+          }));
+          console.log('Found samples in subcollection:', samples);
+        }
+      }
+
+      // If still no samples, check for individual sample documents
+      if (samples.length === 0) {
+        console.log('Checking for individual sample documents...');
+        const samplePromises = ['A', 'B', 'C', 'D'].map(async (sampleId) => {
+          const sampleRef = doc(db, 'quarters', quarterId, 'samples', sampleId);
+          const sampleDoc = await getDoc(sampleRef);
+          if (sampleDoc.exists()) {
+            return {
+              id: sampleId,
+              ...sampleDoc.data()
+            };
+          }
+          return null;
+        });
+
+        const sampleResults = await Promise.all(samplePromises);
+        samples = sampleResults.filter((sample): sample is WhiskeySample => sample !== null);
+        console.log('Found individual samples:', samples);
+      }
+
+      // Merge quarter data with samples
+      const quarterWithSamples = {
+        ...quarterDoc.data(),
+        id: quarterId,
+        samples
+      };
+
+      console.log('Final quarter data with samples:', quarterWithSamples);
+      return this.convertToQuarter(quarterWithSamples, quarterId);
+
     } catch (error) {
-      console.error('Failed to fetch quarter by ID', error);
-      AnalyticsService.trackError('Failed to fetch quarter by ID', 'quarter_service');
-      return null;
+      console.error('Error fetching quarter:', error);
+      AnalyticsService.trackEvent('quarter_fetch_failed', {
+        quarterId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
     }
   }
 
@@ -562,64 +713,10 @@ class QuarterService {
   convertToQuarter(data: DocumentData, id: string): Quarter {
     console.log('Converting quarter data:', data);
 
+    // Ensure samples are properly formatted
+    const samples = this.ensureSamples(data);
+    console.log('Normalized samples:', samples);
 
-    // Validate and normalize samples data
-    let samples: WhiskeySample[] = [];
-
-    if (data.samples) {
-      if (Array.isArray(data.samples)) {
-        // If it's already an array, validate each sample
-        samples = data.samples.map((sample: any, index: number) => ({
-          id: sample.id || `sample${index + 1}`,
-          name: sample.name || `Sample ${String.fromCharCode(65 + index)}`,
-          age: typeof sample.age === 'number' ? sample.age : 0,
-          proof: typeof sample.proof === 'number' ? sample.proof : 0,
-          mashbill: sample.mashbill || 'bourbon',
-          hints: Array.isArray(sample.hints) ? sample.hints : [],
-          distillery: sample.distillery || 'Unknown',
-          description: sample.description || '',
-          notes: Array.isArray(sample.notes) ? sample.notes : [],
-          difficulty: ['beginner', 'intermediate', 'advanced'].includes(sample.difficulty)
-            ? sample.difficulty
-            : 'beginner',
-          score: sample.score || 'score',
-          challengeQuestions: Array.isArray(sample.challengeQuestions)
-            ? sample.challengeQuestions
-            : [],
-          image: sample.image || ''
-        }));
-      } else if (typeof data.samples === 'object' && data.samples !== null) {
-        // If it's an object (like {sample1: {...}, sample2: {...}}), convert to array
-        samples = Object.entries(data.samples)
-          .filter(([key]) => /^sample\d+$/.test(key))
-          .sort(([a], [b]) => {
-            const aNum = parseInt(a.replace('sample', ''));
-            const bNum = parseInt(b.replace('sample', ''));
-            return aNum - bNum;
-          })
-          .map(([key, value]: [string, any]) => ({
-            id: key,
-            name: `Sample ${String.fromCharCode(65 + parseInt(key.replace('sample', '')) - 1)}`,
-            age: typeof value.age === 'number' ? value.age : 0,
-            proof: typeof value.proof === 'number' ? value.proof : 0,
-            mashbill: value.mashbill || 'bourbon',
-            hints: Array.isArray(value.hints) ? value.hints : [],
-            distillery: value.distillery || 'Unknown',
-            description: value.description || '',
-            notes: Array.isArray(value.notes) ? value.notes : [],
-            difficulty: ['beginner', 'intermediate', 'advanced'].includes(value.difficulty)
-              ? value.difficulty
-              : 'beginner',
-            score: value.score || 'score',
-            challengeQuestions: Array.isArray(value.challengeQuestions)
-              ? value.challengeQuestions
-              : [],
-            image: value.image || ''
-          }));
-      }
-      // Log the normalized samples
-      console.log('Normalized samples:', samples);
-    }
     return {
       id,
       name: data.name || '',
@@ -630,24 +727,24 @@ class QuarterService {
       endTime: this.convertTimestamp(data.endTime),
       createdAt: this.convertTimestamp(data.createdAt),
       updatedAt: this.convertTimestamp(data.updatedAt),
-      duration: typeof data.duration === 'number' ? data.duration : 0,
+      duration: typeof data.duration === 'number' ? data.duration : 90,
       minimumScore: typeof data.minimumScore === 'number' ? data.minimumScore : 0,
       maximumScore: typeof data.maximumScore === 'number' ? data.maximumScore : 100,
       minimumChallengesCompleted: typeof data.minimumChallengesCompleted === 'number'
         ? data.minimumChallengesCompleted
         : 0,
-      isActive: Boolean(data.active),
-      samples,  // Use our validated and normalized samples
+      isActive: Boolean(data.isActive || data.active),
+      samples,
       difficulty: ['beginner', 'intermediate', 'advanced'].includes(data.difficulty)
         ? data.difficulty
         : 'beginner',
       scoringRules: data.scoringRules || {
         age: {
-          maxPoints: 0,
-          pointDeductionPerYear: 0,
-          exactMatchBonus: 0,
+          maxPoints: 100,
+          pointDeductionPerYear: 10,
+          exactMatchBonus: 50,
           points: 0,
-          penaltyPerYear: 0,
+          penaltyPerYear: 10,
           minValue: 0,
           maxValue: 0,
           hasLowerLimit: false,
@@ -655,11 +752,11 @@ class QuarterService {
           gracePeriod: 0
         },
         proof: {
-          maxPoints: 0,
-          pointDeductionPerProof: 0,
-          exactMatchBonus: 0,
+          maxPoints: 100,
+          pointDeductionPerProof: 5,
+          exactMatchBonus: 50,
           points: 0,
-          penaltyPerPoint: 0,
+          penaltyPerPoint: 5,
           minValue: 0,
           maxValue: 0,
           hasLowerLimit: false,
@@ -667,48 +764,199 @@ class QuarterService {
           gracePeriod: 0
         },
         mashbill: {
-          maxPoints: 0,
-          pointDeductionPerType: 0,
-          exactMatchBonus: 0,
+          maxPoints: 100,
+          pointDeductionPerType: 25,
+          exactMatchBonus: 50,
           points: 0
         }
       },
-      challenges: Array.isArray(data.challenges) ? data.challenges : [],
+      challenges: Array.isArray(data.challenges) ? data.challenges : []
     };
   }
 
+  // In QuarterService class
+
   convertToWhiskeySample(data: DocumentData): WhiskeySample {
     console.log('Converting sample data:', data);
-    const getMashbillType = (mashbill: { corn: number, rye: number, wheat: number, barley: number }): WhiskeySample['mashbill'] => {
-      if (mashbill.corn >= 51) return 'bourbon';
-      if (mashbill.rye >= 51) return 'rye';
-      if (mashbill.wheat >= 51) return 'wheat';
-      if (mashbill.corn >= 80) return 'corn';
-      if (mashbill.barley >= 51) return 'malted barley';
-      return 'bourbon'; // default fallback
+
+    // Handle different mashbill formats
+    let mashbillType: MashbillType;
+    let mashbillComposition = {
+      corn: 0,
+      rye: 0,
+      wheat: 0,
+      barley: 0
     };
 
-    return {
-      id: data.id,
-      name: data.name || 'Unknown Sample',
-      age: data.age || 0,
-      proof: data.proof || 0,
-      mashbill: getMashbillType(data.mashbill || { corn: 51, rye: 0, wheat: 0, barley: 0 }),
-      mashbillComposition: {
-        corn: data.mashbill?.corn || 0,
-        rye: data.mashbill?.rye || 0,
-        wheat: data.mashbill?.wheat || 0,
-        barley: data.mashbill?.barley || 0
-      },
-      notes: data.notes || [],
-      hints: data.hints || [],
+    if (typeof data.mashbill === 'string') {
+      // If mashbill is a string, use it directly
+      mashbillType = data.mashbill as MashbillType;
+    } else if (typeof data.mashbill === 'object' && data.mashbill !== null) {
+      // If mashbill is an object with percentages
+      mashbillComposition = {
+        corn: data.mashbill.corn || 0,
+        rye: data.mashbill.rye || 0,
+        wheat: data.mashbill.wheat || 0,
+        barley: data.mashbill.barley || 0
+      };
+
+      // Determine type based on highest percentage
+      if (mashbillComposition.corn >= 51) mashbillType = MASHBILL_TYPES.BOURBON;
+      else if (mashbillComposition.rye >= 51) mashbillType = MASHBILL_TYPES.RYE;
+      else if (mashbillComposition.wheat >= 51) mashbillType = MASHBILL_TYPES.WHEAT;
+      else if (mashbillComposition.barley >= 51) mashbillType = MASHBILL_TYPES.SINGLE_MALT;
+      else mashbillType = MASHBILL_TYPES.BOURBON;
+    } else {
+      // Default to bourbon if no valid mashbill data
+      mashbillType = MASHBILL_TYPES.BOURBON;
+    }
+
+    // Handle numeric fields with proper type conversion
+    const age = parseInt(data.age) || 0;
+    const proof = parseFloat(data.proof) || 0;
+    const rating = parseFloat(data.rating) || 0;
+    const price = parseFloat(data.price) || 0;
+
+    // Ensure arrays are properly initialized
+    const notes = Array.isArray(data.notes) ? data.notes :
+      typeof data.notes === 'string' ? [data.notes] : [];
+
+    const hints = Array.isArray(data.hints) ? data.hints :
+      typeof data.hints === 'string' ? [data.hints] : [];
+
+    const challengeQuestions = Array.isArray(data.challengeQuestions) ?
+      data.challengeQuestions : [];
+
+    // Create the sample object with all required fields
+    const sample: WhiskeySample = {
+      id: data.id || '',
+      name: data.name || `Sample ${data.id || ''}`,
+      age,
+      proof,
+      mashbill: mashbillType,
+      mashbillComposition,
+      notes,
+      hints,
       distillery: data.distillery || 'Unknown',
       description: data.description || '',
-      difficulty: data.difficulty || 'beginner',
-      score: data.score || 'score',
-      challengeQuestions: data.challengeQuestions || [],
-      image: data.image || ''
+      difficulty: ['beginner', 'intermediate', 'advanced'].includes(data.difficulty)
+        ? data.difficulty
+        : 'beginner',
+      score: data.score || 0,
+      challengeQuestions,
+      image: data.image || '',
+      rating,
+      type: data.type || 'bourbon',
+      region: data.region || 'unknown',
+      imageUrl: data.imageUrl || '',
+      price
     };
+
+    console.log('Converted sample:', sample);
+    return sample;
+  }
+
+  private ensureSamples(data: any): WhiskeySample[] {
+    const samples: WhiskeySample[] = [];
+    
+    if (!data.samples) {
+      console.warn('No samples found in quarter data');
+      return this.createDefaultSamples();
+    }
+  
+    if (Array.isArray(data.samples)) {
+
+      samples.push(...(data.samples as any[]).map((sample: any, index: number) => 
+        this.convertToWhiskeySample({
+          ...sample,
+          id: String.fromCharCode(65 + index)
+        })
+      ));
+    } else if (typeof data.samples === 'object') {
+      const sampleEntries = Object.entries(data.samples);
+      sampleEntries.forEach(([, value], index) => {
+        const sampleData = typeof value === 'object' && value !== null ? value : {};
+        samples.push(this.convertToWhiskeySample({
+          ...sampleData,
+          id: String.fromCharCode(65 + index)
+        }));
+      });
+    }
+  
+    // Ensure exactly 4 samples
+    while (samples.length < 4) {
+      samples.push(this.createDefaultSample(String.fromCharCode(65 + samples.length)));
+    }
+  
+    return samples.slice(0, 4).map((sample, index) => ({
+      ...sample,
+      id: String.fromCharCode(65 + index)
+    }));
+  }
+
+  private validateQuarter(quarter: Quarter): boolean {
+    if (!quarter.id || !quarter.name) {
+      console.warn('Quarter missing required fields:', quarter);
+      return false;
+    }
+
+    if (!quarter.startDate || !quarter.endDate) {
+      console.warn('Quarter missing date fields:', quarter);
+      return false;
+    }
+
+    if (!Array.isArray(quarter.samples)) {
+      console.warn('Quarter samples not in correct format:', quarter);
+      return false;
+    }
+
+    // Validate each sample
+    const invalidSamples = quarter.samples.filter(sample =>
+      !sample.id ||
+      typeof sample.age !== 'number' ||
+      typeof sample.proof !== 'number' ||
+      !sample.mashbill
+    );
+
+    if (invalidSamples.length > 0) {
+      console.warn('Quarter contains invalid samples:', invalidSamples);
+      return false;
+    }
+
+    return true;
+  }
+
+  private createDefaultSample(id: string): WhiskeySample {
+    return {
+      id,
+      name: `Sample ${id}`,
+      age: 0,
+      proof: 0,
+      mashbill: MASHBILL_TYPES.BOURBON,
+      mashbillComposition: {
+        corn: 51,
+        rye: 0,
+        wheat: 0,
+        barley: 0
+      },
+      rating: 0,
+      hints: [],
+      distillery: 'Unknown',
+      description: '',
+      notes: [],
+      type: 'bourbon',
+      region: 'unknown',
+      imageUrl: '',
+      price: 0,
+      difficulty: 'beginner',
+      score: 0,
+      challengeQuestions: [],
+      image: ''
+    };
+  }
+
+  private createDefaultSamples(): WhiskeySample[] {
+    return ['A', 'B', 'C', 'D'].map(id => this.createDefaultSample(id));
   }
 }
 
@@ -737,4 +985,4 @@ export const isValidTimeString = (timeStr: string): boolean => {
 }
 
 // Service instances
-export const quarterService = new QuarterService();
+export const quarterService = QuarterService.getInstance();

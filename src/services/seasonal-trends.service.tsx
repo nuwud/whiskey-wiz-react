@@ -34,11 +34,11 @@ class SeasonalTrendsService {
         } as SeasonalTrend);
       });
 
-      AnalyticsService.trackError('Seasonal trends loaded', 'seasonal_trends_service');
+      AnalyticsService.trackEvent('Seasonal trends loaded', { service: 'seasonal_trends_service' });
       return trends;
     } catch (error) {
       console.error('Failed to fetch current trends:', error);
-      AnalyticsService.trackError('Failed to fetch current trends', 'seasonal_trends_service');
+      AnalyticsService.trackEvent('Failed to fetch current trends', { service: 'seasonal_trends_service' });
       throw error;
     }
   }
@@ -64,7 +64,7 @@ class SeasonalTrendsService {
       return trends;
     } catch (error) {
       console.error('Failed to fetch trends by year:', error);
-      AnalyticsService.trackError('Failed to fetch trends by year', 'seasonal_trends_service');
+      AnalyticsService.trackEvent('Failed to fetch trends by year', { service: 'seasonal_trends_service' });
       throw error;
     }
   }
@@ -88,7 +88,7 @@ class SeasonalTrendsService {
       return Array.from(allFlavors);
     } catch (error) {
       console.error('Failed to fetch trending flavors:', error);
-      AnalyticsService.trackError('Failed to fetch trending flavors', 'seasonal_trends_service');
+      AnalyticsService.trackEvent('Failed to fetch trending flavors', { service: 'seasonal_trends_service' });
       return [];
     }
   }

@@ -1,39 +1,74 @@
 import { User as FirebaseUser } from 'firebase/auth';
 
+export type RegistrationType = 'guest' | 'email' | 'google' | 'facebook' | 'shopify';
+
 export enum UserType {
-  PLAYER = 'player',
+  GUEST = 'guest',
+  REGISTERED = 'registered',
   ADMIN = 'admin',
 }
 
 export enum UserRole {
-  USER = 'user',
-  ADMIN = 'admin',
+  PLAYER = 'player',
   MODERATOR = 'moderator',
+  ADMIN = 'admin',
   GUEST = 'guest'
 }
 
 export interface ExtendedUser extends FirebaseUser {
-  role?: UserRole;
+  userId: string; // Maps to uid from FirebaseUser
+  role: UserRole;
+  type: UserType;
+  registrationType: UserType;
+  guest: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  lastLoginAt: Date;
+  
+  // Optional fields that might not be available immediately
+  metrics?: PlayerProfile['metrics'];
+  preferences?: PlayerProfile['preferences'];
+  geographicData?: PlayerProfile['geographicData'];
 }
 
 export interface BaseProfile {
   userId: string;
   displayName: string;
-  email: string;
+  email: string | null;
   role: UserRole;
+  type: UserType;
   isAnonymous: boolean;
   createdAt: Date;
   updatedAt: Date;
   lastLoginAt: Date;
 }
 
-export interface PlayerProfile extends BaseProfile {
+export interface PlayerProfile {
+  // Required core fields
+  userId: string;
+  email: string | null;
+  displayName: string;
+  role: UserRole;
+  type: UserType;
+  registrationType: UserType;
   guest: boolean;
-  registrationType: 'email' | 'google' | 'facebook' | 'guest';
-  geographicData?: {
-    country?: string;
-    region?: string;
-  };
+  isAnonymous: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  lastLoginAt: Date;
+  lastActive: Date;
+
+  // Game-related required fields
+  lifetimeScore: number;
+  totalQuartersCompleted: number;
+  quarterPerformance: Record<string, {
+    score: number;
+    completedAt: Date;
+    accuracy: number;
+    timeSpent: number;
+  }>;
+
+  // Required structured data
   metrics: {
     gamesPlayed: number;
     totalScore: number;
@@ -41,62 +76,38 @@ export interface PlayerProfile extends BaseProfile {
     bestScore: number;
     badges: string[];
     achievements: string[];
+    lastVisit: Date;
+    visitCount: number;
   };
+
   preferences: {
     favoriteWhiskeys: string[];
     preferredDifficulty: 'beginner' | 'intermediate' | 'advanced';
     notifications: boolean;
   };
-  invites?: {
-    email: string;
-    invitedBy: string;
-    status: 'pending' | 'accepted' | 'declined';
-    declined?: boolean;
-    declinedReason?: string;
-    expiresAt: Date;
-    code: string;
-    acceptedAt?: Date;
-    declinedAt?: Date;
-    createdAt: Date;
+
+  statistics: {
+    totalSamplesGuessed: number;
+    correctGuesses: number;
+    hintsUsed: number;
+    averageAccuracy: number;
+    bestScore: number;
+    worstScore: number;
+    lastUpdated: Date;
   };
-  content?: {
-    id: string;
-    title: string;
-    description: string;
-    type: 'game' | 'challenge' | 'whiskey';
-  };
-  achievements?: {
-    id: string;
-    title: string;
-    description: string;
-    type: 'game' | 'challenge' | 'whiskey';
-    unlocksAt: Date;
-  };
-  badges?: {
-    id: string;
-    title: string;
-    description: string;
-    unlocksAt: Date;
-  };
-  whiskeys?: {
-    id: string;
-    name: string;
-    type: 'whiskey';
-    properties: {
-      age?: number;
-      proof?: number;
-    };
-    connections: string[];
-  };
-  challenges?: {
-    id: string;
-    name: string;
-    type: 'challenge';
-    properties: {
-      difficulty: 'beginner' | 'intermediate' | 'advanced';
-    };
-    connections: string[];
-  };
+
+  // Optional fields
+  version?: number;
+  totalGames?: number;
+  averageScore?: number;
+  winRate?: number;
+  level?: number;
+  experience?: number;
+  geographicData?: {
+    country?: string;
+    region?: string;
+  } | null;
+  achievements?: string[];
 }
 
 export interface AdminProfile extends BaseProfile {
@@ -229,13 +240,9 @@ export interface AdminProfile extends BaseProfile {
   };
 }
 
-export interface GuestProfile {
+export interface GuestProfile extends BaseProfile {
   guest: true;
   registrationType: 'guest';
-  geographicData?: {
-    country?: string;
-    region?: string;
-  };
   metrics: {
     gamesPlayed: number;
     totalScore: number;
@@ -249,16 +256,8 @@ export interface GuestProfile {
     preferredDifficulty: 'beginner' | 'intermediate' | 'advanced';
     notifications: boolean;
   };
-  invites?: {
-    email: string;
-    invitedBy: string;
-    status: 'pending' | 'accepted' | 'declined';
-    declined?: boolean;
-    declinedReason?: string;
-    expiresAt: Date;
-    code: string;
-    acceptedAt?: Date;
-    declinedAt?: Date;
-    createdAt: Date;
+  geographicData?: {
+    country?: string;
+    region?: string;
   };
 }

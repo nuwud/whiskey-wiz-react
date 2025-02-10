@@ -88,11 +88,14 @@ const WhiskeyWizEmbed: React.FC<WhiskeyWizEmbedProps> = ({
           productId
         });
 
-        AnalyticsService.trackError('Shopify embed initialized', 'shopify_embed', productId);
+        AnalyticsService.trackEvent('Shopify embed initialized', {
+          type: 'shopify_embed',
+          productId
+        });
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to initialize game';
         setError(errorMessage);
-        AnalyticsService.trackError(errorMessage, 'shopify_embed');
+        AnalyticsService.trackEvent(errorMessage, { type: 'shopify_embed' });
       } finally {
         setIsLoading(false);
       }

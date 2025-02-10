@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useState } from 'react';
 import { featureFlags } from '../config/feature-flags.config';
 
-interface FeatureContextType {
+export interface FeatureContextType {
   features: typeof featureFlags;
   toggleFeature: (featureName: keyof typeof featureFlags) => void;
 }
@@ -25,11 +25,4 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
   );
 };
 
-export const useFeatures = () => {
-  const context = useContext(FeatureContext);
-  if (context === undefined) {
-    throw new Error('useFeatures must be used within a FeatureProvider');
-  }
-
-  return context;
-};
+export { FeatureContext };

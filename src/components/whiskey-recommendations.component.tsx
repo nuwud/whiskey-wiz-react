@@ -24,16 +24,19 @@ export const WhiskeyRecommendations: React.FC = () => {
 
       try {
         setLoading(true);
-        const userRecommendations = await recommendationService.getRecommendations(user.uid);
+        const userRecommendations = await recommendationService.getRecommendations(user.userId);
         setRecommendations(userRecommendations);
         AnalyticsService.trackUserEngagement('recommendations_loaded', {
-          userId: user.uid,
+          userId: user.userId,
           recommendationCount: userRecommendations.length
         });
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load recommendations';
         setError(errorMessage);
-        AnalyticsService.trackError('Failed to load recommendations', 'whiskey_recommendations', user.uid);
+        AnalyticsService.trackEvent('Failed to load recommendations', {
+          component: 'whiskey_recommendations',
+          userId: user.userId
+        });
       } finally {
         setLoading(false);
       }
@@ -147,7 +150,7 @@ export const WhiskeyRecommendations: React.FC = () => {
                     </div>
                     <button
                       onClick={() => AnalyticsService.trackUserEngagement('recommendation_saved', {
-                        userId: user.uid,
+                        userId: user.userId,
                         whiskeyId: whiskey.id
                       })}
                       className="text-xs text-amber-600 hover:text-amber-700"
