@@ -19,7 +19,7 @@ export interface ExtendedUser extends FirebaseUser {
   userId: string; // Maps to uid from FirebaseUser
   role: UserRole;
   type: UserType;
-  registrationType: UserType;
+  registrationType: RegistrationType;
   guest: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -37,6 +37,7 @@ export interface BaseProfile {
   email: string | null;
   role: UserRole;
   type: UserType;
+  registrationType: RegistrationType;
   isAnonymous: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -48,9 +49,9 @@ export interface PlayerProfile {
   userId: string;
   email: string | null;
   displayName: string;
-  role: UserRole;
-  type: UserType;
-  registrationType: UserType;
+  role: 'player';
+  type: 'registered';
+  registrationType: 'email' | 'google' | 'facebook' | 'twitter';
   guest: boolean;
   isAnonymous: boolean;
   createdAt: Date;
@@ -111,6 +112,7 @@ export interface PlayerProfile {
 }
 
 export interface AdminProfile extends BaseProfile {
+  registrationType: 'email';
   adminPrivileges: string[];
   permissions: {
     canManageUsers: boolean;

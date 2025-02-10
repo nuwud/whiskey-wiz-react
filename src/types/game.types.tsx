@@ -168,7 +168,7 @@ export interface GameState {
   lastUpdated: Date;
   startTime: Date;
   endTime: Date;
-  currentSampleId: string | null;
+  currentSampleId: SampleId | null;
   samples: Record<SampleId, WhiskeySample>,
   currentRound: number;
   totalRounds: number;

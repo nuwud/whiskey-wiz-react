@@ -8,20 +8,30 @@ import { monitoringService } from '../../services/monitoring.service';
 import { FirebaseService } from '../../services/firebase.service';
 import { Spinner } from '../../components/ui/spinner-ui.component';
 import { useGameStore } from '../../store/game.store';
-import { GameState, SampleGuess, SampleId, SampleKey } from '../../types/game.types';
-import { GameStateService } from '../../services/game-state.service';
+import { GameState, SampleGuess, SampleId, SampleKey, WhiskeySample, INITIAL_STATE } from '../../types/game.types';
 import { SampleGuessing, createInitialGuesses } from './sample-guessing.component';
 import { useGameProgression } from '../../store/game-progression.store';
 import { ScoreService } from '../../services/score.service';
 import { transformQuarterSamples } from '../../utils/data-transform.utils';
 import { UserRole } from '../../types/auth.types';
-import { saveGameState } from '../../utils/storage.util';  // assuming this is where the function is
+import { saveGameState, loadGameState } from '../../utils/storage.util';  // assuming this is where the function is
 
 const calculateTimeSpent = (startTime: number): number => {
     return Math.floor((Date.now() - startTime) / 1000);
 };
 
 const SAMPLE_IDS: SampleId[] = ['A', 'B', 'C', 'D'];
+
+export const isValidSampleSet = (
+    samples: unknown
+): samples is Record<SampleId, WhiskeySample> => {
+    if (!samples || typeof samples !== 'object') return false;
+    
+    const requiredIds = new Set(['A', 'B', 'C', 'D']);
+    const sampleIds = new Set(Object.keys(samples));
+    
+    return [...requiredIds].every(id => sampleIds.has(id));
+};
 
 export const GameContainer: React.FC = () => {
     const { quarterId } = useParams<{ quarterId: string }>();
@@ -42,11 +52,13 @@ export const GameContainer: React.FC = () => {
 
     useEffect(() => {
         if (gameState) {
-            const calculatedTotalScore = Object.values(gameState.totalScore).reduce((sum, score) => sum + score, 0);
+            const state = gameState as GameState;
             useGameStore.setState({
-                guesses: gameState.guesses,
-                completedSamples: gameState.completedSamples,
-                totalScore: calculatedTotalScore
+                samples: state.samples || {} as Record<SampleId, WhiskeySample>,
+                guesses: state.guesses,
+                completedSamples: state.completedSamples || [],
+                totalScore: Object.values(state.totalScore || {}).reduce((sum, score) => sum + score, 0),
+                currentSampleId: state.currentSampleId as SampleId || 'A'
             });
         }
     }, [gameState]);
@@ -128,83 +140,68 @@ export const GameContainer: React.FC = () => {
     
         try {
             setLoading(true);
+            console.log('Starting game initialization...');
     
-            // First try to get existing game state
-            const gameStateService = GameStateService.getInstance();
-            let state = await gameStateService.getGameState(user.userId);
+            // Check for existing state first
+            const savedState = loadGameState();
+            if (savedState?.samples && Object.keys(savedState.samples).length === 4) {
+                console.log('Found valid saved state, restoring...');
+                const validState: GameState = {
+                    ...INITIAL_STATE,
+                    ...savedState,
+                    isInitialized: true,
+                    currentSampleId: savedState.currentSampleId || 'A',
+                    guesses: savedState.guesses || createInitialGuesses(),
+                    completedSamples: savedState.completedSamples || [],
+                    userId: user.userId,
+                    quarterId: quarterId
+                };
     
-            if (!state) {
-                // Fetch quarter with samples
-                const quarter = await quarterService.getQuarterById(quarterId);
-                console.log('Fetched Quarter:', quarter);
-    
-                if (!quarter || !validateQuarterData(quarter)) {
-                    console.error('Invalid quarter data:', quarter);
-                    throw new Error('Invalid quarter data');
-                }
-    
-                // Transform and validate samples
-                const transformedSamples = transformQuarterSamples(quarter.samples);
-                console.log('Transformed Samples:', transformedSamples);
-    
-                // Verify we have all required samples
-                const requiredSamples = new Set(['A', 'B', 'C', 'D']);
-                const missingSamples = Array.from(requiredSamples)
-                    .filter((id): id is SampleId => !transformedSamples[id as SampleId]);
-                
-                if (missingSamples.length > 0) {
-                    console.error('Missing required samples:', missingSamples);
-                    throw new Error(`Missing required samples: ${missingSamples.join(', ')}`);
-                }
-    
-                // Create new game state
-                state = await gameStateService.createGameState(user.userId);
-    
-                // Update game state
-                setSamples(transformedSamples);
-                setCurrentSampleIndex(0);
-                setCurrentSample('A');
-    
-                // Update global store with validated data
-                useGameStore.setState({
-                    samples: transformedSamples,
-                    currentSampleId: 'A',
-                    isInitialized: true
-                });
-            } else {
-                // Load existing state
-                setGameState(state);
-                setGuesses(state.guesses || createInitialGuesses());
-                setCurrentSampleIndex(state.completedSamples?.length || 0);
-                
-                // Important: Also load the samples when restoring state
-                if (state.samples) {
-                    setSamples(state.samples);
-                    useGameStore.setState({
-                        samples: state.samples,
-                        currentSampleId: SAMPLE_IDS[state.completedSamples?.length || 0],
-                        isInitialized: true
-                    });
-                } else {
-                    // If no samples in state, fetch them
-                    const quarter = await quarterService.getQuarterById(quarterId);
-                    if (quarter && validateQuarterData(quarter)) {
-                        const transformedSamples = transformQuarterSamples(quarter.samples);
-                        setSamples(transformedSamples);
-                        useGameStore.setState({
-                            samples: transformedSamples,
-                            currentSampleId: SAMPLE_IDS[state.completedSamples?.length || 0],
-                            isInitialized: true
-                        });
-                    }
-                }
+                useGameStore.setState(validState);
+                setSamples(savedState.samples);
+                setCurrentSampleIndex(savedState.completedSamples?.length || 0);
+                setGameState(validState);
+                return;
             }
     
-            // Track successful initialization
+            console.log('No valid saved state, fetching quarter data...');
+            const quarter = await quarterService.getQuarterById(quarterId);
+            
+            if (!quarter || !validateQuarterData(quarter)) {
+                throw new Error('Invalid quarter data');
+            }
+    
+            const transformedSamples = transformQuarterSamples(quarter.samples);
+            
+            // Validate transformed samples
+            if (!transformedSamples || Object.keys(transformedSamples).length !== 4) {
+                throw new Error('Invalid number of samples after transformation');
+            }
+    
+            // Create new state
+            const newState = {
+                ...INITIAL_STATE,
+                userId: user.userId,
+                quarterId,
+                samples: transformedSamples,
+                currentSampleId: 'A' as SampleId,
+                isInitialized: true
+            };
+    
+            // Update all state at once
+            useGameStore.setState(newState);
+            setSamples(transformedSamples);
+            setCurrentSampleIndex(0);
+            setCurrentSample('A');
+            setGameState(newState);
+    
+            // Save initial state
+            saveGameState(newState);
+    
             AnalyticsService.trackEvent('game_initialization_success', {
                 quarterId,
                 userId: user.userId,
-                sampleCount: Object.keys(samples).length
+                sampleCount: Object.keys(transformedSamples).length
             });
     
         } catch (error) {
@@ -219,21 +216,14 @@ export const GameContainer: React.FC = () => {
             setLoading(false);
             monitoringService.endTrace('game_initialization', traceId);
         }
-    }, [quarterId, user, navigate, setCurrentSample, samples]);
-
-    // Keep only one initialization useEffect
+    }, [quarterId, user, navigate, setCurrentSample]);
+    
+    // Single initialization effect
     useEffect(() => {
-        if (user) {
+        if (user && !useGameStore.getState().isInitialized) {
             initializeGame();
         }
     }, [user, initializeGame]);
-
-    useEffect(() => {
-        const savedQuarter = localStorage.getItem("currentQuarter");
-        if (savedQuarter) {
-            useGameProgression.setState({ currentQuarter: JSON.parse(savedQuarter) });
-        }
-    }, []);
 
     const handleNextSample = () => {
         if (currentSampleIndex < SAMPLE_IDS.length - 1) {

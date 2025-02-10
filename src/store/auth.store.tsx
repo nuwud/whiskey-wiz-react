@@ -30,7 +30,7 @@ interface AuthState {
 
 const validateAdminProfile = (profile: unknown): profile is AdminProfile => {
   if (!profile || typeof profile !== 'object') return false;
-  
+
   const p = profile as AdminProfile;
   return (
     p.role === UserRole.ADMIN &&
@@ -43,24 +43,47 @@ const validateAdminProfile = (profile: unknown): profile is AdminProfile => {
   );
 };
 
-const isAdminProfile = (profile: any): profile is AdminProfile => {
-  return profile.role === UserRole.ADMIN && 'permissions' in profile;
-};
-
 const createBaseProfile = (fbUser: FirebaseUser, role: UserRole = UserRole.PLAYER) => ({
   userId: fbUser.uid,
   email: fbUser.email ?? '',
   displayName: fbUser.displayName ?? '',
-  role: role || UserRole.PLAYER,  // Ensure default player role
+  role: role || UserRole.PLAYER,
   type: fbUser.isAnonymous ? UserType.GUEST : UserType.REGISTERED,
   isAnonymous: fbUser.isAnonymous,
   guest: fbUser.isAnonymous,
   registrationType: fbUser.isAnonymous ? UserType.GUEST : UserType.REGISTERED,
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-  lastLoginAt: new Date().toISOString(),
-  lastActive: new Date().toISOString(),
-  version: 1
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  lastLoginAt: new Date(),
+  lastActive: new Date(),
+  version: 1,
+  lifetimeScore: 0,
+  totalQuartersCompleted: 0,
+  quarterPerformance: {},
+  metrics: {
+    gamesPlayed: 0,
+    totalScore: 0,
+    averageScore: 0,
+    bestScore: 0,
+    badges: [],
+    achievements: [],
+    lastVisit: new Date(),
+    visitCount: 1
+  },
+  preferences: {
+    favoriteWhiskeys: [],
+    preferredDifficulty: 'beginner' as 'beginner' | 'intermediate' | 'advanced',
+    notifications: true
+  },
+  statistics: {
+    totalSamplesGuessed: 0,
+    correctGuesses: 0,
+    hintsUsed: 0,
+    averageAccuracy: 0,
+    bestScore: 0,
+    worstScore: 0,
+    lastUpdated: new Date()
+  }
 });
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -74,22 +97,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: true, error: null });
       const auth = getAuth();
       const { user: fbUser } = await signInWithEmailAndPassword(auth, email, password);
-  
-      const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
+
+      const userDocRef = doc(db, 'users', fbUser.uid);
+      const userDoc = await getDoc(userDocRef);
+
       if (!userDoc.exists()) {
         throw new Error('User profile not found');
       }
-  
+
       const userData = userDoc.data();
-      
-      // Check if it's an admin profile
-      if (userData.role === UserRole.ADMIN) {
-        // Ensure admin profile has required fields
+      if (!userData || !userData.role) {
+        throw new Error('User data is malformed or missing role information');
+      }
+
+      const role = validateRole(userData.role) ? userData.role : UserRole.PLAYER;
+
+      if (role === UserRole.ADMIN) {
+        // Validate admin profile structure
         if (!validateAdminProfile(userData)) {
-          console.error('Invalid admin profile structure:', userData);
-          // Create missing admin fields if needed
+          console.warn('Invalid admin profile structure:', userData);
+
           const adminProfile: AdminProfile = {
-            ...userData as PlayerProfile,
+            ...userData as PlayerProfile, // Extend PlayerProfile properties
             role: UserRole.ADMIN,
             permissions: {
               canManageUsers: true,
@@ -102,60 +131,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               canCreateContent: true,
               canEditContent: true,
               canDeleteContent: true,
+              canDeleteUsers: true,
               canBanUsers: true,
+              canViewUsers: true,
               canUnbanUsers: true,
               canBanContent: true,
               canUnbanContent: true,
-              canDeleteUsers: true,
-              canViewUsers: true
             },
-            adminPrivileges: ['basic']
-          };
-          
-          // Update the profile in Firestore
-          await updateDoc(doc(db, 'users', fbUser.uid), {
-            permissions: adminProfile.permissions,
-            adminPrivileges: adminProfile.adminPrivileges
-          });
-          
-          set({ profile: adminProfile });
-        } else {
-          set({ profile: userData as AdminProfile });
-        }
-      } else {
-        set({ profile: userData as PlayerProfile });
-      }
-  
-    } catch (error) {
-      set({ error: (error as Error).message });
-      throw error;
-    } finally {
-      set({ isLoading: false });
-    }
-  },
-
-  signUp: async (email: string, password: string, role: UserRole = UserRole.PLAYER) => {
-    try {
-      set({ isLoading: true, error: null });
-      const auth = getAuth();
-      const { user: fbUser } = await createUserWithEmailAndPassword(auth, email, password);
-
-      const validRole = ensureValidRole(role);
-      const baseProfile = createBaseProfile(fbUser, validRole);
-
-      const profile = validRole === UserRole.ADMIN
-        ? {
-            ...baseProfile,
-            adminPrivileges: ['basic'],
-            permissions: {
-              canManageUsers: true,
-              canManageContent: true,
-              canViewAnalytics: true,
-              canModifyGameSettings: true
-            }
-          }
-        : {
-            ...baseProfile,
+            adminPrivileges: userData.adminPrivileges || ['basic'],
+            registrationType: UserType.ADMIN, 
+            guest: false,
+            lastActive: new Date().toISOString(),
+            lifetimeScore: 0,
+            totalQuartersCompleted: 0,
             metrics: {
               gamesPlayed: 0,
               totalScore: 0,
@@ -170,39 +158,177 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               favoriteWhiskeys: [],
               preferredDifficulty: 'beginner',
               notifications: true
-            },
-            lastActive: new Date().toISOString(),
-            lifetimeScore: 0,
-            totalQuartersCompleted: 0,
-            quarterPerformance: {},
-            statistics: {
-              totalSamplesGuessed: 0,
-              correctGuesses: 0,
-              hintsUsed: 0,
-              averageAccuracy: 0,
-              bestScore: 0,
-              worstScore: 0,
-              lastUpdated: new Date()
             }
           };
 
+          // Update Firestore with admin permissions
+          await updateDoc(userDocRef, {
+            permissions: adminProfile.permissions,
+            adminPrivileges: adminProfile.adminPrivileges
+          });
+
+          set({ profile: adminProfile });
+        } else {
+          set({ profile: userData as AdminProfile });
+        }
+      } else {
+        // Ensure PlayerProfile contains required fields
+        const playerProfile: PlayerProfile = {
+          userId: fbUser.uid,
+          email: fbUser.email ?? '',
+          displayName: fbUser.displayName ?? '',
+          type: userData.type || UserType.REGISTERED,
+          isAnonymous: fbUser.isAnonymous,
+          createdAt: userData.createdAt || new Date(),
+          updatedAt: new Date(),
+          lastLoginAt: new Date(),
+          version: userData.version || 1,
+          quarterPerformance: userData.quarterPerformance || {},
+          statistics: userData.statistics || {
+            totalSamplesGuessed: 0,
+            correctGuesses: 0,
+            hintsUsed: 0,
+            averageAccuracy: 0,
+            bestScore: 0,
+            worstScore: 0,
+            lastUpdated: new Date()
+          },
+          role: UserRole.PLAYER,
+          registrationType: userData.registrationType || UserType.REGISTERED,
+          guest: userData.guest ?? false,
+          lastActive: userData.lastActive ?? new Date().toISOString(),
+          lifetimeScore: userData.lifetimeScore ?? 0,
+          totalQuartersCompleted: userData.totalQuartersCompleted ?? 0,
+          metrics: userData.metrics || {
+            gamesPlayed: 0,
+            totalScore: 0,
+            averageScore: 0,
+            bestScore: 0,
+            badges: [],
+            achievements: [],
+            lastVisit: new Date(),
+            visitCount: 1
+          },
+          preferences: userData.preferences || {
+            favoriteWhiskeys: [],
+            preferredDifficulty: 'beginner',
+            notifications: true
+          }
+        };
+
+        set({ profile: playerProfile });
+      }
+
+      set({ user: fbUser });
+
+    } catch (error) {
+      set({ error: (error as Error).message });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  signUp: async (email: string, password: string, role: UserRole = UserRole.PLAYER) => {
+    try {
+      set({ isLoading: true, error: null });
+      const auth = getAuth();
+      const { user: fbUser } = await createUserWithEmailAndPassword(auth, email, password);
+
+      // Ensure valid role
+      const validRole = validateRole(role) ? role : UserRole.PLAYER;
+      const baseProfile = createBaseProfile(fbUser, validRole);
+
+      let profile: PlayerProfile | AdminProfile;
+
+      if (validRole === UserRole.ADMIN) {
+        profile = {
+          ...baseProfile,
+          role: UserRole.ADMIN,
+          adminPrivileges: ['basic'],
+          permissions: {
+            canManageUsers: true,
+            canManageContent: true,
+            canViewAnalytics: true,
+            canModifyGameSettings: true,
+            canSendInvites: true,
+            canViewInvites: true,
+            canRedeemInvites: true,
+            canCreateContent: true,
+            canEditContent: true,
+            canDeleteContent: true,
+            canDeleteUsers: true,
+            canBanUsers: true,
+            canViewUsers: true,
+            canUnbanUsers: true,
+            canBanContent: true,
+            canUnbanContent: true
+          },
+          lifetimeScore: 0,
+          totalQuartersCompleted: 0,
+          quarterPerformance: {},
+          metrics: {
+            gamesPlayed: 0,
+            totalScore: 0,
+            averageScore: 0,
+            bestScore: 0,
+            badges: [],
+            achievements: [],
+            lastVisit: new Date(),
+            visitCount: 1
+          },
+          preferences: {
+            favoriteWhiskeys: [],
+            preferredDifficulty: 'beginner',
+            notifications: true
+          },
+          statistics: {
+            totalSamplesGuessed: 0,
+            correctGuesses: 0,
+            hintsUsed: 0,
+            averageAccuracy: 0,
+            bestScore: 0,
+            worstScore: 0,
+            lastUpdated: new Date()
+          }
+        };
+      } else {
+        profile = {
+          ...baseProfile,
+          role: UserRole.PLAYER,
+          lifetimeScore: 0,
+          totalQuartersCompleted: 0,
+          quarterPerformance: {},
+          metrics: {
+            gamesPlayed: 0,
+            totalScore: 0,
+            averageScore: 0,
+            bestScore: 0,
+            badges: [],
+            achievements: [],
+            lastVisit: new Date(),
+            visitCount: 1
+          },
+          preferences: {
+            favoriteWhiskeys: [],
+            preferredDifficulty: 'beginner',
+            notifications: true
+          },
+          statistics: {
+            totalSamplesGuessed: 0,
+            correctGuesses: 0,
+            hintsUsed: 0,
+            averageAccuracy: 0,
+            bestScore: 0,
+            worstScore: 0,
+            lastUpdated: new Date()
+          }
+        };
+      }
+
       await setDoc(doc(db, 'users', fbUser.uid), profile);
-      
-      // Convert string timestamps to Date objects for local state
-      const convertedProfile = {
-        ...profile,
-        createdAt: new Date(profile.createdAt),
-        updatedAt: new Date(profile.updatedAt),
-        lastLoginAt: new Date(profile.lastLoginAt),
-        ...('lastActive' in profile && { lastActive: new Date(profile.lastActive) })
-      };
-      
-      set({ 
-        user: convertedProfile as unknown as PlayerProfile, 
-        profile: role === UserRole.ADMIN 
-          ? { ...convertedProfile, adminPrivileges: (profile as any).adminPrivileges, permissions: (profile as any).permissions } as AdminProfile 
-          : convertedProfile as PlayerProfile
-      });
+      set({ user: fbUser, profile });
+
     } catch (error) {
       set({ error: (error as Error).message });
       throw error;
@@ -217,48 +343,51 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const auth = getAuth();
       const { user: fbUser } = await signInAnonymously(auth);
 
-      const timestamps = {
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        lastLoginAt: new Date().toISOString()
-      };
-
-      const guestProfile = {
+      const guestProfile: PlayerProfile = {
         userId: fbUser.uid,
         displayName: `Guest_${fbUser.uid.slice(0, 6)}`,
         email: '',
         role: UserRole.PLAYER,
         isAnonymous: true,
         guest: true,
-        registrationType: 'guest',
-        ...timestamps,
+        type: UserType.GUEST,
+        registrationType: UserType.GUEST,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastLoginAt: new Date(),
+        lastActive: new Date(),
+        version: 1,
+        lifetimeScore: 0,
+        totalQuartersCompleted: 0,
+        quarterPerformance: {},
         metrics: {
           gamesPlayed: 0,
           totalScore: 0,
           averageScore: 0,
           bestScore: 0,
           badges: [],
-          achievements: []
+          achievements: [],
+          lastVisit: new Date(),
+          visitCount: 1
         },
         preferences: {
           favoriteWhiskeys: [],
           preferredDifficulty: 'beginner',
           notifications: true
+        },
+        statistics: {
+          totalSamplesGuessed: 0,
+          correctGuesses: 0,
+          hintsUsed: 0,
+          averageAccuracy: 0,
+          bestScore: 0,
+          worstScore: 0,
+          lastUpdated: new Date()
         }
-      } as unknown as PlayerProfile;
-
-      await setDoc(doc(db, 'users', fbUser.uid), guestProfile);
-
-      // Convert timestamps for local state
-      const convertedProfile = {
-        ...guestProfile,
-        createdAt: new Date(guestProfile.createdAt),
-        updatedAt: new Date(guestProfile.updatedAt),
-        lastLoginAt: new Date(guestProfile.lastLoginAt),
-        guest: true
       };
 
-      set({ user: convertedProfile, profile: convertedProfile });
+      await setDoc(doc(db, 'users', fbUser.uid), guestProfile);
+      set({ user: guestProfile, profile: guestProfile });
     } catch (error) {
       set({ error: (error as Error).message });
       throw error;
@@ -287,26 +416,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     try {
       set({ isLoading: true, error: null });
-      // Convert Date objects to ISO strings for Firestore
       const processedData = {
         ...data,
         updatedAt: new Date().toISOString(),
-        ...(data.createdAt && { createdAt: (data.createdAt as Date).toISOString() }),
-        ...(data.lastLoginAt && { lastLoginAt: (data.lastLoginAt as Date).toISOString() })
       };
 
       await updateDoc(doc(db, 'users', user.userId), processedData);
-      
-      // Update local state with Date objects
+
       const updatedProfile = {
-        ...get().profile,
+        ...get().profile!,
         ...data,
         updatedAt: new Date(),
-        guest: (data as PlayerProfile).guest ?? (get().profile as PlayerProfile)?.guest ?? false,
-        role: (data as PlayerProfile).role ?? (get().profile as PlayerProfile)?.role ?? UserRole.PLAYER
       } as PlayerProfile | AdminProfile;
-      set({ profile: updatedProfile });
       
+      set({ profile: updatedProfile });
+
     } catch (error) {
       set({ error: (error as Error).message });
       throw error;
@@ -315,10 +439,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  setUser: (user) => set({ user }),
-  setProfile: (profile) => set({ profile }),
-  setError: (error) => set({ error }),
-  setLoading: (isLoading) => set({ isLoading })
+  setUser: (user: PlayerProfile | null) => set({ user }),
+  setProfile: (profile: PlayerProfile | AdminProfile | null) => set({ profile }),
+  setError: (error: string | null) => set({ error }),
+  setLoading: (isLoading: boolean) => set({ isLoading })
 }));
 
 export const validateRole = (role: string): role is UserRole => {
@@ -330,51 +454,25 @@ export const validateProfile = (profile: PlayerProfile | AdminProfile): boolean 
 
   const requiredFields = ['userId', 'email', 'displayName', 'role', 'type', 'isAnonymous'];
   const hasRequiredFields = requiredFields.every(field => field in profile);
-  
+
   // Ensure role is valid
   if (!validateRole(profile.role)) {
     console.warn(`Invalid role: ${profile.role}, defaulting to PLAYER`);
     profile.role = UserRole.PLAYER;
   }
-  
+
   // Additional validation for admin profiles
   if (profile.role === UserRole.ADMIN) {
     return hasRequiredFields && 'permissions' in profile;
   }
-  
+
   return hasRequiredFields;
-};
-
-// Add fetch user data utility
-const fetchUserData = async (userId: string): Promise<PlayerProfile | AdminProfile | null> => {
-  try {
-    const userRef = doc(db, 'users', userId);
-    const snapshot = await getDoc(userRef);
-
-    if (!snapshot.exists()) {
-      console.warn(`User data not found for ID: ${userId}`);
-      return null;
-    }
-
-    const userData = snapshot.data();
-    console.log('Fetched user data:', userData);
-
-    return {
-      ...userData,
-      createdAt: new Date(userData.createdAt),
-      updatedAt: new Date(userData.updatedAt),
-      lastLoginAt: new Date(userData.lastLoginAt)
-    } as PlayerProfile | AdminProfile;
-  } catch (error) {
-    console.error('Failed to fetch user data:', error);
-    return null;
-  }
 };
 
 // Update auth state listener
 const auth = getAuth();
 
-onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
+onAuthStateChanged(auth, async (fbUser) => {
   const { setUser, setProfile, setLoading, setError } = useAuthStore.getState();
 
   try {
@@ -386,37 +484,170 @@ onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
       return;
     }
 
-    const profile = await fetchUserData(fbUser.uid);
-    
-    if (!profile) {
-      throw new Error('User profile not found or invalid');
-    }
+    // Fetch and normalize profile
+    const profile = await fetchUserProfile(fbUser.uid);
 
-    if (isAdminProfile(profile)) {
-      console.log('Setting admin profile:', profile);
-      setProfile(profile);
-      setUser(profile as unknown as PlayerProfile);
+    if (!profile) throw new Error('Failed to load user profile');
+
+    // Update state based on profile type
+    if (profile.role === UserRole.ADMIN) {
+      setProfile(profile as AdminProfile);
+      setUser(profile as PlayerProfile);
     } else {
-      console.log('Setting player profile:', profile);
-      setProfile(profile);
-      setUser(profile);
+      setProfile(profile as PlayerProfile);
+      setUser(profile as PlayerProfile);
     }
 
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    console.error('Auth state change error:', errorMessage);
-    setError(errorMessage);
-    setUser(null);
-    setProfile(null);
+    console.error('Auth state change error:', error);
+    setError(error instanceof Error ? error.message : 'Authentication error');
   } finally {
     setLoading(false);
   }
 });
 
-const ensureValidRole = (role: string | undefined): UserRole => {
-  if (!role || !validateRole(role)) {
-    console.warn(`Invalid or missing role: ${role}, using default PLAYER role`);
-    return UserRole.PLAYER;
+const fetchUserProfile = async (uid: string): Promise<PlayerProfile | AdminProfile> => {
+  const userRef = doc(db, 'users', uid);
+  const userDoc = await getDoc(userRef);
+
+  if (!userDoc.exists()) {
+    console.warn(`No profile found for ${uid}, creating default profile...`);
+    return createBaseProfile({ uid } as FirebaseUser, UserRole.PLAYER); // Ensure default role
   }
-  return role as UserRole;
+
+  const userData = userDoc.data();
+  const role = validateRole(userData.role) ? userData.role : UserRole.PLAYER;
+
+  if (role === UserRole.ADMIN) {
+    return {
+      ...normalizeAdminProfile(userData),
+      registrationType: UserType.REGISTERED, // Ensure missing fields are added
+      guest: false,
+      lastActive: new Date(),
+      lifetimeScore: 0,
+      totalQuartersCompleted: 0,
+      metrics: {
+        gamesPlayed: 0,
+        totalScore: 0,
+        averageScore: 0,
+        bestScore: 0,
+        badges: [],
+        achievements: [],
+        lastVisit: new Date(),
+        visitCount: 1
+      },
+      preferences: {
+        favoriteWhiskeys: [],
+        preferredDifficulty: 'beginner',
+        notifications: true
+      }
+    };
+  } else {
+    return normalizePlayerProfile(userData);
+  }
+};
+
+const normalizeAdminProfile = (userData: any): AdminProfile => {
+  return {
+    ...userData,
+    role: UserRole.ADMIN,
+    permissions: {
+      canManageUsers: userData.permissions?.canManageUsers ?? false,
+      canManageContent: userData.permissions?.canManageContent ?? false,
+      canViewAnalytics: userData.permissions?.canViewAnalytics ?? false,
+      canModifyGameSettings: userData.permissions?.canModifyGameSettings ?? false,
+      canSendInvites: userData.permissions?.canSendInvites ?? false,
+      canViewInvites: userData.permissions?.canViewInvites ?? false,
+      canRedeemInvites: userData.permissions?.canRedeemInvites ?? false,
+      canCreateContent: userData.permissions?.canCreateContent ?? false,
+      canEditContent: userData.permissions?.canEditContent ?? false,
+      canDeleteContent: userData.permissions?.canDeleteContent ?? false,
+      canDeleteUsers: userData.permissions?.canDeleteUsers ?? false,
+      canBanUsers: userData.permissions?.canBanUsers ?? false,
+      canViewUsers: userData.permissions?.canViewUsers ?? false,
+      canUnbanUsers: userData.permissions?.canUnbanUsers ?? false,
+      canBanContent: userData.permissions?.canBanContent ?? false,
+      canUnbanContent: userData.permissions?.canUnbanContent ?? false,
+    },
+    adminPrivileges: userData.adminPrivileges || ['basic']
+  };
+};
+
+const normalizePlayerProfile = (userData: any): PlayerProfile => {
+  return {
+    ...userData,
+    metrics: userData.metrics || {
+      gamesPlayed: 0,
+      totalScore: 0,
+      averageScore: 0,
+      bestScore: 0,
+      badges: [],
+      achievements: [],
+      lastVisit: new Date(),
+      visitCount: 1
+    },
+    preferences: userData.preferences || {
+      favoriteWhiskeys: [],
+      preferredDifficulty: 'beginner',
+      notifications: true
+    },
+    statistics: userData.statistics || {
+      totalSamplesGuessed: 0,
+      correctGuesses: 0,
+      hintsUsed: 0,
+      averageAccuracy: 0,
+      bestScore: 0,
+      worstScore: 0,
+      lastUpdated: new Date()
+    },
+    lastActive: new Date().toISOString(),
+    lifetimeScore: userData.lifetimeScore || 0,
+    totalQuartersCompleted: userData.totalQuartersCompleted || 0,
+    registrationType: userData.registrationType || UserType.REGISTERED
+  };
+};
+
+const createDefaultProfile = (uid: string): PlayerProfile => {
+  return {
+    userId: uid,
+    email: '',
+    displayName: 'New Player',
+    role: UserRole.PLAYER,
+    type: UserType.REGISTERED,
+    isAnonymous: false,
+    guest: false,
+    registrationType: UserType.REGISTERED,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    lastLoginAt: new Date(),
+    lastActive: new Date(),
+    version: 1,
+    lifetimeScore: 0,
+    totalQuartersCompleted: 0,
+    quarterPerformance: {},
+    metrics: {
+      gamesPlayed: 0,
+      totalScore: 0,
+      averageScore: 0,
+      bestScore: 0,
+      badges: [],
+      achievements: [],
+      lastVisit: new Date(),
+      visitCount: 1
+    },
+    preferences: {
+      favoriteWhiskeys: [],
+      preferredDifficulty: 'beginner',
+      notifications: true
+    },
+    statistics: {
+      totalSamplesGuessed: 0,
+      correctGuesses: 0,
+      hintsUsed: 0,
+      averageAccuracy: 0,
+      bestScore: 0,
+      worstScore: 0,
+      lastUpdated: new Date()
+    }
+  };
 };

@@ -43,8 +43,14 @@ const calculateScore = (
   return score;
 };
 
+const defaultSamples: Record<SampleId, WhiskeySample> = {
+    A: { id: 'A', name: '', age: 0, proof: 0, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' },
+    B: { id: 'B', name: '', age: 0, proof: 0, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' },
+    C: { id: 'C', name: '', age: 0, proof: 0, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' },
+    D: { id: 'D', name: '', age: 0, proof: 0, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' }
+};
+
 interface GameStore extends Omit<GameState, 'totalScore'> {
-  // Add store actions
   setSamples: (samples: Record<SampleId, WhiskeySample>) => void;
   setCurrentSampleId: (id: SampleId | null) => void;
   startGame: () => Promise<void>;
@@ -72,265 +78,262 @@ export const useGameStore = create<GameStore>((set, get) => {
     const initialState = savedState ? {
         ...INITIAL_STATE,
         ...savedState,
-        samples: savedState.samples || {},
+        samples: savedState.samples || defaultSamples,
         isInitialized: true,
-        currentSampleId: savedState.currentSampleId || 'A'
+        currentSampleId: savedState.currentSampleId as SampleId || 'A',
+        currentQuarter: savedState.currentQuarter as Quarter | null
     } : {
         ...INITIAL_STATE,
-        samples: {},
+        samples: defaultSamples,
         isInitialized: false,
-        currentSampleId: null
+        currentSampleId: null,
+        currentQuarter: null
     };
 
-    const store = {
+    return {
         ...initialState,
         quarters: [],
         setQuarters: (quarters: Quarter[]) => set({ quarters }),
-        
         setSamples: (samples: Record<SampleId, WhiskeySample>) => {
-            set({ samples, isInitialized: true });
-            // Save state after setting samples
-            saveGameState(get());
-        },
+          set({ samples, isInitialized: true });
+          saveGameState(get());
+      },
 
-        setCurrentSampleId: (id: SampleId | null) => 
-            set({ currentSampleId: id }),
+      setCurrentSampleId: (id: SampleId | null) => 
+          set({ currentSampleId: id }),
 
-        setSample: (id: string) => 
-            set({ currentSampleId: id as SampleId }),
+      setSample: (id: string) => 
+          set({ currentSampleId: id as SampleId }),
 
-        loadSamples: async () => {
-            const state = get();
-            if (state.samples && Object.keys(state.samples).length > 0) {
-                return; // Don't reload if samples exist
-            }
+      loadSamples: async () => {
+          const state = get();
+          if (state.samples && Object.keys(state.samples).length > 0) {
+              return;
+          }
 
-            try {
-                set({ isLoading: true, error: null });
-                const activeQuarter = await quarterService.getCurrentQuarter();
-                if (!activeQuarter) throw new Error('No active quarter found');
+          try {
+              set({ isLoading: true, error: null });
+              const activeQuarter = await quarterService.getCurrentQuarter();
+              if (!activeQuarter) throw new Error('No active quarter found');
 
-                const transformedSamples = transformQuarterSamples(activeQuarter.samples);
-                
-                const newState = {
-                    samples: transformedSamples,
-                    currentSampleId: state.currentSampleId || 'A',
-                    isInitialized: true
-                };
+              const transformedSamples = transformQuarterSamples(activeQuarter.samples);
+              
+              const newState = {
+                  samples: transformedSamples,
+                  currentSampleId: state.currentSampleId || 'A',
+                  isInitialized: true
+              };
 
-                set(newState);
-                saveGameState({ ...state, ...newState });
+              set(newState);
+              saveGameState({ ...state, ...newState });
 
-            } catch (error) {
-                console.error('Failed to load samples:', error);
-                set({ 
-                    error: error instanceof Error ? error.message : 'Failed to load samples',
-                    isInitialized: false 
-                });
-            } finally {
-                set({ isLoading: false });
-            }
-        },
+          } catch (error) {
+              console.error('Failed to load samples:', error);
+              set({ 
+                  error: error instanceof Error ? error.message : 'Failed to load samples',
+                  isInitialized: false 
+              });
+          } finally {
+              set({ isLoading: false });
+          }
+      },
 
-        startGame: async () => {
-            try {
-                const state = get();
-                const activeQuarter = await quarterService.getCurrentQuarter();
-                if (!activeQuarter) throw new Error('No active quarter found');
+      startGame: async () => {
+          try {
+              const state = get();
+              const activeQuarter = await quarterService.getCurrentQuarter();
+              if (!activeQuarter) throw new Error('No active quarter found');
 
-                const config = await quarterService.getGameConfiguration(activeQuarter.id);
-                if (!config) throw new Error('Game configuration not found');
+              const config = await quarterService.getGameConfiguration(activeQuarter.id);
+              if (!config) throw new Error('Game configuration not found');
 
-                const challengesRef = collection(db, 'challenges');
-                const q = query(
-                    challengesRef,
-                    where('quarterId', '==', activeQuarter.id),
-                    where('active', '==', true)
-                );
+              const challengesRef = collection(db, 'challenges');
+              const q = query(
+                  challengesRef,
+                  where('quarterId', '==', activeQuarter.id),
+                  where('active', '==', true)
+              );
 
-                const querySnapshot = await getDocs(q);
-                const challenges = querySnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                } as Challenge));
+              const querySnapshot = await getDocs(q);
+              const challenges = querySnapshot.docs.map(doc => ({
+                  id: doc.id,
+                  ...doc.data()
+              } as Challenge));
 
-                const newState = {
-                    isPlaying: true,
-                    currentQuarter: activeQuarter,
-                    scoringRules: config.scoringRules,
-                    challenges: challenges.sort(() => Math.random() - 0.5).slice(0, 5),
-                    currentChallengeIndex: 0,
-                    score: state.score || {
-                        'A': 0, 'B': 0, 'C': 0, 'D': 0
-                    } as Record<SampleKey, number>,
-                    answers: {},
-                    timeRemaining: 300,
-                    hints: 3,
-                    isComplete: false,
-                    samples: state.samples // preserve existing samples
-                };
+              const newState = {
+                  isPlaying: true,
+                  currentQuarter: activeQuarter,
+                  scoringRules: config.scoringRules,
+                  challenges: challenges.sort(() => Math.random() - 0.5).slice(0, 5),
+                  currentChallengeIndex: 0,
+                  score: state.score || {
+                      'A': 0, 'B': 0, 'C': 0, 'D': 0
+                  } as Record<SampleKey, number>,
+                  answers: {},
+                  timeRemaining: 300,
+                  hints: 3,
+                  isComplete: false,
+                  samples: state.samples
+              };
 
-                set(newState);
-                saveGameState({ ...state, ...newState });
+              set(newState);
+              saveGameState({ ...state, ...newState });
 
-            } catch (error) {
-                console.error('Failed to start game:', error);
-                throw error;
-            }
-        },
+          } catch (error) {
+              console.error('Failed to start game:', error);
+              throw error;
+          }
+      },
 
-        submitAnswer: (challengeId: string, answer: string) => {
-            const state = get();
-            const challenge = state.challenges.find(c => c.id === challengeId);
-            if (!challenge) return;
+      submitAnswer: (challengeId: string, answer: string) => {
+          const state = get();
+          const challenge = state.challenges.find(c => c.id === challengeId);
+          if (!challenge) return;
 
-            const isCorrect = answer === challenge.correctAnswer;
-            const sampleKey = challengeId as SampleKey;
+          const isCorrect = answer === challenge.correctAnswer;
+          const sampleKey = challengeId as SampleKey;
 
-            const newScore = { ...state.score };
-            newScore[sampleKey] = isCorrect
-                ? (state.score[sampleKey] || 0) + challenge.points
-                : (state.score[sampleKey] || 0);
+          const newScore = { ...state.score };
+          newScore[sampleKey] = isCorrect
+              ? (state.score[sampleKey] || 0) + challenge.points
+              : (state.score[sampleKey] || 0);
 
-            const newState = {
-                score: newScore,
-                lives: isCorrect ? state.lives : state.lives - 1,
-                answers: { ...state.answers, [challengeId]: answer },
-                currentChallengeIndex: state.currentChallengeIndex + 1
-            };
+          const newState = {
+              score: newScore,
+              lives: isCorrect ? state.lives : state.lives - 1,
+              answers: { ...state.answers, [challengeId]: answer },
+              currentChallengeIndex: state.currentChallengeIndex + 1
+          };
 
-            set(newState);
-            saveGameState({ ...state, ...newState });
+          set(newState);
+          saveGameState({ ...state, ...newState });
 
-            if (newState.lives === 0 || newState.currentChallengeIndex >= state.challenges.length) {
-                store.endGame();
-            }
-        },
+          if (newState.lives === 0 || newState.currentChallengeIndex >= state.challenges.length) {
+              get().endGame();
+          }
+      },
 
-        submitSampleGuess: (sampleId: SampleId, guess: SampleGuess) => {
-            const state = get();
-            if (!state.scoringRules) return;
+      submitSampleGuess: (sampleId: SampleId, guess: SampleGuess) => {
+          const state = get();
+          if (!state.scoringRules) return;
 
-            const sample = state.samples[sampleId];
-            if (!sample) {
-                console.warn('No sample found for:', sampleId);
-                return;
-            }
+          const sample = state.samples[sampleId];
+          if (!sample) {
+              console.warn('No sample found for:', sampleId);
+              return;
+          }
 
-            const sampleScore = calculateScore(sample, guess, state.scoringRules);
-            console.log('Calculated score for sample:', sampleId, sampleScore);
+          const sampleScore = calculateScore(sample, guess, state.scoringRules);
+          console.log('Calculated score for sample:', sampleId, sampleScore);
 
-            const newGuesses = {
-                ...state.guesses,
-                [sampleId]: { ...guess, score: sampleScore }
-            };
+          const newGuesses = {
+              ...state.guesses,
+              [sampleId]: { ...guess, score: sampleScore }
+          };
 
-            const newScore = {
-                ...state.score,
-                [sampleId]: sampleScore
-            };
+          const newScore = {
+              ...state.score,
+              [sampleId]: sampleScore
+          };
 
-            const newTotal = Object.values(newScore).reduce((sum, score) => sum + score, 0);
+          const newTotal = Object.values(newScore).reduce((sum, score) => sum + score, 0);
 
-            const newState = {
-                guesses: newGuesses,
-                score: newScore,
-                totalScore: newTotal,
-                samples: state.samples // preserve samples
-            };
+          const newState = {
+              guesses: newGuesses,
+              score: newScore,
+              totalScore: newTotal,
+              samples: state.samples
+          };
 
-            // Save state before updating store
-            saveGameState({
-                ...state,
-                ...newState
-            });
+          saveGameState({
+              ...state,
+              ...newState
+          });
 
-            set(newState);
-            console.log('Updated game state:', newState);
-        },
+          set(newState);
+          console.log('Updated game state:', newState);
+      },
 
-        navigateSample: (direction: 'next' | 'prev') => {
-            const { currentSampleId, samples } = get();
-            const sampleIds = Object.keys(samples);
+      navigateSample: (direction: 'next' | 'prev') => {
+          const { currentSampleId, samples } = get();
+          const sampleIds = Object.keys(samples);
 
-            if (sampleIds.length === 0) {
-                console.warn('No samples available to navigate');
-                return;
-            }
+          if (sampleIds.length === 0) {
+              console.warn('No samples available to navigate');
+              return;
+          }
 
-            const currentIndex = currentSampleId ? sampleIds.indexOf(currentSampleId) : -1;
-            if (currentIndex === -1) {
-                console.warn('Current sample not found in samples list');
-                set({ currentSampleId: sampleIds[0] as SampleId });
-                return;
-            }
+          const currentIndex = currentSampleId ? sampleIds.indexOf(currentSampleId) : -1;
+          if (currentIndex === -1) {
+              console.warn('Current sample not found in samples list');
+              set({ currentSampleId: sampleIds[0] as SampleId });
+              return;
+          }
 
-            const newIndex = direction === 'next'
-                ? (currentIndex + 1) % sampleIds.length
-                : (currentIndex - 1 + sampleIds.length) % sampleIds.length;
-            
-            const newState = { currentSampleId: sampleIds[newIndex] as SampleId };
-            set(newState);
-            saveGameState({ ...get(), ...newState });
-        },
+          const newIndex = direction === 'next'
+              ? (currentIndex + 1) % sampleIds.length
+              : (currentIndex - 1 + sampleIds.length) % sampleIds.length;
+          
+          const newState = { currentSampleId: sampleIds[newIndex] as SampleId };
+          set(newState);
+          saveGameState({ ...get(), ...newState });
+      },
 
-        useHint: (challengeId: string) => {
-            const state = get();
-            if (state.hints <= 0) return;
+      useHint: (challengeId: string) => {
+          const state = get();
+          if (state.hints <= 0) return;
 
-            const challenge = state.challenges.find(c => c.id === challengeId);
-            if (!challenge) return;
+          const challenge = state.challenges.find(c => c.id === challengeId);
+          if (!challenge) return;
 
-            const newState = {
-                hints: state.hints - 1,
-                answers: { ...state.answers, [`${challengeId}_hint`]: true }
-            };
+          const newState = {
+              hints: state.hints - 1,
+              answers: { ...state.answers, [`${challengeId}_hint`]: true }
+          };
 
-            set(newState);
-            saveGameState({ ...state, ...newState });
-        },
+          set(newState);
+          saveGameState({ ...state, ...newState });
+      },
 
-        endGame: async () => {
-            const state = get();
-            if (!state.currentQuarter) return;
+      endGame: async () => {
+          const state = get();
+          if (!state.currentQuarter) return;
 
-            try {
-                await addDoc(collection(db, 'game_results'), {
-                    quarterId: state.currentQuarter.id,
-                    challengeResults: state.answers,
-                    sampleResults: state.guesses,
-                    totalScore: state.totalScore,
-                    individualScores: state.score,
-                    hintsUsed: 3 - state.hints,
-                    livesRemaining: state.lives,
-                    completedAt: new Date()
-                });
+          try {
+              await addDoc(collection(db, 'game_results'), {
+                  quarterId: state.currentQuarter.id,
+                  challengeResults: state.answers,
+                  sampleResults: state.guesses,
+                  totalScore: state.totalScore,
+                  individualScores: state.score,
+                  hintsUsed: 3 - state.hints,
+                  livesRemaining: state.lives,
+                  completedAt: new Date()
+              });
 
-                clearGameState();
-                set({ isPlaying: false });
+              clearGameState();
+              set({ isPlaying: false });
 
-            } catch (error) {
-                console.error('Failed to save game results:', error);
-                throw error;
-            }
-        },
+          } catch (error) {
+              console.error('Failed to save game results:', error);
+              throw error;
+          }
+      },
 
-        resetGame: () => {
-            const resetState = {
-                ...INITIAL_STATE,
-                isInitialized: false,
-                currentQuarter: null,
-                currentSampleId: null,
-                samples: {} as Record<SampleId, WhiskeySample>,
-                guesses: {} as Record<SampleId, SampleGuess>,
-                score: {} as Record<SampleId, number>,
-                totalScore: 0
-            };
-            
-            set(resetState);
-            saveGameState(resetState);
-        }
-    };
-
-    return store;
-});
+      resetGame: () => {
+          const resetState = {
+              ...INITIAL_STATE,
+              isInitialized: false,
+              currentQuarter: null,
+              currentSampleId: null,
+              samples: defaultSamples,
+              guesses: {} as Record<SampleId, SampleGuess>,
+              score: {} as Record<SampleId, number>,
+              totalScore: 0
+          };
+          
+          set(resetState);
+          saveGameState(resetState);
+      }
+  };
+});        

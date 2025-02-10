@@ -23,7 +23,7 @@ export const GameResults: React.FC = () => {
             const savedState = loadGameState();
             if (savedState) {
                 console.log('Loading saved game state:', savedState);
-                setSamplesMap(savedState.samples);
+                setSamplesMap(savedState?.samples || {} as Record<SampleId, WhiskeySample>);
                 // You might want to update the global game store here as well
             }
         }, []);

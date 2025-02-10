@@ -19,6 +19,32 @@ import { LeaderboardEntry } from './leaderboard.service';
 import { PlayerProfile } from '../types/auth.types';
 import { Quarter, QuarterAnalytics, WhiskeySample, MashbillType, MASHBILL_TYPES } from '../types/game.types';
 
+const getSamplesForQuarter = async (quarterId: string) => {
+  const quarterRef = doc(db, 'quarters', quarterId);
+  const quarterSnap = await getDoc(quarterRef);
+
+  if (!quarterSnap.exists()) {
+    console.error(`Quarter ${quarterId} does not exist.`);
+    return [];
+  }
+
+  const quarterData = quarterSnap.data();
+  let samples = quarterData.samples || [];
+
+  // If no samples are in the main document, check the subcollection
+  if (samples.length === 0) {
+    const sampleQuery = collection(db, `quarters/${quarterId}/samples`);
+    const sampleSnap = await getDocs(sampleQuery);
+    samples = sampleSnap.docs.map(doc => doc.data());
+  }
+
+  if (samples.length === 0) {
+    console.error("No samples found in quarter!");
+  }
+
+  return samples;
+};
+
 export class QuarterService {
   private static instance: QuarterService;
 

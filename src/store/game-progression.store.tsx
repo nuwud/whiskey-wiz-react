@@ -49,6 +49,7 @@ const useGameProgressionStore = create<GameProgressionStore>((set, get) => ({
     },
 
     setCurrentSample: (sample: SampleId) => set({ currentSample: sample }),
+    
     updateQuarter: (quarter: Quarter) => {
         set(state => ({
             ...state,
@@ -56,9 +57,13 @@ const useGameProgressionStore = create<GameProgressionStore>((set, get) => ({
         }));
         localStorage.setItem("currentQuarter", JSON.stringify(quarter));
     },
+
     updateSample: (sample: SampleId) => set({ currentSampleId: sample }),
+
     updateCompletedSamples: (samples: string[]) => set({ completedSamples: samples }),
+
     updateChallenges: (challenges: Challenge[]) => set({ challenges }),
+
     updateStats: (stats: PlayerStats) => set(state => ({
         ...state,
         stats: { ...state.stats, ...stats }
@@ -66,6 +71,7 @@ const useGameProgressionStore = create<GameProgressionStore>((set, get) => ({
 
     submitGuess: async (sampleId: SampleId, guessData: SampleGuess) => {
         const state = get();
+
         if (!state.samples || Object.keys(state.samples).length === 0) {
             console.error('No samples available');
             return;
@@ -77,7 +83,10 @@ const useGameProgressionStore = create<GameProgressionStore>((set, get) => ({
             return;
         }
 
-        if (!sample || !state.scoringRules) return;
+        if (!state.scoringRules) {
+            console.error("Scoring rules missing!");
+            return;
+        }
 
         const scoreResult = ScoreService.calculateScore(guessData, sample);
 
