@@ -68,8 +68,6 @@ const UserManagement = () => {
     switch (role) {
       case UserRole.ADMIN:
         return 'Admin';
-      case UserRole.MODERATOR:
-        return 'Mod';
       case UserRole.PLAYER:
         return 'Player';
       default:

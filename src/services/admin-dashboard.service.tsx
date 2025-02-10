@@ -153,6 +153,7 @@ export class AdminDashboardService {
       displayName: data.displayName || '',
       email: data.email || '',
       role: data.role || 'user',
+      adminPrivileges: data.adminPrivileges || [],
       type: data.type || UserType.GUEST,
       isAnonymous: !!data.isAnonymous,
       createdAt: data.createdAt?.toDate() || new Date(),
@@ -438,7 +439,7 @@ export class AdminDashboardService {
 
       // Handle auth method breakdown based on UserType
       switch (profile.type) {
-        case UserType.GUEST:
+        case UserType.REGISTERED:
           authMethodBreakdown.guest++;
           break;
         case UserType.REGISTERED:
@@ -451,7 +452,7 @@ export class AdminDashboardService {
             authMethodBreakdown.shopify++;
           }
           break;
-        case UserType.ADMIN:
+        case UserType.REGISTERED:
           // Admins are counted as registered email users
           authMethodBreakdown.email++;
           break;

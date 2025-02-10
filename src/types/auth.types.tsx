@@ -1,6 +1,6 @@
 import { User as FirebaseUser } from 'firebase/auth';
 
-export type RegistrationType = 'guest' | 'email' | 'google' | 'facebook' | 'shopify';
+export type RegistrationType = 'email' | 'google' | 'facebook' | 'twitter' | 'guest';
 
 export enum UserType {
   GUEST = 'guest',
@@ -10,7 +10,6 @@ export enum UserType {
 
 export enum UserRole {
   PLAYER = 'player',
-  MODERATOR = 'moderator',
   ADMIN = 'admin',
   GUEST = 'guest'
 }
@@ -33,10 +32,7 @@ export interface ExtendedUser extends FirebaseUser {
 
 export interface BaseProfile {
   userId: string;
-  displayName: string;
-  email: string | null;
-  role: UserRole;
-  type: UserType;
+  displayName: 'Guest Player';
   registrationType: RegistrationType;
   isAnonymous: boolean;
   createdAt: Date;
@@ -49,9 +45,10 @@ export interface PlayerProfile {
   userId: string;
   email: string | null;
   displayName: string;
-  role: 'player';
-  type: 'registered';
+  role: UserRole.PLAYER;
+  type: UserType.REGISTERED;
   registrationType: 'email' | 'google' | 'facebook' | 'twitter';
+  adminPrivileges: null;
   guest: boolean;
   isAnonymous: boolean;
   createdAt: Date;
@@ -111,9 +108,33 @@ export interface PlayerProfile {
   achievements?: string[];
 }
 
-export interface AdminProfile extends BaseProfile {
+export interface AdminProfile {
+  email: string;
+  displayName: string;
+  role: UserRole.ADMIN;
+  type: UserType.ADMIN;
   registrationType: 'email';
+  guest: false;
+  lastActive: Date;
   adminPrivileges: string[];
+  lifetimeScore: 0,
+  totalQuartersCompleted: 0,
+  quarterPerformance: {},
+  metrics: {
+    gamesPlayed: 0,
+    totalScore: 0,
+    averageScore: 0,
+    bestScore: 0,
+    badges: [],
+    achievements: [],
+    lastVisit: Date,
+    visitCount: 1
+  },
+  preferences: {
+    favoriteWhiskeys: [],
+    preferredDifficulty: 'beginner',
+    notifications: true
+  }
   permissions: {
     canManageUsers: boolean;
     canManageContent: boolean;
@@ -240,26 +261,32 @@ export interface AdminProfile extends BaseProfile {
       }[];
     }[];
   };
+  statistics: {
+    totalSamplesGuessed: 0,
+    correctGuesses: 0,
+    hintsUsed: 0,
+    averageAccuracy: 0,
+    bestScore: 0,
+    worstScore: 0,
+    lastUpdated: Date
+  };
 }
 
-export interface GuestProfile extends BaseProfile {
-  guest: true;
+// In auth.types.tsx
+export interface GuestProfile {
+  userId: string;
+  email: null;
+  displayName: string;
+  role: UserRole.GUEST;
+  type: UserType.GUEST;
   registrationType: 'guest';
+  isAnonymous: true;
+  guest: true;
+  createdAt: Date;
+  // Basic game metrics
   metrics: {
     gamesPlayed: number;
     totalScore: number;
-    averageScore: number;
     bestScore: number;
-    badges: string[];
-    achievements: string[];
-  };
-  preferences: {
-    favoriteWhiskeys: string[];
-    preferredDifficulty: 'beginner' | 'intermediate' | 'advanced';
-    notifications: boolean;
-  };
-  geographicData?: {
-    country?: string;
-    region?: string;
   };
 }

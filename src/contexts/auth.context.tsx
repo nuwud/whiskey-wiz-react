@@ -3,11 +3,11 @@ import { onAuthStateChanged, sendPasswordResetEmail, User } from 'firebase/auth'
 import { auth, db } from '../config/firebase';
 import { FirebaseService } from '../services/firebase.service';
 import { AnalyticsService } from '../services/analytics.service';
-import { PlayerProfile, UserType, UserRole } from '../types/auth.types';
+import { PlayerProfile, UserType, UserRole, GuestProfile } from '../types/auth.types';
 import { Timestamp, getDoc, doc } from 'firebase/firestore';
 
 interface AuthContextValue {
-  user: PlayerProfile | null;
+  user: PlayerProfile | GuestProfile | null;
   firebaseUser: User | null;
   userId: string;
   isAuthenticated: boolean;
@@ -49,11 +49,12 @@ const getUserProfile = async (uid: string): Promise<PlayerProfile | null> => {
         userId: uid,
         email: '',
         displayName: 'New Player',
-        role: 'player',
-        type: 'player',
+        role: UserRole.PLAYER,
+        type: UserType.REGISTERED,
         isAnonymous: false,
         guest: false,
-        registrationType: ,
+        registrationType: 'email',
+        adminPrivileges: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         lastLoginAt: new Date(),
@@ -130,9 +131,8 @@ const getUserProfile = async (uid: string): Promise<PlayerProfile | null> => {
   }
 };
 
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }): JSX.Element => {
-  const [user, setUser] = useState<PlayerProfile | null>(null);
+  const [user, setUser] = useState<PlayerProfile | GuestProfile | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -140,19 +140,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAuthenticated = Boolean(user);
 
   const createPlayerProfile = (firebaseUser: User, userDoc: any): PlayerProfile => {
-    const baseProfile: PlayerProfile = {
+return {
       userId: firebaseUser.uid,
-      email: firebaseUser.email || '',
+      email: firebaseUser.email,
       displayName: firebaseUser.displayName || 'Guest',
-      role: userDoc?.role || UserRole.PLAYER,
-      type: firebaseUser.isAnonymous ? UserType.GUEST : UserType.REGISTERED,
+      adminPrivileges: null,
+      role: UserRole.PLAYER,
+      type: UserType.REGISTERED,
       isAnonymous: firebaseUser.isAnonymous,
       createdAt: new Date(firebaseUser.metadata.creationTime || Date.now()),
       updatedAt: new Date(),
       lastActive: new Date(),
       lastLoginAt: new Date(),
       guest: firebaseUser.isAnonymous,
-      registrationType: firebaseUser.isAnonymous ? UserType.GUEST : UserType.REGISTERED,
+      registrationType: 'email',
       version: 1,
       totalGames: userDoc?.totalGames || 0,
       averageScore: userDoc?.averageScore || 0,
@@ -192,8 +193,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       },
       achievements: userDoc?.achievements || []
     };
-  
-    return baseProfile;
   };
 
   useEffect(() => {
@@ -210,10 +209,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: fbUser.email || '',
             displayName: fbUser.displayName || 'New Player',
             role: UserRole.PLAYER,
-            type: fbUser.isAnonymous ? UserType.GUEST : UserType.REGISTERED,
-            guest: fbUser.isAnonymous,
-            isAnonymous: fbUser.isAnonymous,
-            registrationType: fbUser.isAnonymous ? UserType.GUEST : UserType.REGISTERED,
+            type: UserType.REGISTERED,
+            guest: false,
+            isAnonymous: false,
+            registrationType: 'facebook',
+            adminPrivileges: null,
             createdAt: new Date(),
             updatedAt: new Date(),
             lastLoginAt: new Date(),
@@ -278,7 +278,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(playerProfile);
       AnalyticsService.userSignedUp({
         userId: playerProfile.userId,
-        role: playerProfile.role
+        role: playerProfile.role,
       });
     } catch (err) {
       console.error('Sign up error:', err);
@@ -296,65 +296,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signInAsGuest = async () => {
-    try {
-      const { signInAnonymously } = await import('firebase/auth');
-      const result = await signInAnonymously(auth);
-      const guestProfile: PlayerProfile = {
-        userId: result.user.uid,
-        email: '',
-        displayName: 'Guest',
-        role: UserRole.PLAYER, // Using enum
-        type: UserType.GUEST, // Using enum
-        isAnonymous: true,
-        guest: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        lastLoginAt: new Date(),
-        lastActive: new Date(),
-        registrationType: UserType.GUEST,
-        metrics: {
-          gamesPlayed: 0,
-          totalScore: 0,
-          averageScore: 0,
-          bestScore: 0,
-          badges: [],
-          achievements: [],
-          lastVisit: new Date(),
-          visitCount: 1
-        },
-        preferences: {
-          favoriteWhiskeys: [],
-          preferredDifficulty: 'beginner',
-          notifications: true
-        },
-        geographicData: { country: undefined, region: undefined },
-        lifetimeScore: 0,
-        totalQuartersCompleted: 0,
-        quarterPerformance: {},
-        statistics: {
-          totalSamplesGuessed: 0,
-          correctGuesses: 0,
-          hintsUsed: 0,
-          averageAccuracy: 0,
-          bestScore: 0,
-          worstScore: 0,
-          lastUpdated: new Date()
-        },
-        achievements: []
-      };
-      
-      setUser(guestProfile);
-      AnalyticsService.userSignedIn({
-        userId: guestProfile.userId,
-        role: guestProfile.role,
-        type: guestProfile.type ?? UserType.GUEST
-      });
-    } catch (err) {
-      console.error('Guest sign in error:', err);
-      throw err;
-    }
-  };
+const signInAsGuest = async () => {
+  try {
+    const { signInAnonymously } = await import('firebase/auth');
+    const result = await signInAnonymously(auth);
+    const guestProfile: GuestProfile = {
+      userId: result.user.uid,
+      email: null,
+      displayName: 'Guest',
+      role: UserRole.GUEST,
+      type: UserType.GUEST,
+      registrationType: 'guest',
+      isAnonymous: true,
+      guest: true,
+      createdAt: new Date(),
+      metrics: {
+        gamesPlayed: 0,
+        totalScore: 0,
+        bestScore: 0
+      }
+    };
+    
+    setUser(guestProfile);
+    AnalyticsService.userSignedIn({
+      userId: guestProfile.userId,
+      role: UserRole.GUEST,
+      type: UserType.GUEST
+    });
+  } catch (err) {
+    console.error('Guest sign in error:', err);
+    throw err;
+  }
+};
 
   const resetPassword = async (email: string): Promise<void> => {
     try {

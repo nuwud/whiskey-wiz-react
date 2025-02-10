@@ -19,7 +19,7 @@ import { LeaderboardEntry } from './leaderboard.service';
 import { PlayerProfile } from '../types/auth.types';
 import { Quarter, QuarterAnalytics, WhiskeySample, MashbillType, MASHBILL_TYPES } from '../types/game.types';
 
-const getSamplesForQuarter = async (quarterId: string) => {
+export const getSamplesForQuarter = async (quarterId: string) => {
   const quarterRef = doc(db, 'quarters', quarterId);
   const quarterSnap = await getDoc(quarterRef);
 

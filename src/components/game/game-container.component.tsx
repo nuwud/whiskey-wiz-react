@@ -13,7 +13,6 @@ import { SampleGuessing, createInitialGuesses } from './sample-guessing.componen
 import { useGameProgression } from '../../store/game-progression.store';
 import { ScoreService } from '../../services/score.service';
 import { transformQuarterSamples } from '../../utils/data-transform.utils';
-import { UserRole } from '../../types/auth.types';
 import { saveGameState, loadGameState } from '../../utils/storage.util';  // assuming this is where the function is
 
 const calculateTimeSpent = (startTime: number): number => {
@@ -261,12 +260,12 @@ export const GameContainer: React.FC = () => {
             
             saveGameState(finalState);
     
-            // Only submit score if user is a player or admin
-            if (user.role === UserRole.PLAYER || user.role === UserRole.ADMIN) {
+            // Submit score for all valid users (guests, players, and admins)
+            if (user && user.role) {  // Just check if we have a valid user with a role
                 console.log('Submitting final score:', currentTotalScore);
                 await FirebaseService.submitScore(user.userId, quarterId, currentTotalScore);
             }
-    
+                
             logEvent(getAnalytics(), 'game_completed', {
                 quarterId,
                 userId: user.userId,

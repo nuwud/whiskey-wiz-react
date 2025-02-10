@@ -43,20 +43,21 @@ const validateAdminProfile = (profile: unknown): profile is AdminProfile => {
   );
 };
 
-const createBaseProfile = (fbUser: FirebaseUser, role: UserRole = UserRole.PLAYER) => ({
+const createBaseProfile = (fbUser: FirebaseUser, _role: UserRole = UserRole.PLAYER): PlayerProfile => ({
   userId: fbUser.uid,
   email: fbUser.email ?? '',
   displayName: fbUser.displayName ?? '',
-  role: role || UserRole.PLAYER,
-  type: fbUser.isAnonymous ? UserType.GUEST : UserType.REGISTERED,
+  role: UserRole.PLAYER,
+  type: UserType.REGISTERED,
   isAnonymous: fbUser.isAnonymous,
   guest: fbUser.isAnonymous,
-  registrationType: fbUser.isAnonymous ? UserType.GUEST : UserType.REGISTERED,
+  registrationType: 'facebook',
   createdAt: new Date(),
   updatedAt: new Date(),
   lastLoginAt: new Date(),
   lastActive: new Date(),
   version: 1,
+  adminPrivileges: null,
   lifetimeScore: 0,
   totalQuartersCompleted: 0,
   quarterPerformance: {},
@@ -76,14 +77,14 @@ const createBaseProfile = (fbUser: FirebaseUser, role: UserRole = UserRole.PLAYE
     notifications: true
   },
   statistics: {
-    totalSamplesGuessed: 0,
+    totalSamplesGuessed: 0 as const,
     correctGuesses: 0,
     hintsUsed: 0,
     averageAccuracy: 0,
     bestScore: 0,
     worstScore: 0,
     lastUpdated: new Date()
-  }
+  } as const
 });
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -105,21 +106,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw new Error('User profile not found');
       }
 
-      const userData = userDoc.data();
+      const userData = userDoc.data() as PlayerProfile;
       if (!userData || !userData.role) {
         throw new Error('User data is malformed or missing role information');
       }
 
       const role = validateRole(userData.role) ? userData.role : UserRole.PLAYER;
+      set({ user: userData });
 
-      if (role === UserRole.ADMIN) {
+      if (role === UserRole.ADMIN as UserRole) {
         // Validate admin profile structure
         if (!validateAdminProfile(userData)) {
           console.warn('Invalid admin profile structure:', userData);
 
           const adminProfile: AdminProfile = {
             ...userData as PlayerProfile, // Extend PlayerProfile properties
+            email: userData.email || '', // Ensure email is never null
             role: UserRole.ADMIN,
+            type: UserType.ADMIN,
+            statistics: {
+              totalSamplesGuessed: 0 as const,
+              correctGuesses: 0,
+              hintsUsed: 0,
+              averageAccuracy: 0,
+              bestScore: 0,
+              worstScore: 0,
+              lastUpdated: new Date()
+            },
             permissions: {
               canManageUsers: true,
               canManageContent: true,
@@ -139,9 +152,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               canUnbanContent: true,
             },
             adminPrivileges: userData.adminPrivileges || ['basic'],
-            registrationType: UserType.ADMIN, 
+            registrationType: 'email', 
             guest: false,
-            lastActive: new Date().toISOString(),
+            lastActive: new Date(),
             lifetimeScore: 0,
             totalQuartersCompleted: 0,
             metrics: {
@@ -183,6 +196,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           updatedAt: new Date(),
           lastLoginAt: new Date(),
           version: userData.version || 1,
+          adminPrivileges: null,
           quarterPerformance: userData.quarterPerformance || {},
           statistics: userData.statistics || {
             totalSamplesGuessed: 0,
@@ -219,7 +233,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ profile: playerProfile });
       }
 
-      set({ user: fbUser });
+      // userData is already validated and typed as PlayerProfile
+      set({ user: userData });
 
     } catch (error) {
       set({ error: (error as Error).message });
@@ -242,9 +257,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       let profile: PlayerProfile | AdminProfile;
 
       if (validRole === UserRole.ADMIN) {
+        const { guest: _, ...baseProfileWithoutGuest } = baseProfile; // Remove guest property
         profile = {
-          ...baseProfile,
+          ...baseProfileWithoutGuest,
+          email: fbUser.email ?? '',  // Ensure email is never null
           role: UserRole.ADMIN,
+          type: UserType.ADMIN,
+          guest: false as const,  // Explicitly set to false
+          registrationType: 'email' as const,  // Explicitly set to 'email'
           adminPrivileges: ['basic'],
           permissions: {
             canManageUsers: true,
@@ -283,7 +303,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             notifications: true
           },
           statistics: {
-            totalSamplesGuessed: 0,
+            totalSamplesGuessed: 0 as const,
             correctGuesses: 0,
             hintsUsed: 0,
             averageAccuracy: 0,
@@ -296,6 +316,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         profile = {
           ...baseProfile,
           role: UserRole.PLAYER,
+          type: UserType.REGISTERED,
+          registrationType: "email",
           lifetimeScore: 0,
           totalQuartersCompleted: 0,
           quarterPerformance: {},
@@ -315,7 +337,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             notifications: true
           },
           statistics: {
-            totalSamplesGuessed: 0,
+            totalSamplesGuessed: 0 as const,
             correctGuesses: 0,
             hintsUsed: 0,
             averageAccuracy: 0,
@@ -327,7 +349,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       await setDoc(doc(db, 'users', fbUser.uid), profile);
-      set({ user: fbUser, profile });
+      set({ user: profile as PlayerProfile, profile });
 
     } catch (error) {
       set({ error: (error as Error).message });
@@ -350,13 +372,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         role: UserRole.PLAYER,
         isAnonymous: true,
         guest: true,
-        type: UserType.GUEST,
-        registrationType: UserType.GUEST,
+        type: UserType.REGISTERED,
+        registrationType: 'email',
         createdAt: new Date(),
         updatedAt: new Date(),
         lastLoginAt: new Date(),
         lastActive: new Date(),
         version: 1,
+        adminPrivileges: null,
         lifetimeScore: 0,
         totalQuartersCompleted: 0,
         quarterPerformance: {},
@@ -388,7 +411,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       await setDoc(doc(db, 'users', fbUser.uid), guestProfile);
       set({ user: guestProfile, profile: guestProfile });
-    } catch (error) {
+    } catch (error: unknown) {
       set({ error: (error as Error).message });
       throw error;
     } finally {
@@ -492,7 +515,6 @@ onAuthStateChanged(auth, async (fbUser) => {
     // Update state based on profile type
     if (profile.role === UserRole.ADMIN) {
       setProfile(profile as AdminProfile);
-      setUser(profile as PlayerProfile);
     } else {
       setProfile(profile as PlayerProfile);
       setUser(profile as PlayerProfile);
@@ -521,7 +543,7 @@ const fetchUserProfile = async (uid: string): Promise<PlayerProfile | AdminProfi
   if (role === UserRole.ADMIN) {
     return {
       ...normalizeAdminProfile(userData),
-      registrationType: UserType.REGISTERED, // Ensure missing fields are added
+      registrationType: 'email', // Ensure missing fields are added
       guest: false,
       lastActive: new Date(),
       lifetimeScore: 0,
@@ -604,50 +626,5 @@ const normalizePlayerProfile = (userData: any): PlayerProfile => {
     lifetimeScore: userData.lifetimeScore || 0,
     totalQuartersCompleted: userData.totalQuartersCompleted || 0,
     registrationType: userData.registrationType || UserType.REGISTERED
-  };
-};
-
-const createDefaultProfile = (uid: string): PlayerProfile => {
-  return {
-    userId: uid,
-    email: '',
-    displayName: 'New Player',
-    role: UserRole.PLAYER,
-    type: UserType.REGISTERED,
-    isAnonymous: false,
-    guest: false,
-    registrationType: UserType.REGISTERED,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    lastLoginAt: new Date(),
-    lastActive: new Date(),
-    version: 1,
-    lifetimeScore: 0,
-    totalQuartersCompleted: 0,
-    quarterPerformance: {},
-    metrics: {
-      gamesPlayed: 0,
-      totalScore: 0,
-      averageScore: 0,
-      bestScore: 0,
-      badges: [],
-      achievements: [],
-      lastVisit: new Date(),
-      visitCount: 1
-    },
-    preferences: {
-      favoriteWhiskeys: [],
-      preferredDifficulty: 'beginner',
-      notifications: true
-    },
-    statistics: {
-      totalSamplesGuessed: 0,
-      correctGuesses: 0,
-      hintsUsed: 0,
-      averageAccuracy: 0,
-      bestScore: 0,
-      worstScore: 0,
-      lastUpdated: new Date()
-    }
   };
 };
