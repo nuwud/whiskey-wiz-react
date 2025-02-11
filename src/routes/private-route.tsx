@@ -1,8 +1,8 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/auth.context';
-import { UserRole } from '../types';
 import { Spinner } from '../components/ui/spinner-ui.component';
+import { UserRole } from '../types/auth.types';
 
 interface PrivateRouteProps {
   allowedRoles?: UserRole[];
@@ -18,8 +18,8 @@ export const PrivateRoute: React.FC<PrivateRouteProps> = ({
   redirectPath = '/login'
 }) => {
   const { user, loading } = useAuth();
-  const isAdmin = user?.role === UserRole.ADMIN;
-
+  const isAdmin = UserRole.ADMIN;
+  
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
