@@ -9,6 +9,7 @@ import {
 } from '../types/game.types';
 import { PlayerStats } from '../components/player/player-stats.component';
 import { ScoreService } from '../services/score.service';
+import { WhiskeySample } from '../types/game.types';
 
 // Extend GameState to include stats
 interface ExtendedGameState extends GameState {
@@ -51,9 +52,16 @@ const useGameProgressionStore = create<GameProgressionStore>((set, get) => ({
     setCurrentSample: (sample: SampleId) => set({ currentSample: sample }),
     
     updateQuarter: (quarter: Quarter) => {
+        const samplesRecord = quarter.samples.reduce((acc, sample, index) => {
+            const sampleId = String.fromCharCode(65 + index) as SampleId; // Convert 0,1,2,3 to A,B,C,D
+            acc[sampleId] = sample;
+            return acc;
+        }, {} as Record<SampleId, WhiskeySample>);
+
         set(state => ({
             ...state,
-            currentQuarter: quarter
+            currentQuarter: quarter,
+            samples: samplesRecord
         }));
         localStorage.setItem("currentQuarter", JSON.stringify(quarter));
     },
@@ -78,17 +86,16 @@ const useGameProgressionStore = create<GameProgressionStore>((set, get) => ({
         }
 
         const sample = state.samples[sampleId];
+        console.log(`Submitting guess for sample: ${sampleId}`, guessData);
+        console.log(`Sample data from store:`, sample);
+
         if (!sample) {
             console.error(`Sample ${sampleId} not found`);
             return;
         }
 
-        if (!state.scoringRules) {
-            console.error("Scoring rules missing!");
-            return;
-        }
-
         const scoreResult = ScoreService.calculateScore(guessData, sample);
+        console.log("Score result:", scoreResult);
 
         set(state => ({
             guesses: {

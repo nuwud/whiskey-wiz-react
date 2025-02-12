@@ -79,29 +79,25 @@ export class ScoreService {
   }
 
   static calculateScore(guess: SampleGuess, sample: WhiskeySample): { totalScore: number; breakdown: ScoreBreakdown; explanations: string[] } {
-    const scoreService = ScoreService.getInstance();
-    const ageScore = scoreService.calculateAgeScore(guess.age, sample.age);
-    const proofScore = scoreService.calculateProofScore(guess.proof, sample.proof);
-    const mashbillScore = scoreService.calculateMashbillScore(guess.mashbill, sample.mashbill);
+    const ageScore = this.calculateAgeScore(guess.age, sample.age);
+    const proofScore = this.calculateProofScore(guess.proof, sample.proof);
+    const mashbillScore = this.calculateMashbillScore(guess.mashbill, sample.mashbill);
+
     const totalScore = ageScore + proofScore + mashbillScore;
-    
+
     return {
       totalScore,
-      breakdown: {
-        age: ageScore,
-        proof: proofScore,
-        mashbill: mashbillScore
-      },
+      breakdown: { age: ageScore, proof: proofScore, mashbill: mashbillScore },
       explanations: [
-        scoreService.getAgeExplanation(guess.age, sample.age),
-        scoreService.getProofExplanation(guess.proof, sample.proof),
-        scoreService.getMashbillExplanation(guess.mashbill, sample.mashbill)
+        this.getAgeExplanation(guess.age, sample.age),
+        this.getProofExplanation(guess.proof, sample.proof),
+        this.getMashbillExplanation(guess.mashbill, sample.mashbill)
       ]
     };
   }
 
   // Individual scoring calculations
-  calculateAgeScore(guessed: number, actual: number): number {
+  static calculateAgeScore(guessed: number, actual: number): number {
     const diff = Math.abs(guessed - actual);
     const config = SCORING_CONFIG.age;
 
@@ -112,7 +108,7 @@ export class ScoreService {
     return Math.max(0, config.maxPoints - (diff * config.penaltyPerYear));
   }
 
-  calculateProofScore(guessed: number, actual: number): number {
+  static calculateProofScore(guessed: number, actual: number): number {
     const diff = Math.abs(guessed - actual);
     const config = SCORING_CONFIG.proof;
 
@@ -123,7 +119,7 @@ export class ScoreService {
     return Math.max(0, config.maxPoints - (diff * config.penaltyPerPoint));
   }
 
-  calculateMashbillScore(guessed: string, actual: string): number {
+  static calculateMashbillScore(guessed: string, actual: string): number {
     const config = SCORING_CONFIG.mashbill;
     return guessed.toLowerCase() === actual.toLowerCase()
       ? config.maxPoints + config.exactMatchBonus
@@ -131,14 +127,14 @@ export class ScoreService {
   }
 
   // Helper methods
-  calculateStringSimilarity(str1: string, str2: string): number {
+  static calculateStringSimilarity(str1: string, str2: string): number {
     if (str1 === str2) return 1;
     const editDistance = this.levenshteinDistance(str1, str2);
     const maxLength = Math.max(str1.length, str2.length);
     return Math.max(0, 1 - editDistance / maxLength);
   }
 
-  levenshteinDistance(str1: string, str2: string): number {
+  static levenshteinDistance(str1: string, str2: string): number {
     const matrix: number[][] = Array(str2.length + 1).fill(null).map(() =>
       Array(str1.length + 1).fill(null)
     );
@@ -160,7 +156,7 @@ export class ScoreService {
   }
 
   // Explanation generators
-  getAgeExplanation(guessed: number, actual: number): string {
+  static getAgeExplanation(guessed: number, actual: number): string {
     const diff = Math.abs(guessed - actual);
     if (diff === 0) return "Perfect match! Full points awarded.";
     if (diff <= SCORING_CONFIG.age.gracePeriod) {
@@ -169,7 +165,7 @@ export class ScoreService {
     return `Off by ${diff} years. Points deducted based on difference.`;
   }
 
-  getProofExplanation(guessed: number, actual: number): string {
+  static getProofExplanation(guessed: number, actual: number): string {
     const diff = Math.abs(guessed - actual);
     if (diff === 0) return "Perfect proof guess! Full points awarded.";
     if (diff <= SCORING_CONFIG.proof.gracePeriod) {
@@ -178,14 +174,14 @@ export class ScoreService {
     return `Off by ${diff} proof points. Points deducted proportionally.`;
   }
 
-  getMashbillExplanation(guessed: string, actual: string): string {
+  static getMashbillExplanation(guessed: string, actual: string): string {
     return guessed.toLowerCase() === actual.toLowerCase()
       ? "Correct mashbill type! Full points awarded."
       : "Incorrect mashbill type. No points awarded.";
   }
 
   // Rank calculation
-  getRank(score: number): string {
+  static getRank(score: number): string {
     const maxScore = this.getMaxPossibleScore();
     const percentage = (score / maxScore) * 100;
 
@@ -197,7 +193,7 @@ export class ScoreService {
     return 'Barrel Beginner';
   }
 
-  getMaxPossibleScore(): number {
+  static getMaxPossibleScore(): number {
     return Object.values(SCORING_CONFIG).reduce((total, config) =>
       total + config.maxPoints + (config.exactMatchBonus || 0), 0);
   }

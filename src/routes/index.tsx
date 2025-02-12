@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { PrivateRoute } from '../routes/private-route';
+import PrivateRoute from '../routes/private-route';
 import { UserRole } from '../types/auth.types';
 import { GameErrorBoundary } from '../components/game/game-error-boundary.component';
 

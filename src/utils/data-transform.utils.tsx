@@ -22,65 +22,41 @@ const DEFAULT_WHISKEY_SAMPLE: Omit<WhiskeySample, 'id'> = {
     price: 0
 };
 
-export const transformQuarterSamples = (samples: any): Record<SampleId, WhiskeySample> => {
-    console.log('Transforming samples:', samples);
-    
+export const transformQuarterSamples = (samplesMap: Record<string, any>): Record<SampleId, WhiskeySample> => {
+    if (!samplesMap) return EXPECTED_SAMPLE_IDS.reduce((acc, id) => ({
+        ...acc,
+        [id]: { ...DEFAULT_WHISKEY_SAMPLE, id, name: `Sample ${id}` }
+    }), {} as Record<SampleId, WhiskeySample>);
+
+    console.log("Raw Samples from Firestore:", samplesMap);
+
     let transformedSamples: Record<SampleId, WhiskeySample> = EXPECTED_SAMPLE_IDS.reduce((acc, id) => ({
         ...acc,
         [id]: { ...DEFAULT_WHISKEY_SAMPLE, id, name: `Sample ${id}` }
     }), {} as Record<SampleId, WhiskeySample>);
 
     try {
-        if (Array.isArray(samples)) {
-            // Handle array input
-            if (samples.length < 4) {
-                console.warn(`Not enough samples: ${samples.length}. Adding default samples.`);
-                while (samples.length < 4) {
-                    samples.push({ ...DEFAULT_WHISKEY_SAMPLE });
-                }
+        const samplesArray = Object.keys(samplesMap).map(key => ({
+            id: key,
+            ...samplesMap[key]
+        }));
+
+        if (samplesArray.length < 4) {
+            console.warn(`Not enough samples: ${samplesArray.length}. Adding default samples.`);
+            while (samplesArray.length < 4) {
+                samplesArray.push({ ...DEFAULT_WHISKEY_SAMPLE });
             }
-
-            samples = samples.slice(0, 4);
-            interface SampleAccumulator extends Record<SampleId, WhiskeySample> {}
-            interface SampleInput extends Partial<WhiskeySample> {}
-
-            transformedSamples = samples.reduce((acc: SampleAccumulator, sample: SampleInput, index: number) => {
-                const sampleId: SampleId = EXPECTED_SAMPLE_IDS[index];
-                return {
-                    ...acc,
-                    [sampleId]: {
-                        ...DEFAULT_WHISKEY_SAMPLE,
-                        ...sample,
-                        id: sampleId,
-                        name: sample.name || `Sample ${sampleId}`
-                    }
-                };
-            }, {} as SampleAccumulator);
-        } else if (typeof samples === 'object' && samples !== null) {
-            // Handle object input
-            const entries = Object.entries(samples);
-            
-            if (entries.length < 4) {
-                console.warn(`Not enough samples: ${entries.length}. Adding default samples.`);
-                for (let i = entries.length; i < 4; i++) {
-                    const sampleId = EXPECTED_SAMPLE_IDS[i];
-                    entries.push([String(i), { ...DEFAULT_WHISKEY_SAMPLE, id: sampleId }]);
-                }
-            }
-
-            entries.slice(0, 4).forEach((entry, index) => {
-                const [_, sampleData] = entry;
-                const sampleId = EXPECTED_SAMPLE_IDS[index];
-                const validSampleData = (typeof sampleData === 'object' && sampleData !== null) ? sampleData as Partial<WhiskeySample> : {};
-                
-                transformedSamples[sampleId] = {
-                    ...DEFAULT_WHISKEY_SAMPLE,
-                    ...validSampleData,
-                    id: sampleId,
-                    name: validSampleData.name || `Sample ${sampleId}`
-                };
-            });
         }
+
+        samplesArray.slice(0, 4).forEach((sample, index) => {
+            const sampleId: SampleId = EXPECTED_SAMPLE_IDS[index];
+            transformedSamples[sampleId] = {
+                ...DEFAULT_WHISKEY_SAMPLE,
+                ...sample,
+                id: sampleId,
+                name: sample.name || `Sample ${sampleId}`
+            };
+        });
 
         // Validate and ensure all samples exist
         EXPECTED_SAMPLE_IDS.forEach(id => {
@@ -99,7 +75,7 @@ export const transformQuarterSamples = (samples: any): Record<SampleId, WhiskeyS
 
     } catch (error) {
         console.error('Error transforming samples:', error);
-        
+
         // Return default samples if transformation fails
         return EXPECTED_SAMPLE_IDS.reduce((acc, id) => ({
             ...acc,

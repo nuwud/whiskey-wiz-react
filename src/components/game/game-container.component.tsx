@@ -141,81 +141,45 @@ export const GameContainer: React.FC = () => {
             setLoading(true);
             console.log('Starting game initialization...');
     
-            // Check for existing state first
-            const savedState = loadGameState();
+            // Fetch user state and quarter data in parallel
+            const [savedState, quarter] = await Promise.all([
+                loadGameState(),
+                quarterService.getQuarterById(quarterId)  // Cache this
+            ]);
+    
             if (savedState?.samples && Object.keys(savedState.samples).length === 4) {
-                console.log('Found valid saved state, restoring...');
-                const validState: GameState = {
+                console.log('Restoring saved game state');
+                const fullGameState: GameState = {
                     ...INITIAL_STATE,
                     ...savedState,
-                    isInitialized: true,
-                    currentSampleId: savedState.currentSampleId || 'A',
-                    guesses: savedState.guesses || createInitialGuesses(),
-                    completedSamples: savedState.completedSamples || [],
                     userId: user.userId,
-                    quarterId: quarterId
+                    quarterId: quarterId,
+                    isLoading: false,
+                    isPlaying: true
                 };
-    
-                useGameStore.setState(validState);
+                setGameState(fullGameState);
                 setSamples(savedState.samples);
-                setCurrentSampleIndex(savedState.completedSamples?.length || 0);
-                setGameState(validState);
                 return;
             }
     
-            console.log('No valid saved state, fetching quarter data...');
-            const quarter = await quarterService.getQuarterById(quarterId);
-            
             if (!quarter || !validateQuarterData(quarter)) {
                 throw new Error('Invalid quarter data');
             }
     
             const transformedSamples = transformQuarterSamples(quarter.samples);
-            
-            // Validate transformed samples
-            if (!transformedSamples || Object.keys(transformedSamples).length !== 4) {
-                throw new Error('Invalid number of samples after transformation');
-            }
-    
-            // Create new state
-            const newState = {
-                ...INITIAL_STATE,
-                userId: user.userId,
-                quarterId,
-                samples: transformedSamples,
-                currentSampleId: 'A' as SampleId,
-                isInitialized: true
-            };
-    
-            // Update all state at once
-            useGameStore.setState(newState);
             setSamples(transformedSamples);
-            setCurrentSampleIndex(0);
-            setCurrentSample('A');
-            setGameState(newState);
+            saveGameState({ ...INITIAL_STATE, samples: transformedSamples });
     
-            // Save initial state
-            saveGameState(newState);
-    
-            AnalyticsService.trackEvent('game_initialization_success', {
-                quarterId,
-                userId: user.userId,
-                sampleCount: Object.keys(transformedSamples).length
-            });
+            AnalyticsService.trackEvent('game_initialization_success', { quarterId, userId: user.userId });
     
         } catch (error) {
             console.error('Game initialization failed:', error);
-            setError(error instanceof Error ? error.message : 'Failed to initialize game');
-            AnalyticsService.trackEvent('game_initialization_failed', {
-                error: error instanceof Error ? error.message : 'Unknown error',
-                userId: user.userId,
-                quarterId
-            });
+            setError(error instanceof Error ? error.message : 'An unknown error occurred');
         } finally {
             setLoading(false);
             monitoringService.endTrace('game_initialization', traceId);
         }
-    }, [quarterId, user, navigate, setCurrentSample]);
+    }, [quarterId, user, navigate, setSamples]);
     
     // Single initialization effect
     useEffect(() => {
@@ -332,3 +296,4 @@ export const GameContainer: React.FC = () => {
         </div>
     );
 };
+

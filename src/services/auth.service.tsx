@@ -2,7 +2,7 @@ import { auth, db } from '../config/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, UserCredential } from 'firebase/auth';
 import { doc, setDoc, getDoc, runTransaction, Timestamp } from 'firebase/firestore';
 import { retryOperation } from '../utils/retry.utils';
-import { PlayerProfile, UserRole, UserType } from '../types/auth.types';
+import { PlayerProfile, GuestProfile, UserRole, UserType } from '../types/auth.types';
 import { AnalyticsService } from '../services/analytics.service';
 
 const CURRENT_VERSION = 1;
@@ -31,6 +31,28 @@ export const authService = {
             console.error("Failed to fetch user role:", error);
             return UserRole.PLAYER;
         }
+    },
+    async loginAsGuest(): Promise<GuestProfile> {
+        const guestId = `guest_${Math.random().toString(36).substring(2, 15)}`;
+        const profile: GuestProfile = {
+            userId: guestId,
+            role: UserRole.GUEST,
+            isAnonymous: true,
+            createdAt: new Date(),
+            email: null,
+            displayName: `Guest_${guestId.slice(6, 11)}`,
+            type: UserType.GUEST,
+            registrationType: 'guest',
+            guest: true,
+            metrics: {
+                gamesPlayed: 0,
+                totalScore: 0,
+                bestScore: 0,
+            }
+        };
+    
+        await setDoc(doc(db, 'users', guestId), profile);
+        return profile;
     },
     async register(email: string, password: string, displayName?: string): Promise<PlayerProfile> {
         try {

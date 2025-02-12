@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { onAuthStateChanged, sendPasswordResetEmail, User } from 'firebase/auth';
+import { onAuthStateChanged, sendPasswordResetEmail, User as FirebaseUser } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
 import { FirebaseService } from '../services/firebase.service';
 import { AnalyticsService } from '../services/analytics.service';
@@ -8,7 +8,7 @@ import { Timestamp, getDoc, doc } from 'firebase/firestore';
 
 interface AuthContextValue {
   user: PlayerProfile | GuestProfile | null;
-  firebaseUser: User | null;
+  firebaseUser: FirebaseUser | null;
   userId: string;
   isAuthenticated: boolean;
   loading: boolean;
@@ -21,10 +21,17 @@ interface AuthContextValue {
   signInAsGuest: () => Promise<void>;
 }
 
+export interface AuthContextType {
+  user: {
+    role: UserRole.PLAYER | UserRole.GUEST | UserRole.ADMIN;
+  } | null;
+  loading: boolean;
+}
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 // Custom hook to use the auth context
-export const useAuth = () => {
+export const useAuth = (): AuthContextValue => {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
@@ -133,14 +140,14 @@ const getUserProfile = async (uid: string): Promise<PlayerProfile | null> => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }): JSX.Element => {
   const [user, setUser] = useState<PlayerProfile | GuestProfile | null>(null);
-  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Compute isAuthenticated based on user existence
   const isAuthenticated = Boolean(user);
 
-  const createPlayerProfile = (firebaseUser: User, userDoc: any): PlayerProfile => {
-return {
+  const createPlayerProfile = (firebaseUser: FirebaseUser, userDoc: any): PlayerProfile => {
+    return {
       userId: firebaseUser.uid,
       email: firebaseUser.email,
       displayName: firebaseUser.displayName || 'Guest',

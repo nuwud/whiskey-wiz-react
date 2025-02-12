@@ -1,8 +1,8 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/auth.context';
-import { Spinner } from '../components/ui/spinner-ui.component';
 import { UserRole } from '../types/auth.types';
+import { Spinner } from '../components/ui/spinner-ui.component';
 
 interface PrivateRouteProps {
   allowedRoles?: UserRole[];
@@ -11,15 +11,14 @@ interface PrivateRouteProps {
   redirectPath?: string;
 }
 
-export const PrivateRoute: React.FC<PrivateRouteProps> = ({
+const PrivateRoute: React.FC<PrivateRouteProps> = ({
   allowedRoles = [],
   adminOnly = false,
   children,
   redirectPath = '/login'
 }) => {
   const { user, loading } = useAuth();
-  const isAdmin = UserRole.ADMIN;
-  
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -32,14 +31,18 @@ export const PrivateRoute: React.FC<PrivateRouteProps> = ({
     return <Navigate to={redirectPath} replace />;
   }
 
+  const isAdmin = UserRole.ADMIN;
+
   if (adminOnly && !isAdmin) {
     return <Navigate to="/game" replace />;
   }
 
-  if (allowedRoles.length > 0 && user.role && !allowedRoles.includes(user.role)) {
+  if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
     return <Navigate to="/game" replace />;
   }
 
   return children ? <>{children}</> : <Outlet />;
 };
+
+export default PrivateRoute;
 
