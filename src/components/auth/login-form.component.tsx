@@ -1,29 +1,20 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../../store/auth.store';
+import { useAuth } from '../../contexts/auth.context';
 
-export const LoginForm = () => {
-  const navigate = useNavigate();
-  const { signIn, signInAsGuest, error, isLoading } = useAuthStore();
+const LoginForm: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const { signIn, error, loading } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await signIn(email, password);
-      navigate('/');
-    } catch (error) {
-      // Error is handled by the store
-    }
-  };
-
-  const handleGuestLogin = async () => {
-    try {
-      await signInAsGuest();
-      navigate('/');
-    } catch (error) {
-      // Error is handled by the store
+      navigate('/profile');
+    } catch (err) {
+      console.error('Failed to sign in:', err);
     }
   };
 
@@ -61,25 +52,16 @@ export const LoginForm = () => {
         </div>
 
         {error && (
-          <div className="text-red-600 text-sm">{error}</div>
+          <div className="text-red-600 text-sm">{error.message}</div>
         )}
 
         <div className="flex flex-col gap-3">
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={loading}
             className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
           >
-            {isLoading ? 'Signing in...' : 'Sign In'}
-          </button>
-
-          <button
-            type="button"
-            onClick={handleGuestLogin}
-            disabled={isLoading}
-            className="w-full py-2 px-4 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
-          >
-            Continue as Guest
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </div>
       </form>
@@ -96,3 +78,5 @@ export const LoginForm = () => {
     </div>
   );
 };
+
+export default LoginForm;

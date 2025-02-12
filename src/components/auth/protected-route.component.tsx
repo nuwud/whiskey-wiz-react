@@ -1,40 +1,27 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/auth.context';
-import { Spinner } from '../../components/ui/spinner-ui.component';
-import { UserRole } from '../../types/auth.types';
 
 interface ProtectedRouteProps {
-  allowedRoles?: UserRole[];
-  requireAuth?: boolean;
-  children?: React.ReactNode;
+  allowedRoles?: string[];
+  redirectPath?: string;
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   allowedRoles = [],
-  requireAuth = true,
-  children
+  redirectPath = '/login'
 }) => {
-  const { user, loading: isLoading } = useAuth();
+  const { user, loading } = useAuth();
 
-  if (isLoading) {
-    return <div className="flex justify-center items-center h-screen"><Spinner /></div>;
+  if (loading) {
+    return <div>Loading...</div>;
   }
 
-  const role = user?.role ?? UserRole.PLAYER;
-
-
-  if (requireAuth && !user) {
-    return <Navigate to="/login" replace />;
+  if (!user || (allowedRoles.length > 0 && !allowedRoles.includes(user.role))) {
+    return <Navigate to={redirectPath} replace />;
   }
 
-  if (allowedRoles.length > 0 && !allowedRoles.includes(role)) {
-    return <Navigate to="/" replace />;
-  }
-
-  if (!requireAuth && user) {
-    return <Navigate to="/" replace />;
-  }
-
-  return children ? <>{children}</> : <Outlet />;
+  return <Outlet />;
 };
+
+export default ProtectedRoute;

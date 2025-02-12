@@ -11,12 +11,14 @@ import {
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { UserRole, UserType, PlayerProfile, AdminProfile } from '../types/auth.types';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 interface AuthState {
   user: PlayerProfile | null;
   profile: PlayerProfile | AdminProfile | null;
   isLoading: boolean;
   error: string | null;
+  navigate: ReturnType<typeof useNavigate>;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, role: UserRole) => Promise<void>;
   signInAsGuest: () => Promise<void>;
@@ -47,6 +49,7 @@ const createBaseProfile = (fbUser: FirebaseUser, _role: UserRole = UserRole.PLAY
   userId: fbUser.uid,
   email: fbUser.email ?? '',
   displayName: fbUser.displayName ?? '',
+  emailVerified: fbUser.emailVerified,
   role: UserRole.PLAYER,
   type: UserType.REGISTERED,
   isAnonymous: fbUser.isAnonymous,
@@ -92,6 +95,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   profile: null,
   isLoading: true,
   error: null,
+  navigate: useNavigate(), // Define navigate
 
   signIn: async (email: string, password: string) => {
     try {
@@ -190,6 +194,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           userId: fbUser.uid,
           email: fbUser.email ?? '',
           displayName: fbUser.displayName ?? '',
+          emailVerified: fbUser.emailVerified,
           type: userData.type || UserType.REGISTERED,
           isAnonymous: fbUser.isAnonymous,
           createdAt: userData.createdAt || new Date(),
@@ -369,6 +374,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         userId: fbUser.uid,
         displayName: `Guest_${fbUser.uid.slice(0, 6)}`,
         email: '',
+        emailVerified: false,
         role: UserRole.PLAYER,
         isAnonymous: true,
         guest: true,
@@ -501,9 +507,10 @@ onAuthStateChanged(auth, async (fbUser) => {
   try {
     setLoading(true);
 
-    if (!fbUser) {
+      if (!fbUser) {
       setUser(null);
       setProfile(null);
+      useAuthStore.getState().navigate('/login'); // Redirect to login page if no user is authenticated
       return;
     }
 
@@ -515,9 +522,11 @@ onAuthStateChanged(auth, async (fbUser) => {
     // Update state based on profile type
     if (profile.role === UserRole.ADMIN) {
       setProfile(profile as AdminProfile);
+      useAuthStore.getState().navigate('/admin'); // Redirect to admin page for admins
     } else {
       setProfile(profile as PlayerProfile);
       setUser(profile as PlayerProfile);
+      useAuthStore.getState().navigate('/profile'); // Redirect to profile page for players
     }
 
   } catch (error) {

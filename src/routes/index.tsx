@@ -5,10 +5,10 @@ import { UserRole } from '../types/auth.types';
 import { GameErrorBoundary } from '../components/game/game-error-boundary.component';
 
 // Auth Components
-import { Login } from '../components/auth/login.component';
-import { SignUp } from '../components/auth/sign-up.component';
-import { ForgotPassword } from '../components/auth/forgot-password.component';
-import { VerifyEmail } from '../components/auth/verify-email.component';
+import Login from '../components/auth/login.component';
+import SignUp from '../components/auth/sign-up.component';
+import ForgotPassword from '../components/auth/forgot-password.component';
+import VerifyEmail from '../components/auth/verify-email.component';
 
 // Game Components
 import { GameContainer } from '../components/game/game-container.component';

@@ -21,11 +21,11 @@ export const authService = {
         try {
             const userRef = doc(db, "users", userId);
             const userSnap = await getDoc(userRef);
-            
+
             if (!userSnap.exists()) {
                 return UserRole.PLAYER;
             }
-            
+
             return userSnap.data()?.role || UserRole.PLAYER;
         } catch (error) {
             console.error("Failed to fetch user role:", error);
@@ -36,21 +36,25 @@ export const authService = {
         const guestId = `guest_${Math.random().toString(36).substring(2, 15)}`;
         const profile: GuestProfile = {
             userId: guestId,
-            role: UserRole.GUEST,
-            isAnonymous: true,
-            createdAt: new Date(),
             email: null,
             displayName: `Guest_${guestId.slice(6, 11)}`,
+            role: UserRole.GUEST,
             type: UserType.GUEST,
             registrationType: 'guest',
+            isAnonymous: true,
             guest: true,
+            emailVerified: false, // Add this property
+            createdAt: new Date(),
             metrics: {
                 gamesPlayed: 0,
                 totalScore: 0,
                 bestScore: 0,
-            }
+            },
+            guestToken: guestId,
+            guestSessionToken: guestId,
+            guestSessionExpiresAt: new Date(Date.now() + 3600000), // 1 hour
         };
-    
+
         await setDoc(doc(db, 'users', guestId), profile);
         return profile;
     },
@@ -58,13 +62,14 @@ export const authService = {
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
-            
+
             const role = await this.getUserRole(user.uid);
-            
+
             const profile: PlayerProfile = {
                 userId: user.uid,
                 email: user.email || '',
                 displayName: displayName || '',
+                emailVerified: user.emailVerified,
                 role: UserRole.PLAYER,
                 type: UserType.REGISTERED,
                 isAnonymous: false,
@@ -110,7 +115,7 @@ export const authService = {
             };
 
             await setDoc(doc(db, 'users', user.uid), profile);
-            
+
             // Track registration
             AnalyticsService.trackEvent('user_registered', {
                 userId: user.uid,
@@ -151,9 +156,9 @@ export const authService = {
                     profile = await runTransaction(db, async (transaction) => {
                         const profileDoc = await transaction.get(profileRef);
                         let profileData = profileDoc.data() as PlayerProfile;
-                        
+
                         // Ensure role is preserved unless explicitly changed by admin
-                        const newRole = data.role && currentRole === UserRole.ADMIN ? 
+                        const newRole = data.role && currentRole === UserRole.ADMIN ?
                             data.role : profileData.role || currentRole;
 
                         if (profileData.version !== CURRENT_VERSION) {
@@ -176,6 +181,7 @@ export const authService = {
                         userId,
                         displayName: '',
                         email: '',
+                        emailVerified: false,
                         role: UserRole.PLAYER,
                         type: UserType.REGISTERED,
                         guest: false,

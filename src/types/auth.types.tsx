@@ -32,18 +32,23 @@ export interface ExtendedUser extends FirebaseUser {
 
 export interface BaseProfile {
   userId: string;
+  email: string | null;
   displayName: 'Guest Player';
+  role: UserRole;
+  type: UserType;
   registrationType: RegistrationType;
   isAnonymous: boolean;
   createdAt: Date;
   updatedAt: Date;
   lastLoginAt: Date;
+  lastActive: Date;
 }
 
 export interface PlayerProfile {
   // Required core fields
   userId: string;
   email: string | null;
+  emailVerified: boolean; 
   displayName: string;
   role: UserRole.PLAYER;
   type: UserType.REGISTERED;
@@ -274,8 +279,12 @@ export interface AdminProfile {
 
 // In auth.types.tsx
 export interface GuestProfile {
+  guestToken: string;
+  guestSessionToken: string;
+  guestSessionExpiresAt: Date;
   userId: string;
   email: null;
+  emailVerified?: boolean;
   displayName: string;
   role: UserRole.GUEST;
   type: UserType.GUEST;

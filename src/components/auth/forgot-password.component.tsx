@@ -1,28 +1,19 @@
-import React, { useState, FormEvent } from 'react';
-import { Link } from 'react-router-dom';
-import { FirebaseService } from '../../services/firebase.service';
+import React, { useState } from 'react';
+import { useAuth } from '../../contexts/auth.context';
+import { useNavigate, Link } from 'react-router-dom';
 
-export const ForgotPassword: React.FC = () => {
-  const [email, setEmail] = useState<string>('');
-  const [error, setError] = useState<string>('');
-  const [message, setMessage] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(false);
+const ForgotPassword: React.FC = () => {
+  const [email, setEmail] = useState('');
+  const { resetPassword, error, loading } = useAuth();
+  const navigate = useNavigate();
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setMessage('');
-    setError('');
-    setLoading(true);
-
     try {
-      await FirebaseService.resetPassword(email);
-      setMessage('Check your email for password reset instructions');
-      setEmail(''); // Clear the form
+      await resetPassword(email);
+      navigate('/login');
     } catch (err) {
-      setError('Failed to send password reset email');
-      console.error(err);
-    } finally {
-      setLoading(false);
+      console.error('Failed to reset password:', err);
     }
   };
 
@@ -41,12 +32,7 @@ export const ForgotPassword: React.FC = () => {
         <form onSubmit={handleSubmit} className="mt-8 space-y-6">
           {error && (
             <div className="text-red-500 text-sm text-center">
-              {error}
-            </div>
-          )}
-          {message && (
-            <div className="text-green-500 text-sm text-center">
-              {message}
+              {error?.message}
             </div>
           )}
 
@@ -88,3 +74,5 @@ export const ForgotPassword: React.FC = () => {
     </div>
   );
 };
+
+export default ForgotPassword;

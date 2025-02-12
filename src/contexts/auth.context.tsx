@@ -1,18 +1,20 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { onAuthStateChanged, sendPasswordResetEmail, User as FirebaseUser } from 'firebase/auth';
+import React, { useContext, useState, useEffect } from 'react';
+import { onAuthStateChanged, sendPasswordResetEmail, sendEmailVerification as sendEmailVerificationAuth, User as FirebaseUser } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
 import { FirebaseService } from '../services/firebase.service';
 import { AnalyticsService } from '../services/analytics.service';
 import { PlayerProfile, UserType, UserRole, GuestProfile } from '../types/auth.types';
 import { Timestamp, getDoc, doc } from 'firebase/firestore';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 interface AuthContextValue {
   user: PlayerProfile | GuestProfile | null;
+  error: Error | null;
+  loading: boolean;
+  sendEmailVerification: () => Promise<void>;
   firebaseUser: FirebaseUser | null;
   userId: string;
   isAuthenticated: boolean;
-  loading: boolean;
-  error: Error | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -21,14 +23,11 @@ interface AuthContextValue {
   signInAsGuest: () => Promise<void>;
 }
 
-export interface AuthContextType {
-  user: {
-    role: UserRole.PLAYER | UserRole.GUEST | UserRole.ADMIN;
-  } | null;
-  loading: boolean;
+export interface AuthContextType extends AuthContextValue {
+  setUser: React.Dispatch<React.SetStateAction<PlayerProfile | GuestProfile | null>>;
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null);
+export const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 
 // Custom hook to use the auth context
 export const useAuth = (): AuthContextValue => {
@@ -60,6 +59,7 @@ const getUserProfile = async (uid: string): Promise<PlayerProfile | null> => {
         type: UserType.REGISTERED,
         isAnonymous: false,
         guest: false,
+        emailVerified: false,
         registrationType: 'email',
         adminPrivileges: null,
         createdAt: new Date(),
@@ -142,6 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<PlayerProfile | GuestProfile | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate(); // Define navigate
 
   // Compute isAuthenticated based on user existence
   const isAuthenticated = Boolean(user);
@@ -150,6 +151,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return {
       userId: firebaseUser.uid,
       email: firebaseUser.email,
+      emailVerified: firebaseUser.emailVerified,
       displayName: firebaseUser.displayName || 'Guest',
       adminPrivileges: null,
       role: UserRole.PLAYER,
@@ -215,6 +217,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             userId: fbUser.uid,
             email: fbUser.email || '',
             displayName: fbUser.displayName || 'New Player',
+            emailVerified: fbUser.emailVerified,
             role: UserRole.PLAYER,
             type: UserType.REGISTERED,
             guest: false,
@@ -270,6 +273,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userDoc = await FirebaseService.getUserDocument(firebaseUser.uid);
       const playerProfile = createPlayerProfile(firebaseUser, userDoc);
       setUser(playerProfile);
+      navigate('/profile'); // Redirect to profile page after login
     } catch (err) {
       console.error('Sign in error:', err);
       throw err;
@@ -287,6 +291,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         userId: playerProfile.userId,
         role: playerProfile.role,
       });
+      navigate('/profile'); // Redirect to profile page after sign up
     } catch (err) {
       console.error('Sign up error:', err);
       throw err;
@@ -297,6 +302,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await auth.signOut();
       setUser(null);
+      setFirebaseUser(null);
+      navigate('/login'); // Ensure the user is redirected to the login page
     } catch (err) {
       console.error('Sign out error:', err);
       throw err;
@@ -317,6 +324,9 @@ const signInAsGuest = async () => {
       isAnonymous: true,
       guest: true,
       createdAt: new Date(),
+      guestToken: result.user.uid,
+      guestSessionToken: result.user.refreshToken || '',
+      guestSessionExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
       metrics: {
         gamesPlayed: 0,
         totalScore: 0,
@@ -330,6 +340,7 @@ const signInAsGuest = async () => {
       role: UserRole.GUEST,
       type: UserType.GUEST
     });
+    navigate('/game'); // Redirect to game page for guests
   } catch (err) {
     console.error('Guest sign in error:', err);
     throw err;
@@ -362,6 +373,14 @@ const signInAsGuest = async () => {
     }
   };
 
+  const sendEmailVerification = async () => {
+    if (auth.currentUser) {
+      await sendEmailVerificationAuth(auth.currentUser);
+    } else {
+      throw new Error('No authenticated user found');
+    }
+  };
+
   const value = {
     user,
     firebaseUser,
@@ -374,11 +393,12 @@ const signInAsGuest = async () => {
     signOut,
     resetPassword,
     updateProfile,
-    signInAsGuest
+    signInAsGuest,
+    sendEmailVerification
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ ...value, setUser }}>
       {children}
     </AuthContext.Provider>
   );

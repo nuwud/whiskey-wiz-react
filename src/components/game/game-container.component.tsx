@@ -166,9 +166,15 @@ export const GameContainer: React.FC = () => {
                 throw new Error('Invalid quarter data');
             }
     
-            const transformedSamples = transformQuarterSamples(quarter.samples);
-            setSamples(transformedSamples);
-            saveGameState({ ...INITIAL_STATE, samples: transformedSamples });
+            if (quarter && quarter.samples && Object.keys(quarter.samples).length > 0) {
+                console.log('Transforming and setting samples...');
+                const transformedSamples = transformQuarterSamples(quarter.samples);
+                setSamples(transformedSamples);
+                console.log('Set samples:', transformedSamples);
+                saveGameState({ ...INITIAL_STATE, samples: transformedSamples });
+            } else {
+                console.error('No valid samples found for this quarter.');
+            }
     
             AnalyticsService.trackEvent('game_initialization_success', { quarterId, userId: user.userId });
     

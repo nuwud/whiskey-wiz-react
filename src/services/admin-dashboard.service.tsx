@@ -152,6 +152,7 @@ export class AdminDashboardService {
       userId: data.userId,
       displayName: data.displayName || '',
       email: data.email || '',
+      emailVerified: data.emailVerified || false,
       role: data.role || 'user',
       adminPrivileges: data.adminPrivileges || [],
       type: data.type || UserType.GUEST,
