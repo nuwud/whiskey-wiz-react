@@ -1,4 +1,5 @@
 import React from 'react';
+import { BrowserRouter as Router } from 'react-router-dom';
 import { AuthProvider } from './contexts/auth.context';
 import { FeatureProvider } from './contexts/feature.context';
 import { QuarterProvider } from './contexts/quarter.context';
@@ -10,9 +11,11 @@ const App: React.FC = () => {
     <AuthProvider>
       <FeatureProvider>
         <QuarterProvider>
-        <Layout>
-          <AppRoutes />
-        </Layout>
+          <Router>
+            <Layout>
+              <AppRoutes />
+            </Layout>
+          </Router>
         </QuarterProvider>
       </FeatureProvider>
     </AuthProvider>
