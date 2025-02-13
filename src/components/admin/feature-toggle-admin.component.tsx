@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Switch } from '../../components/ui/switch-ui.component'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card-ui.component'
 import { doc, updateDoc, collection, onSnapshot } from 'firebase/firestore'
-import { db } from '../../config/firebase'
+import { getFirestore } from 'firebase/firestore'
+const db = getFirestore();
 
 interface Feature {
   id: string
@@ -55,7 +56,7 @@ export function FeatureToggleAdmin() {
           <CardContent>
             <p className="text-sm text-gray-600">{feature.description}</p>
             {feature.requiresRefresh && (
-              <p className="text-sm text-amber-600 mt-2">
+              <p className="mt-2 text-sm text-amber-600">
                 * Changes require game refresh
               </p>
             )}

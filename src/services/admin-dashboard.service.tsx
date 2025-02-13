@@ -8,7 +8,8 @@ import {
   CollectionReference,
   DocumentData
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { getFirestore } from 'firebase/firestore';
+const db = getFirestore();
 import { QuarterTemplate } from './quarter-template.service';
 import { PlayerProfile } from '../types/auth.types';
 import { fromFirebaseTimestamp } from '../utils/timestamp.utils';

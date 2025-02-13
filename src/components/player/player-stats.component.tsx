@@ -2,7 +2,12 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card-ui.component';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { getFirestore } from 'firebase/firestore';
+import { initializeApp } from 'firebase/app';
+import { firebaseConfig } from '../../config/firebase';
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 import { useAuth } from '../../contexts/auth.context';
 
 // Define our interfaces for type safety
@@ -118,7 +123,7 @@ export const PlayerStatsComponent: React.FC = () => {
                 <CardContent>
                     <div className="space-y-4">
                         {stats.recentResults.map(result => (
-                            <div key={result.id} className="flex justify-between items-center">
+                            <div key={result.id} className="flex items-center justify-between">
                                 <span>{new Date(result.completedAt).toLocaleDateString()}</span>
                                 <span className="text-lg font-medium">{result.score}</span>
                             </div>

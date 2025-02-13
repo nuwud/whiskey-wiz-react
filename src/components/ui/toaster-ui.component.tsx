@@ -1,23 +1,41 @@
-import { Toast, ToastProvider, ToastViewport } from "../../components/ui/toast-ui.component";
-import { useToast } from "../../hooks/use-toast.hook";
+import { useToast } from '../../hooks/use-toast.hook';
 
 export function Toaster() {
-  const { toasts } = useToast();
+  const { toasts, removeToast } = useToast();
 
   return (
-    <ToastProvider>
-      {toasts.map(function ({ id, title, description, action, ...props }) {
-        return (
-          <Toast key={id} {...props}>
-            <div className="grid gap-1">
-              {title && <div className="font-medium">{title}</div>}
-              {description && <div>{description}</div>}
+    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">
+      {toasts.map((toast) => (
+        <div
+          key={toast.id}
+          className={`${
+            toast.type === 'error'
+              ? 'bg-red-50 border-red-400'
+              : toast.type === 'warning'
+              ? 'bg-yellow-50 border-yellow-400'
+              : toast.type === 'success'
+              ? 'bg-green-50 border-green-400'
+              : 'bg-white border-gray-200'
+          } border rounded-lg shadow-lg p-4 max-w-md transition-all duration-300`}
+        >
+          {toast.title && (
+            <div className="font-semibold mb-1">
+              {toast.title}
             </div>
-            {action}
-          </Toast>
-        );
-      })}
-      <ToastViewport />
-    </ToastProvider>
+          )}
+          {toast.description && (
+            <div className="text-sm text-gray-600">
+              {toast.description}
+            </div>
+          )}
+          <button
+            onClick={() => removeToast(toast.id)}
+            className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+          >
+            ×
+          </button>
+        </div>
+      ))}
+    </div>
   );
 }

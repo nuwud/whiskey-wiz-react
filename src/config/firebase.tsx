@@ -1,11 +1,9 @@
-// src/config/firebase.tsx
-import { initializeApp, FirebaseApp } from 'firebase/app';
+import { initializeApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getDatabase, Database } from 'firebase/database';
 import { getAnalytics, Analytics, isSupported } from 'firebase/analytics';
 
-// Safety check for Firebase configuration
 if (!import.meta.env.VITE_FIREBASE_API_KEY) {
   throw new Error('Firebase configuration is missing');
 }
@@ -21,23 +19,21 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
-let rtdb: Database;
+const app = initializeApp(firebaseConfig);
+export const db: Firestore = getFirestore(app);
+
+let auth: Auth | null = null;
+let rtdb: Database | null = null;
 let analyticsInstance: Analytics | null = null;
 
 try {
-  app = initializeApp(firebaseConfig);
   auth = getAuth(app);
-  db = getFirestore(app);
   rtdb = getDatabase(app);
 
-  // Initialize analytics safely
   if (typeof window !== 'undefined') {
     isSupported().then(supported => {
       if (supported) {
-        analyticsInstance = getAnalytics(app);
+        analyticsInstance = getAnalytics(app!);
       }
     }).catch(err => {
       console.warn('Analytics initialization error:', err);
@@ -46,17 +42,22 @@ try {
 
 } catch (error) {
   console.error('Firebase initialization error:', error);
-  throw error;
 }
 
-// Export a function to get analytics that won't fail if analytics isn't initialized
-const getAnalyticsInstance = () => analyticsInstance;
+const getAuthInstance = (): Auth => {
+  if (!auth) throw new Error('Firebase Auth not initialized');
+  return auth;
+};
+
+const getDatabaseInstance = (): Database => {
+  if (!rtdb) throw new Error('Realtime Database not initialized');
+  return rtdb;
+};
 
 export { 
   app, 
-  auth, 
-  db, 
-  rtdb, 
-  getAnalyticsInstance as analytics,
+  getAuthInstance as auth, 
+  getDatabaseInstance as rtdb, 
+  analyticsInstance as analytics,
   firebaseConfig 
 };

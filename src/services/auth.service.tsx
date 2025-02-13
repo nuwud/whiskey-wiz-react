@@ -1,4 +1,9 @@
-import { auth, db } from '../config/firebase';
+import { getAuth } from 'firebase/auth';
+
+const auth = getAuth();
+import { getFirestore } from 'firebase/firestore';
+
+const db = getFirestore();
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, UserCredential } from 'firebase/auth';
 import { doc, setDoc, getDoc, runTransaction, Timestamp } from 'firebase/firestore';
 import { retryOperation } from '../utils/retry.utils';

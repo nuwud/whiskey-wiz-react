@@ -1,5 +1,10 @@
-import { db, auth } from '../config/firebase';
-import { doc, getDoc, updateDoc, collection, addDoc } from 'firebase/firestore';
+import { getFirestore } from 'firebase/firestore';
+
+const db = getFirestore();
+import { getAuth } from 'firebase/auth';
+
+const auth = getAuth();
+import { doc, getDoc, updateDoc, collection, addDoc, setDoc } from 'firebase/firestore';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -8,7 +13,7 @@ import {
   sendPasswordResetEmail,
   User
 } from 'firebase/auth';
-import { ExtendedUser, UserRole, UserType } from '../types/auth.types';
+import { ExtendedUser, UserRole, UserType, PlayerProfile } from '../types/auth.types';
 import { signInAnonymously as firebaseSignInAnonymously } from 'firebase/auth';
 
 export class FirebaseService {
@@ -17,10 +22,55 @@ export class FirebaseService {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await this.createUserDocument(userCredential.user.uid, {
+        userId: userCredential.user.uid,
         email,
+        displayName: userCredential.user.displayName || 'New Player',
         role: UserRole.PLAYER,
         type: UserType.REGISTERED,
-        createdAt: new Date()
+        isAnonymous: userCredential.user.isAnonymous,
+        guest: userCredential.user.isAnonymous,
+        emailVerified: userCredential.user.emailVerified,
+        registrationType: 'email',
+        adminPrivileges: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastLoginAt: new Date(),
+        lastActive: new Date(),
+        version: 1,
+        totalGames: 0,
+        averageScore: 0,
+        winRate: 0,
+        level: 1,
+        experience: 0,
+        lifetimeScore: 0,
+        totalQuartersCompleted: 0,
+        quarterPerformance: {},
+        metrics: {
+          gamesPlayed: 0,
+          totalScore: 0,
+          averageScore: 0,
+          bestScore: 0,
+          badges: [],
+          achievements: [],
+          lastVisit: new Date(),
+          visitCount: 1,
+        },
+        preferences: {
+          favoriteWhiskeys: [],
+          preferredDifficulty: 'beginner',
+          notifications: true,
+        },
+        geographicData: null,
+        statistics: {
+          totalSamplesGuessed: 0,
+          correctGuesses: 0,
+          hintsUsed: 0,
+          averageAccuracy: 0,
+          bestScore: 0,
+          worstScore: 0,
+          lastUpdated: new Date(),
+        },
+        achievements: [],
       });
       await sendEmailVerification(userCredential.user);
       return {
@@ -57,7 +107,7 @@ export class FirebaseService {
         userId: userCredential.user.uid,
         role: UserRole.GUEST,
         type: UserType.GUEST,
-        registrationType: UserType.GUEST,
+        registrationType: 'email',
         guest: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -82,9 +132,55 @@ export class FirebaseService {
         }
       };
       await this.createUserDocument(userCredential.user.uid, {
-        role: UserRole.GUEST,
-        type: UserType.GUEST,
-        createdAt: new Date()
+        userId: userCredential.user.uid,
+        email: userCredential.user.email || '',
+        displayName: userCredential.user.displayName || 'Guest',
+        role: UserRole.PLAYER,
+        type: UserType.REGISTERED,
+        isAnonymous: userCredential.user.isAnonymous,
+        guest: true,
+        emailVerified: userCredential.user.emailVerified,
+        registrationType: 'anonymous',
+        adminPrivileges: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastLoginAt: new Date(),
+        lastActive: new Date(),
+        version: 1,
+        totalGames: 0,
+        averageScore: 0,
+        winRate: 0,
+        level: 1,
+        experience: 0,
+        lifetimeScore: 0,
+        totalQuartersCompleted: 0,
+        quarterPerformance: {},
+        metrics: {
+          gamesPlayed: 0,
+          totalScore: 0,
+          averageScore: 0,
+          bestScore: 0,
+          badges: [],
+          achievements: [],
+          lastVisit: new Date(),
+          visitCount: 1,
+        },
+        preferences: {
+          favoriteWhiskeys: [],
+          preferredDifficulty: 'beginner',
+          notifications: true,
+        },
+        geographicData: null,
+        statistics: {
+          totalSamplesGuessed: 0,
+          correctGuesses: 0,
+          hintsUsed: 0,
+          averageAccuracy: 0,
+          bestScore: 0,
+          worstScore: 0,
+          lastUpdated: new Date(),
+        },
+        achievements: [],
       });
       return guestUser;
     } catch (error) {
@@ -126,13 +222,10 @@ export class FirebaseService {
     }
   }
 
-  static async createUserDocument(uid: string, data: any): Promise<void> {
-    try {
-      await updateDoc(doc(db, 'users', uid), data);
-    } catch (error) {
-      console.error('Error creating user document:', error);
-      throw error;
-    }
+  static async createUserDocument(uid: string, profile: PlayerProfile): Promise<PlayerProfile> {
+    const userDocRef = doc(db, 'users', uid);
+    await setDoc(userDocRef, profile);
+    return profile;
   }
 
   static async getUserDocument(uid: string): Promise<any> {
@@ -162,3 +255,9 @@ export class FirebaseService {
     return quarterSnap.exists() ? quarterSnap.data() : null;
   }
 }
+
+export const createUserDocument = async (uid: string, profile: PlayerProfile): Promise<PlayerProfile> => {
+  const userDocRef = doc(db, 'users', uid);
+  await setDoc(userDocRef, profile);
+  return profile;
+};

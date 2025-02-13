@@ -52,8 +52,8 @@ export interface PlayerProfile {
   displayName: string;
   role: UserRole.PLAYER;
   type: UserType.REGISTERED;
-  registrationType: 'email' | 'google' | 'facebook' | 'twitter';
-  adminPrivileges: null;
+  registrationType: string;
+  adminPrivileges: any;
   guest: boolean;
   isAnonymous: boolean;
   createdAt: Date;
@@ -77,14 +77,14 @@ export interface PlayerProfile {
     totalScore: number;
     averageScore: number;
     bestScore: number;
-    badges: string[];
-    achievements: string[];
+    badges: any[];
+    achievements: any[];
     lastVisit: Date;
     visitCount: number;
   };
 
   preferences: {
-    favoriteWhiskeys: string[];
+    favoriteWhiskeys: any[];
     preferredDifficulty: 'beginner' | 'intermediate' | 'advanced';
     notifications: boolean;
   };
@@ -107,10 +107,10 @@ export interface PlayerProfile {
   level?: number;
   experience?: number;
   geographicData?: {
-    country?: string;
-    region?: string;
+    country?: any;
+    region?: any;
   } | null;
-  achievements?: string[];
+  achievements?: any[];
 }
 
 export interface AdminProfile {

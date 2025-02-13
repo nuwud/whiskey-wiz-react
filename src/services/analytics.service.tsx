@@ -37,9 +37,8 @@ export class AnalyticsService {
   // Add static trackEvent method
   public static trackEvent(eventName: string, data: Record<string, any>): void {
     try {
-      const analyticsInstance = analytics();
-      if (analyticsInstance) {
-        logEvent(analyticsInstance, eventName, {
+      if (analytics) {
+        logEvent(analytics, eventName, {
           ...data,
           timestamp: new Date()
         });

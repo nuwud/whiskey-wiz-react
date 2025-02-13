@@ -1,5 +1,10 @@
 import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { getFirestore } from 'firebase/firestore';
+import { initializeApp } from 'firebase/app';
+import { firebaseConfig } from '../config/firebase';
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 import { AnalyticsService } from '../services/analytics.service';
 import { Quarter, WhiskeySample, ScoringRules, Difficulty } from '../types/game.types';
 import { Timestamp } from 'firebase/firestore';

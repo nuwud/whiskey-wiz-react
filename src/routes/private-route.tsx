@@ -17,14 +17,20 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({
   children,
   redirectPath = '/login'
 }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, error } = useAuth(); // Include error
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <Spinner />
+        <p>Authenticating...</p>
       </div>
     );
+  }
+
+  if (error) {
+    console.error("PrivateRoute encountered an error:", error);
+    return <Navigate to="/login" replace />;
   }
 
   if (!user) {

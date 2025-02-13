@@ -12,7 +12,7 @@ import {
   serverTimestamp,
   addDoc
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '../config/firebase'; // Ensure db is an instance of Firestore
 import { AnalyticsService } from './analytics.service';
 import { TimeseriesData } from '../types/game.types';
 import { LeaderboardEntry } from './leaderboard.service';
@@ -33,7 +33,7 @@ export const getSamplesForQuarter = async (quarterId: string) => {
 
   // If no samples are in the main document, check the subcollection
   if (samples.length === 0) {
-    const sampleQuery = collection(db, `quarters/${quarterId}/samples`);
+    const sampleQuery = collection(db, 'quarters', quarterId, 'samples');
     const sampleSnap = await getDocs(sampleQuery);
     samples = sampleSnap.docs.map(doc => doc.data());
   }
@@ -678,7 +678,7 @@ export class QuarterService {
       if (samples.length === 0) {
         console.log('Checking for individual sample documents...');
         const samplePromises = ['A', 'B', 'C', 'D'].map(async (sampleId) => {
-          const sampleRef = doc(db, 'quarters', quarterId, 'samples', sampleId);
+          const sampleRef = doc(db, `quarters/${quarterId}/samples/${sampleId}`);
           const sampleDoc = await getDoc(sampleRef);
           if (sampleDoc.exists()) {
             return {

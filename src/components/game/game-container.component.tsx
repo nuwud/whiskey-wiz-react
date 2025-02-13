@@ -14,6 +14,9 @@ import { useGameProgression } from '../../store/game-progression.store';
 import { ScoreService } from '../../services/score.service';
 import { transformQuarterSamples } from '../../utils/data-transform.utils';
 import { saveGameState, loadGameState } from '../../utils/storage.util';  // assuming this is where the function is
+import { GuestSessionMonitor } from '../guest/guest-session-monitor.component';
+import { GuestGameStateService } from '../../services/guest-game-state.service';
+import { useToast } from '../../hooks/use-toast.hook';
 
 const calculateTimeSpent = (startTime: number): number => {
     return Math.floor((Date.now() - startTime) / 1000);
@@ -25,10 +28,10 @@ export const isValidSampleSet = (
     samples: unknown
 ): samples is Record<SampleId, WhiskeySample> => {
     if (!samples || typeof samples !== 'object') return false;
-    
+
     const requiredIds = new Set(['A', 'B', 'C', 'D']);
     const sampleIds = new Set(Object.keys(samples));
-    
+
     return [...requiredIds].every(id => sampleIds.has(id));
 };
 
@@ -37,6 +40,24 @@ export const GameContainer: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { samples, setSamples } = useGameStore();
+    const { toast } = useToast();
+    const [sessionExpired, setSessionExpired] = useState(false);
+
+    const handleSessionExpiring = () => {
+        toast({
+            title: "Session Expiring",
+            description: "Your guest session will expire soon. Sign up to save your progress!",
+            type: "warning"
+        });
+    };
+
+    const handleSessionExpired = () => {
+        setSessionExpired(true);
+        navigate('/signup', {
+            state: { from: 'game' }
+        });
+    };
+
     // Global game progression state
     const gameProgression = useGameProgression();
     const { setCurrentSample } = gameProgression;
@@ -117,14 +138,14 @@ export const GameContainer: React.FC = () => {
 
     const validateQuarterData = (quarter: any): boolean => {
         if (!quarter) return false;
-        
+
         const hasSamples = quarter.samples && Array.isArray(quarter.samples) && quarter.samples.length > 0;
         console.log('Quarter samples validation:', {
             hasSamples,
             samplesLength: quarter.samples?.length,
             samplesData: quarter.samples
         });
-        
+
         return hasSamples;
     };
 
@@ -134,18 +155,27 @@ export const GameContainer: React.FC = () => {
             navigate('/quarters');
             return;
         }
-    
+
         const traceId = monitoringService.startTrace('game_initialization');
-    
+
         try {
             setLoading(true);
             setError(null);
             console.log('Starting game initialization...');
 
-            const timeoutPromise = new Promise((_, reject) => 
+            const timeoutPromise = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error('Game initialization timed out')), 10000)
             );
-    
+
+            if (user.guest) {
+                // Try to load guest state first
+                const guestState = GuestGameStateService.loadGameState(user.userId);
+                if (guestState && GuestGameStateService.isStateValid(guestState)) {
+                    setGameState(guestState);
+                    return;
+                }
+            }
+
             // Fetch user state and quarter data in parallel
             const results = await Promise.race([
                 Promise.all([
@@ -153,10 +183,10 @@ export const GameContainer: React.FC = () => {
                     quarterService.getQuarterById(quarterId)
                 ]),
                 timeoutPromise
-            ]) as [GameState | null, any]; 
+            ]) as [GameState | null, any];
 
             const [savedState, quarter] = results;
-    
+
             if (savedState?.samples && Object.keys(savedState.samples).length === 4) {
                 console.log('Restoring saved game state');
                 const fullGameState: GameState = {
@@ -171,11 +201,11 @@ export const GameContainer: React.FC = () => {
                 setSamples(savedState.samples);
                 return;
             }
-    
+
             if (!quarter || !validateQuarterData(quarter)) {
                 throw new Error('Invalid quarter data');
             }
-    
+
             if (quarter && quarter.samples && Object.keys(quarter.samples).length > 0) {
                 console.log('Transforming and setting samples...');
                 const transformedSamples = transformQuarterSamples(quarter.samples);
@@ -185,9 +215,9 @@ export const GameContainer: React.FC = () => {
             } else {
                 console.error('No valid samples found for this quarter.');
             }
-    
+
             AnalyticsService.trackEvent('game_initialization_success', { quarterId, userId: user.userId });
-    
+
         } catch (error) {
             console.error('Game initialization failed:', error);
             setError(error instanceof Error ? error.message : 'An unknown error occurred');
@@ -201,13 +231,20 @@ export const GameContainer: React.FC = () => {
             monitoringService.endTrace('game_initialization', traceId);
         }
     }, [quarterId, user, navigate, setSamples]);
-    
+
     // Single initialization effect
     useEffect(() => {
         if (user && !useGameStore.getState().isInitialized) {
             initializeGame();
         }
     }, [user, initializeGame]);
+
+    // Save guest state
+    useEffect(() => {
+        if (gameState && user?.guest) {
+            GuestGameStateService.saveGameState(gameState, user.userId);
+        }
+    }, [gameState, user]);
 
     const handleNextSample = () => {
         if (currentSampleIndex < SAMPLE_IDS.length - 1) {
@@ -225,16 +262,16 @@ export const GameContainer: React.FC = () => {
 
     const handleGameComplete = async () => {
         if (!quarterId || !user) return;
-    
+
         const gameCompletionTrace = monitoringService.startTrace('game_completion');
-    
+
         try {
             setLoading(true);
             console.log('Starting game completion process...');
-    
+
             const timeSpent = calculateTimeSpent(startTime);
             const currentTotalScore = calculateTotalScore();
-    
+
             const finalState = {
                 guesses,
                 score: {}, // Add the current score state here
@@ -242,15 +279,25 @@ export const GameContainer: React.FC = () => {
                 samples,
                 currentQuarter: quarterId
             };
-            
+
             saveGameState(finalState);
-    
+
             // Submit score for all valid users (guests, players, and admins)
-            if (user && user.role) {  // Just check if we have a valid user with a role
-                console.log('Submitting final score:', currentTotalScore);
+            if (user.guest) {
+                // Save guest score locally
+                GuestGameStateService.saveScore({
+                    guestId: user.userId,
+                    quarterId,
+                    score: currentTotalScore,
+                    timestamp: Date.now(),
+                    samples,
+                    guesses
+                });
+            } else {
+                // Normal score submission
                 await FirebaseService.submitScore(user.userId, quarterId, currentTotalScore);
             }
-                
+
             logEvent(getAnalytics(), 'game_completed', {
                 quarterId,
                 userId: user.userId,
@@ -258,13 +305,18 @@ export const GameContainer: React.FC = () => {
                 score: currentTotalScore,
                 time_spent: timeSpent
             });
-    
+
             console.log('Navigating to results page...');
             navigate(`/game/${quarterId}/results`, { replace: true });
-    
+
         } catch (error) {
             console.error('Game completion failed:', error);
             setError('Failed to complete game. Please try again.');
+            toast({
+                title: "Error",
+                description: "Failed to save game results. Please try again.",
+                type: "error"
+            });
             AnalyticsService.trackEvent('game_completion_failed', {
                 error: error instanceof Error ? error.message : 'Unknown error',
                 userId: user.userId
@@ -274,6 +326,16 @@ export const GameContainer: React.FC = () => {
             monitoringService.endTrace('game_completion', gameCompletionTrace);
         }
     };
+
+    useEffect(() => {
+        if (sessionExpired) {
+            navigate('/signup', {
+                state: {
+                    message: "Your guest session has expired. Sign up to continue playing!"
+                }
+            });
+        }
+    }, [sessionExpired, navigate]);
 
     if (loading) {
         return (
@@ -314,6 +376,13 @@ export const GameContainer: React.FC = () => {
                 />
             </div>
 
+            {/* Guest Session Monitor */}
+            {user?.guest && (
+                <GuestSessionMonitor
+                    onSessionExpiring={handleSessionExpiring}
+                    onSessionExpired={handleSessionExpired}
+                />
+            )}
         </div>
     );
 };

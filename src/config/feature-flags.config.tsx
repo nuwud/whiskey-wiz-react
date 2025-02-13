@@ -1,6 +1,11 @@
 import { Component, useContext } from 'react';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { getFirestore } from 'firebase/firestore';
+import { initializeApp } from 'firebase/app';
+import { firebaseConfig } from '../config/firebase'; // Ensure firebaseApp is your initialized Firebase app
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
 import { FeatureContext, FeatureContextType } from '../contexts/feature.context';
 
 const CACHE_KEY = 'feature_flags_cache';

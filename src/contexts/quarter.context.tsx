@@ -1,5 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { db } from '../config/firebase';
+import { getFirestore } from 'firebase/firestore';
+import { initializeApp } from 'firebase/app';
+import { firebaseConfig } from '../config/firebase';
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 import { collection, query, where, getDocs, onSnapshot, Unsubscribe, doc, getDoc } from 'firebase/firestore';
 import { Quarter } from '../types/game.types';
 import { useAuth } from './auth.context';
@@ -231,13 +236,13 @@ export const QuarterProvider: React.FC<QuarterProviderProps> = ({ children }) =>
   return (
     <QuarterContext.Provider value={value}>
       {error ? (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center p-4">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="p-4 text-center">
             <h2 className="text-xl font-bold text-red-600">Error Loading Quarter Data</h2>
             <p className="mt-2 text-gray-600">{error}</p>
             <button 
               onClick={refreshQuarter}
-              className="mt-4 px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700"
+              className="px-4 py-2 mt-4 text-white rounded bg-amber-600 hover:bg-amber-700"
             >
               Try Again
             </button>

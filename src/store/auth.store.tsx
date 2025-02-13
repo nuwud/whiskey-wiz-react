@@ -9,7 +9,8 @@ import {
   User as FirebaseUser
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { getFirestore } from 'firebase/firestore';
+const db = getFirestore();
 import { UserRole, UserType, PlayerProfile, AdminProfile } from '../types/auth.types';
 
 interface AuthState {

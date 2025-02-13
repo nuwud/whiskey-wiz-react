@@ -1,8 +1,12 @@
 import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { getFirestore } from 'firebase/firestore';
+import { firebaseConfig } from '../config/firebase';
 import { AnalyticsService } from './analytics.service';
 import { retryOperation } from '../utils/retry.utils';
+import { initializeApp } from 'firebase/app';
 
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 export interface GameChallenge {
   id: string;
   quarterId: string;

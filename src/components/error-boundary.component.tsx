@@ -26,13 +26,15 @@ export class ErrorBoundary extends React.Component<Props, State> {
   public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
 
-      // Check for specific errors that might indicate auth problems
-  if (error.message.includes('auth') || error.message.includes('firebase')) {
-    // Attempt to refresh the page after a short delay
+    // Only reload if the error is not related to Firebase authentication
+    if (error.message.includes('auth') || error.message.includes('firebase')) {
+      console.warn("Authentication issue detected. Suggesting user to retry instead of auto-reload.");
+      return;
+    }
+
     setTimeout(() => {
       window.location.reload();
     }, 3000);
-  }
   }
 
   private handleReset = () => {
