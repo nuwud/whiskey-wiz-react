@@ -1,11 +1,12 @@
 import React from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import PrivateRoute from '../routes/private-route';
+import ProtectedRoute from '../components/auth/protected-route.component';
 import { UserRole } from '../types/auth.types';
 import { GameErrorBoundary } from '../components/game/game-error-boundary.component';
 
 // Auth Components
-import Login from '../components/auth/login.component';
+import { Login } from '../components/auth/login.component';
 import SignUp from '../components/auth/sign-up.component';
 import ForgotPassword from '../components/auth/forgot-password.component';
 import VerifyEmail from '../components/auth/verify-email.component';
@@ -33,10 +34,9 @@ export const AppRoutes: React.FC = () => {
       <Route path="/signup" element={<SignUp />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
-      <Route path="/game/:quarterId/results" element={<GameResults />} />
 
-      {/* Game Routes */}
-      <Route element={<PrivateRoute allowedRoles={[UserRole.PLAYER, UserRole.ADMIN]} />}>
+      {/* Game Routes - Allow guests */}
+      <Route element={<ProtectedRoute allowedRoles={[UserRole.PLAYER, UserRole.ADMIN, UserRole.GUEST]} />}>
         <Route path="/" element={<QuarterSelection onSelect={(quarter) => {
           if (quarter?.id) {
             navigate(`/game/${quarter.id}`);
@@ -55,13 +55,13 @@ export const AppRoutes: React.FC = () => {
         <Route path="/game/:quarterId/results" element={<GameResults />} />
       </Route>
 
-      {/* Player Routes */}
-      <Route element={<PrivateRoute allowedRoles={[UserRole.PLAYER, UserRole.ADMIN]} />}>
+      {/* Player Only Routes */}
+      <Route element={<ProtectedRoute allowedRoles={[UserRole.PLAYER, UserRole.ADMIN]} />}>
         <Route path="/dashboard" element={<PlayerDashboard />} />
         <Route path="/profile" element={<PlayerProfile />} />
       </Route>
 
-      {/* Admin Routes */}
+      {/* Admin Only Routes */}
       <Route element={<PrivateRoute adminOnly />}>
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/admin/users" element={<UserManagement />} />

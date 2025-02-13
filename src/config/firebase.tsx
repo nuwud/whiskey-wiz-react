@@ -1,8 +1,14 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getDatabase } from 'firebase/database';
-import { getAnalytics, isSupported } from 'firebase/analytics';
+// src/config/firebase.tsx
+import { initializeApp, FirebaseApp } from 'firebase/app';
+import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, Firestore } from 'firebase/firestore';
+import { getDatabase, Database } from 'firebase/database';
+import { getAnalytics, Analytics, isSupported } from 'firebase/analytics';
+
+// Safety check for Firebase configuration
+if (!import.meta.env.VITE_FIREBASE_API_KEY) {
+  throw new Error('Firebase configuration is missing');
+}
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -15,23 +21,42 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-console.log('ENV:', import.meta.env);
-console.log('Config:', firebaseConfig);
+let app: FirebaseApp;
+let auth: Auth;
+let db: Firestore;
+let rtdb: Database;
+let analyticsInstance: Analytics | null = null;
 
-const app = initializeApp(firebaseConfig);
+try {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  rtdb = getDatabase(app);
 
-// Initialize services
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const rtdb = getDatabase(app);
-
-// Initialize analytics safely
-export const analytics = async () => {
-  if (typeof window !== 'undefined' && await isSupported()) {
-    return getAnalytics(app);
+  // Initialize analytics safely
+  if (typeof window !== 'undefined') {
+    isSupported().then(supported => {
+      if (supported) {
+        analyticsInstance = getAnalytics(app);
+      }
+    }).catch(err => {
+      console.warn('Analytics initialization error:', err);
+    });
   }
-  return null;
-};
 
-export { firebaseConfig };
-export default app;
+} catch (error) {
+  console.error('Firebase initialization error:', error);
+  throw error;
+}
+
+// Export a function to get analytics that won't fail if analytics isn't initialized
+const getAnalyticsInstance = () => analyticsInstance;
+
+export { 
+  app, 
+  auth, 
+  db, 
+  rtdb, 
+  getAnalyticsInstance as analytics,
+  firebaseConfig 
+};

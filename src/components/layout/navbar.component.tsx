@@ -11,11 +11,15 @@ interface NavUser {
 
 export const NavBar: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-
+  const { user, signOut } = useAuth();
+  
   const handleSignOut = async () => {
-    // Add signOut functionality here when implementing auth
-    navigate('/login');
+    try {
+      await signOut();
+      navigate('/login');
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
   };
 
   const navUser = user as NavUser | null;

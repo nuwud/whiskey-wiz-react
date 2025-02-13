@@ -230,7 +230,22 @@ export const QuarterProvider: React.FC<QuarterProviderProps> = ({ children }) =>
 
   return (
     <QuarterContext.Provider value={value}>
-      {children}
+      {error ? (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center p-4">
+            <h2 className="text-xl font-bold text-red-600">Error Loading Quarter Data</h2>
+            <p className="mt-2 text-gray-600">{error}</p>
+            <button 
+              onClick={refreshQuarter}
+              className="mt-4 px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      ) : (
+        children
+      )}
     </QuarterContext.Provider>
   );
 };

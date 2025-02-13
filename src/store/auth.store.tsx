@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { useNavigate } from 'react-router-dom';
 import {
   getAuth,
   signInWithEmailAndPassword,
@@ -18,7 +17,6 @@ interface AuthState {
   profile: PlayerProfile | AdminProfile | null;
   isLoading: boolean;
   error: string | null;
-  navigate: (path: string) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, role?: UserRole) => Promise<void>;
   signInAsGuest: () => Promise<void>;
@@ -90,15 +88,11 @@ const createBaseProfile = (fbUser: FirebaseUser, _role: UserRole = UserRole.PLAY
   } as const
 });
 
-export const useAuthStore = create<AuthState>((set, get) => {
-  const navigate = useNavigate(); // Use the useNavigate hook
-
-  return {
-    user: null,
-    profile: null,
-    isLoading: true,
-    error: null,
-    navigate, // Assign navigate to the state
+export const useAuthStore = create<AuthState>((set, get) => ({
+  user: null,
+  profile: null,
+  isLoading: true,
+  error: null,
 
     signIn: async (email: string, password: string) => {
       try {
@@ -241,8 +235,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
           set({ profile: playerProfile });
         }
 
-        navigate('/profile'); // Use navigate for redirection
-
       } catch (error) {
         set({ error: (error as Error).message });
         throw error;
@@ -358,8 +350,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
         await setDoc(doc(db, 'users', fbUser.uid), profile);
         set({ user: profile as PlayerProfile, profile });
 
-        navigate('/profile'); // Use navigate for redirection
-
       } catch (error) {
         set({ error: (error as Error).message });
         throw error;
@@ -422,8 +412,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
         await setDoc(doc(db, 'users', fbUser.uid), guestProfile);
         set({ user: guestProfile, profile: guestProfile });
 
-        navigate('/profile'); // Use navigate for redirection
-
       } catch (error: unknown) {
         set({ error: (error as Error).message });
         throw error;
@@ -439,7 +427,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
         await firebaseSignOut(auth);
         set({ user: null, profile: null });
 
-        navigate('/login'); // Use navigate for redirection
       } catch (error) {
         set({ error: (error as Error).message });
         throw error;
@@ -466,7 +453,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           ...data,
           updatedAt: new Date(),
         } as PlayerProfile | AdminProfile;
-        
+
         set({ profile: updatedProfile });
 
       } catch (error) {
@@ -481,8 +468,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     setProfile: (profile: PlayerProfile | AdminProfile | null) => set({ profile }),
     setError: (error: string | null) => set({ error }),
     setLoading: (isLoading: boolean) => set({ isLoading })
-  };
-});
+  }));
 
 export const validateRole = (role: string): role is UserRole => {
   return Object.values(UserRole).includes(role as UserRole);
@@ -520,7 +506,6 @@ onAuthStateChanged(auth, async (fbUser) => {
     if (!fbUser) {
       setUser(null);
       setProfile(null);
-      useAuthStore.getState().navigate('/login'); // Redirect to login page if no user is authenticated
       return;
     }
 
@@ -532,11 +517,9 @@ onAuthStateChanged(auth, async (fbUser) => {
     // Update state based on profile type
     if (profile.role === UserRole.ADMIN) {
       setProfile(profile as AdminProfile);
-      useAuthStore.getState().navigate('/admin'); // Redirect to admin page for admins
     } else {
       setProfile(profile as PlayerProfile);
       setUser(profile as PlayerProfile);
-      useAuthStore.getState().navigate('/profile'); // Redirect to profile page for players
     }
 
   } catch (error) {

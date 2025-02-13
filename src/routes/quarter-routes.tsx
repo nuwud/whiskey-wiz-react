@@ -20,14 +20,15 @@ export const QuarterRoutes: React.FC = () => {
                 console.warn("No quarters found");
                 return;
             }
+            console.log("Fetched quarters:", quarters); 
             setQuarterRoutes(quarters.map(q => `/quarters/${q.id}`));
         } catch (error) {
             console.error("Failed to fetch quarters", error);
         }
     };
-
     fetchAvailableQuarters();
-}, []);
+  }, []);
+  
 
   // Check if user is allowed to access quarters
   const canAccessQuarters = () => {

@@ -4,7 +4,7 @@ import { auth, db } from '../config/firebase';
 import { FirebaseService } from '../services/firebase.service';
 import { AnalyticsService } from '../services/analytics.service';
 import { PlayerProfile, UserType, UserRole, GuestProfile } from '../types/auth.types';
-import { Timestamp, getDoc, doc } from 'firebase/firestore';
+import { getDoc, doc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 interface AuthContextValue {
@@ -50,7 +50,7 @@ const getUserProfile = async (uid: string): Promise<PlayerProfile | null> => {
 
     if (!userSnap.exists()) {
       console.warn(`Creating new profile for user: ${uid}`);
-      
+
       const defaultProfile: PlayerProfile = {
         userId: uid,
         email: '',
@@ -108,7 +108,7 @@ const getUserProfile = async (uid: string): Promise<PlayerProfile | null> => {
     }
 
     const userData = userSnap.data();
-    
+
     // Validate and convert timestamps
     return {
       ...userData,
@@ -138,15 +138,16 @@ const getUserProfile = async (uid: string): Promise<PlayerProfile | null> => {
   }
 };
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }): JSX.Element => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<PlayerProfile | GuestProfile | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate(); // Define navigate
+  const [error, setError] = useState<Error | null>(null);
+  const navigate = useNavigate();
 
-  // Compute isAuthenticated based on user existence
   const isAuthenticated = Boolean(user);
 
+  // Move createPlayerProfile inside AuthProvider
   const createPlayerProfile = (firebaseUser: FirebaseUser, userDoc: any): PlayerProfile => {
     return {
       userId: firebaseUser.uid,
@@ -197,7 +198,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         averageAccuracy: 0,
         bestScore: 0,
         worstScore: 0,
-        lastUpdated: Timestamp.now(),
+        lastUpdated: new Date(),
         ...userDoc?.statistics
       },
       achievements: userDoc?.achievements || []
@@ -205,82 +206,121 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      setLoading(true);
-      if (fbUser) {
-        setFirebaseUser(fbUser);
-        let userData = await getUserProfile(fbUser.uid);
-        
-        if (!userData) {
-          console.warn('No profile found, creating new one...');
-          userData = {
-            userId: fbUser.uid,
-            email: fbUser.email || '',
-            displayName: fbUser.displayName || 'New Player',
-            emailVerified: fbUser.emailVerified,
-            role: UserRole.PLAYER,
-            type: UserType.REGISTERED,
-            guest: false,
-            isAnonymous: false,
-            registrationType: 'facebook',
-            adminPrivileges: null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            lastLoginAt: new Date(),
-            lastActive: new Date(),
-            version: 1,
-            totalGames: 0,
-            averageScore: 0,
-            winRate: 0,
-            level: 1,
-            experience: 0,
-            lifetimeScore: 0,
-            totalQuartersCompleted: 0,
-            quarterPerformance: {},
-            metrics: { gamesPlayed: 0, totalScore: 0, averageScore: 0, bestScore: 0, badges: [], achievements: [], lastVisit: new Date(), visitCount: 1 },
-            preferences: { favoriteWhiskeys: [], preferredDifficulty: 'beginner', notifications: true },
-            geographicData: null,
-            statistics: {
-              totalSamplesGuessed: 0,
-              correctGuesses: 0,
-              hintsUsed: 0,
-              averageAccuracy: 0,
-              bestScore: 0,
-              worstScore: 0,
-              lastUpdated: new Date()
-            },
-            achievements: []
-          };
-          await FirebaseService.createUserDocument(fbUser.uid, userData);
-        }
-  
-        setUser(userData);
-      } else {
-        setUser(null);
-        setFirebaseUser(null);
-      }
-      setLoading(false);
-    });
-  
-    return () => unsubscribe();
-  }, []);
-  
+    let mounted = true;
+    setLoading(true);
 
-  // In signIn function:
+    if (!auth) {
+      setError(new Error('Firebase authentication not initialized'));
+      return;
+    }
+
+    const handleAuthStateChange = async (fbUser: FirebaseUser | null) => {
+      try {
+        if (!mounted) return;
+        
+        if (fbUser) {
+          setFirebaseUser(fbUser);
+          let userData = await getUserProfile(fbUser.uid);
+
+          if (!userData) {
+            // Create default profile
+            userData = {
+              userId: fbUser.uid,
+              email: fbUser.email || '',
+              displayName: fbUser.displayName || 'New Player',
+              role: UserRole.PLAYER,
+              type: UserType.REGISTERED,
+              isAnonymous: fbUser.isAnonymous,
+              guest: fbUser.isAnonymous,
+              emailVerified: fbUser.emailVerified,
+              registrationType: 'email',
+              adminPrivileges: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              lastLoginAt: new Date(),
+              lastActive: new Date(),
+              version: 1,
+              totalGames: 0,
+              averageScore: 0,
+              winRate: 0,
+              level: 1,
+              experience: 0,
+              lifetimeScore: 0,
+              totalQuartersCompleted: 0,
+              quarterPerformance: {},
+              metrics: {
+                gamesPlayed: 0,
+                totalScore: 0,
+                averageScore: 0,
+                bestScore: 0,
+                badges: [],
+                achievements: [],
+                lastVisit: new Date(),
+                visitCount: 1
+              },
+              preferences: {
+                favoriteWhiskeys: [],
+                preferredDifficulty: 'beginner',
+                notifications: true
+              },
+              geographicData: null,
+              statistics: {
+                totalSamplesGuessed: 0,
+                correctGuesses: 0,
+                hintsUsed: 0,
+                averageAccuracy: 0,
+                bestScore: 0,
+                worstScore: 0,
+                lastUpdated: new Date()
+              },
+              achievements: []
+            };
+            
+            if (mounted) {
+              await FirebaseService.createUserDocument(fbUser.uid, userData);
+              setUser(userData);
+            }
+          } else if (mounted) {
+            setUser(userData);
+          }
+        } else if (mounted) {
+          setUser(null);
+          setFirebaseUser(null);
+        }
+      } catch (error) {
+        console.error('Auth state change error:', error);
+        if (mounted) {
+          setError(error instanceof Error ? error : new Error('Authentication error'));
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    const unsubscribe = onAuthStateChanged(auth, handleAuthStateChange);
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, []);
+
   const signIn = async (email: string, password: string) => {
     try {
       const firebaseUser = await FirebaseService.signIn(email, password);
       const userDoc = await FirebaseService.getUserDocument(firebaseUser.uid);
       const playerProfile = createPlayerProfile(firebaseUser, userDoc);
       setUser(playerProfile);
-      navigate('/profile'); // Redirect to profile page after login
+      // Only navigate after everything is set
+      navigate('/profile');
     } catch (err) {
       console.error('Sign in error:', err);
       throw err;
     }
   };
 
-  // In signUp function:
   const signUp = async (email: string, password: string) => {
     try {
       const firebaseUser = await FirebaseService.signUp(email, password);
@@ -297,7 +337,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw err;
     }
   };
-  
+
   const signOut = async () => {
     try {
       await auth.signOut();
@@ -310,42 +350,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-const signInAsGuest = async () => {
-  try {
-    const { signInAnonymously } = await import('firebase/auth');
-    const result = await signInAnonymously(auth);
-    const guestProfile: GuestProfile = {
-      userId: result.user.uid,
-      email: null,
-      displayName: 'Guest',
-      role: UserRole.GUEST,
-      type: UserType.GUEST,
-      registrationType: 'guest',
-      isAnonymous: true,
-      guest: true,
-      createdAt: new Date(),
-      guestToken: result.user.uid,
-      guestSessionToken: result.user.refreshToken || '',
-      guestSessionExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
-      metrics: {
-        gamesPlayed: 0,
-        totalScore: 0,
-        bestScore: 0
-      }
-    };
-    
-    setUser(guestProfile);
-    AnalyticsService.userSignedIn({
-      userId: guestProfile.userId,
-      role: UserRole.GUEST,
-      type: UserType.GUEST
-    });
-    navigate('/game'); // Redirect to game page for guests
-  } catch (err) {
-    console.error('Guest sign in error:', err);
-    throw err;
-  }
-};
+  const signInAsGuest = async () => {
+    try {
+      const { signInAnonymously } = await import('firebase/auth');
+      const result = await signInAnonymously(auth);
+      const guestProfile: GuestProfile = {
+        userId: result.user.uid,
+        email: null,
+        displayName: 'Guest',
+        role: UserRole.GUEST,
+        type: UserType.GUEST,
+        registrationType: 'guest',
+        isAnonymous: true,
+        guest: true,
+        createdAt: new Date(),
+        guestToken: result.user.uid,
+        guestSessionToken: result.user.refreshToken || '',
+        guestSessionExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+        metrics: {
+          gamesPlayed: 0,
+          totalScore: 0,
+          bestScore: 0
+        }
+      };
+
+      setUser(guestProfile);
+      AnalyticsService.userSignedIn({
+        userId: guestProfile.userId,
+        role: UserRole.GUEST,
+        type: UserType.GUEST
+      });
+      navigate('/game'); // Redirect to game page for guests
+    } catch (err) {
+      console.error('Guest sign in error:', err);
+      throw err;
+    }
+  };
 
   const resetPassword = async (email: string): Promise<void> => {
     try {
@@ -387,7 +427,7 @@ const signInAsGuest = async () => {
     userId: user?.userId || '',
     isAuthenticated,
     loading,
-    error: null,
+    error,  // Add error to the context value
     signIn,
     signUp,
     signOut,
@@ -396,6 +436,31 @@ const signInAsGuest = async () => {
     signInAsGuest,
     sendEmailVerification
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-amber-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center p-4">
+          <h2 className="text-xl font-bold text-red-600">Authentication Error</h2>
+          <p className="mt-2 text-gray-600">{error.message}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AuthContext.Provider value={{ ...value, setUser }}>

@@ -62,7 +62,6 @@ export const GameContainer: React.FC = () => {
         }
     }, [gameState]);
 
-
     // Add guess handling
     const handleGuessSubmit = (sampleId: SampleId, guess: SampleGuess) => {
         console.log('Processing guess for sample:', sampleId, guess);
@@ -131,6 +130,7 @@ export const GameContainer: React.FC = () => {
 
     const initializeGame = useCallback(async () => {
         if (!quarterId || !user) {
+            console.log('Missing quarterId or user, redirecting...');
             navigate('/quarters');
             return;
         }
@@ -139,13 +139,23 @@ export const GameContainer: React.FC = () => {
     
         try {
             setLoading(true);
+            setError(null);
             console.log('Starting game initialization...');
+
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Game initialization timed out')), 10000)
+            );
     
             // Fetch user state and quarter data in parallel
-            const [savedState, quarter] = await Promise.all([
-                loadGameState(),
-                quarterService.getQuarterById(quarterId)  // Cache this
-            ]);
+            const results = await Promise.race([
+                Promise.all([
+                    loadGameState(),
+                    quarterService.getQuarterById(quarterId)
+                ]),
+                timeoutPromise
+            ]) as [GameState | null, any]; 
+
+            const [savedState, quarter] = results;
     
             if (savedState?.samples && Object.keys(savedState.samples).length === 4) {
                 console.log('Restoring saved game state');
@@ -181,6 +191,11 @@ export const GameContainer: React.FC = () => {
         } catch (error) {
             console.error('Game initialization failed:', error);
             setError(error instanceof Error ? error.message : 'An unknown error occurred');
+            AnalyticsService.trackEvent('game_initialization_failure', {
+                error: error instanceof Error ? error.message : 'Unknown error',
+                quarterId,
+                userId: user.userId
+            });
         } finally {
             setLoading(false);
             monitoringService.endTrace('game_initialization', traceId);

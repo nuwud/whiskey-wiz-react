@@ -12,7 +12,6 @@ const LoginForm: React.FC = () => {
     e.preventDefault();
     try {
       await signIn(email, password);
-      navigate('/profile');
     } catch (err) {
       console.error('Failed to sign in:', err);
     }

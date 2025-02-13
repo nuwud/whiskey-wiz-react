@@ -6,14 +6,11 @@ import { UserType, UserRole } from '../types/auth.types';
 
 export class AnalyticsService {
   private static instance: AnalyticsService;
-  private analytics!: Analytics;
+  private analytics: Analytics | null = null;
 
   private constructor() {
-    analytics().then(analyticsInstance => {
-      if (analyticsInstance) {
-        this.analytics = analyticsInstance;
-      }
-    });
+    // Initialize analytics in constructor
+    this.analytics = null;
   }
 
   public static getInstance(): AnalyticsService {
@@ -23,22 +20,33 @@ export class AnalyticsService {
     return AnalyticsService.instance;
   }
 
-  // Core event tracking
+  // Core event tracking with null check
   public trackEvent(eventName: string, data: Record<string, any>): void {
     try {
-      logEvent(this.analytics, eventName, {
-        ...data,
-        timestamp: new Date()
-      });
+      if (this.analytics) {
+        logEvent(this.analytics, eventName, {
+          ...data,
+          timestamp: new Date()
+        });
+      }
     } catch (error) {
       console.error('Failed to track event:', eventName, error);
     }
   }
 
   // Add static trackEvent method
-  public static trackEvent(eventName: string, eventData: Record<string, any>): void {
-    const instance = AnalyticsService.getInstance();
-    instance.trackEvent(eventName, eventData);
+  public static trackEvent(eventName: string, data: Record<string, any>): void {
+    try {
+      const analyticsInstance = analytics();
+      if (analyticsInstance) {
+        logEvent(analyticsInstance, eventName, {
+          ...data,
+          timestamp: new Date()
+        });
+      }
+    } catch (error) {
+      console.warn('Analytics event tracking skipped:', error);
+    }
   }
 
   // Add static startTrace method
@@ -89,14 +97,18 @@ export class AnalyticsService {
       engagement_type: 'user_interaction'
     });
   }
-
   public static setUserProperties(userId: string, properties: Record<string, any>): void {
     try {
       const instance = AnalyticsService.getInstance();
-      setUserProperties(instance.analytics, {
-        user_id: userId,
-        ...properties
-      });
+      // Add null check before calling setUserProperties
+      if (instance.analytics) {
+        setUserProperties(instance.analytics, {
+          user_id: userId,
+          ...properties
+        });
+      } else {
+        console.warn('Analytics not initialized');
+      }
     } catch (error) {
       console.error('Failed to set user properties:', error);
     }

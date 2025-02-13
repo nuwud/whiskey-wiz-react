@@ -29,12 +29,13 @@ export class ScoringCalculator {
     private isAdminConfig: boolean;
 
     constructor(adminConfig?: AdminScoringConfig) {
-        console.log('Initializing ScoringCalculator with config:', adminConfig);
+        if (!DEFAULT_SCORING_CONFIG) {
+            throw new Error('Scoring configuration not loaded');
+        }
         this.isAdminConfig = adminConfig?.enabled ?? false;
         this.config = adminConfig?.enabled && adminConfig.rules 
             ? adminConfig.rules 
             : DEFAULT_SCORING_CONFIG;
-        console.log('Using config:', this.config);
     }
 
     public calculate(input: ScoreCalculationInput): ScoringResult {
