@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { onAuthStateChanged, sendPasswordResetEmail, sendEmailVerification as sendEmailVerificationAuth, User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, sendPasswordResetEmail, sendEmailVerification as sendEmailVerificationAuth, User as FirebaseUser, signInAnonymously } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
 import { FirebaseService } from '../services/firebase.service';
 import { AnalyticsService } from '../services/analytics.service';
@@ -37,6 +37,7 @@ export const useAuth = (): AuthContextValue => {
   }
   return context;
 };
+
 
 // Add getUserProfile function
 const getUserProfile = async (uid: string): Promise<PlayerProfile | null> => {
@@ -352,7 +353,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInAsGuest = async () => {
     try {
-      const { signInAnonymously } = await import('firebase/auth');
       const result = await signInAnonymously(auth);
       const guestProfile: GuestProfile = {
         userId: result.user.uid,

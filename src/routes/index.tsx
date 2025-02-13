@@ -1,6 +1,5 @@
 import React from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import PrivateRoute from '../routes/private-route';
 import ProtectedRoute from '../components/auth/protected-route.component';
 import { UserRole } from '../types/auth.types';
 import { GameErrorBoundary } from '../components/game/game-error-boundary.component';
@@ -62,7 +61,7 @@ export const AppRoutes: React.FC = () => {
       </Route>
 
       {/* Admin Only Routes */}
-      <Route element={<PrivateRoute adminOnly />}>
+      <Route element={<ProtectedRoute adminOnly />}>
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/admin/users" element={<UserManagement />} />
         <Route path="/admin/quarters" element={<QuarterManagement />} />

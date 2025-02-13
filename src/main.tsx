@@ -3,9 +3,10 @@ import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import App from './App';
 import './index.css';
-import { AuthProvider } from './contexts/auth.context'; // Import AuthProvider
+import { AuthProvider } from './contexts/auth.context';
 import { ErrorBoundary } from './components/error-boundary.component';
 import { verifyEnvironment, handleEnvironmentError } from './utils/env.check.utils';
+import './config/firebase';
 
 const rootElement = document.getElementById('root');
 
@@ -27,7 +28,6 @@ const router = createBrowserRouter([
 const init = async () => {
   try {
     verifyEnvironment();
-    await import('./config/firebase');
     
     const root = ReactDOM.createRoot(rootElement);
 

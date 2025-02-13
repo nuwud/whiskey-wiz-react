@@ -1,67 +1,47 @@
-// src/components/auth/protected-route.component.tsx
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/auth.context';
+import { UserRole } from '../../types/auth.types';
+import { Spinner } from '../ui/spinner-ui.component';
 
-const ProtectedRoute: React.FC<{ allowedRoles?: string[]; redirectPath?: string }> = ({
+interface ProtectedRouteProps {
+  allowedRoles?: UserRole[];
+  adminOnly?: boolean;
+  children?: React.ReactNode;
+  redirectPath?: string;
+}
+
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   allowedRoles = [],
+  adminOnly = false,
+  children,
   redirectPath = '/login'
 }) => {
-  const authContext = useAuth();  // Change to authContext for clarity
-  const [timeoutError, setTimeoutError] = useState(false);
+  const { user, loading } = useAuth();
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (authContext?.loading) {
-        setTimeoutError(true);
-      }
-    }, 10000);
-
-    return () => clearTimeout(timer);
-  }, [authContext?.loading]);
-
-  // Early return if context is missing
-  if (!authContext) {
-    console.error("Auth context is missing! Ensure AuthProvider is wrapping your application.");
-    return <Navigate to={redirectPath} replace />;
-  }
-
-  const { user, loading } = authContext;
-
-  // Show loading spinner while auth state is being determined
-  if (loading && !timeoutError) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-amber-600"></div>
+      <div className="flex justify-center items-center h-screen">
+        <Spinner />
       </div>
     );
   }
 
-  // Show error if loading timeout occurred
-  if (timeoutError) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-xl font-bold text-red-600">Authentication Error</h2>
-          <p className="mt-2">Unable to verify authentication status</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-amber-600 text-white rounded"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Handle unauthenticated or unauthorized access
-  if (!user || (allowedRoles.length > 0 && !allowedRoles.includes(user.role))) {
+  if (!user) {
     return <Navigate to={redirectPath} replace />;
   }
 
-  // If all checks pass, render the protected content
-  return <Outlet />;
+  const userRole = user.role as UserRole;
+
+  if (adminOnly && userRole !== UserRole.ADMIN) {
+    return <Navigate to="/game" replace />;
+  }
+
+  if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
+    return <Navigate to="/game" replace />;
+  }
+
+  return children ? <>{children}</> : <Outlet />;
 };
 
 export default ProtectedRoute;

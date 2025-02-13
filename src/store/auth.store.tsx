@@ -28,6 +28,15 @@ interface AuthState {
   setLoading: (isLoading: boolean) => void;
 }
 
+export const signOutUser = () => {
+  if (auth && auth.signOut) {
+    auth.signOut()
+      .then(() => console.log('User signed out successfully'))
+      .catch((error) => console.error('Error signing out:', error));
+  }
+};
+
+
 const validateAdminProfile = (profile: unknown): profile is AdminProfile => {
   if (!profile || typeof profile !== 'object') return false;
 

@@ -31,13 +31,13 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({
     return <Navigate to={redirectPath} replace />;
   }
 
-  const isAdmin = user?.role === UserRole.ADMIN as UserRole;
+  const userRole = user.role as UserRole;
 
-  if (adminOnly && !isAdmin) {
+  if (adminOnly && userRole !== UserRole.ADMIN) {
     return <Navigate to="/game" replace />;
   }
 
-  if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
+  if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
     return <Navigate to="/game" replace />;
   }
 
@@ -45,4 +45,3 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({
 };
 
 export default PrivateRoute;
-
