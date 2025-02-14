@@ -60,7 +60,7 @@ export const SampleGuessing: React.FC<SampleGuessingProps> = ({
   isLastSample,
   onGameComplete
 }) => {
-  const {submitGuess } = useGameProgression();
+  const { submitGuess, samples } = useGameProgression(); // Ensure samples is defined
   const [rating, setRating] = useState<number>(0);
   const [notes, setNotes] = useState<string>('');
   const [guessData, setGuessData] = useState<GuessFormData>({
@@ -71,59 +71,64 @@ export const SampleGuessing: React.FC<SampleGuessingProps> = ({
     notes: ''
   });
 
-useEffect(() => {
-  if (guess) {
-    setGuessData({
-      age: guess.age,
-      proof: guess.proof,
-      mashbill: guess.mashbill,
-      rating: guess.rating,
-      notes: guess.notes
-    });
-    setRating(guess.rating);
-    setNotes(guess.notes);
-  } else {
-    setGuessData({
-      age: 0,
-      proof: 0,
-      mashbill: '',
-      rating: 0,
-      notes: ''
-    });
-    setRating(0);
-    setNotes('');
-  }
-}, [currentSample, guess]);
+  useEffect(() => {
+    if (guess) {
+      setGuessData({
+        age: guess.age,
+        proof: guess.proof,
+        mashbill: guess.mashbill,
+        rating: guess.rating,
+        notes: guess.notes
+      });
+      setRating(guess.rating);
+      setNotes(guess.notes);
+    } else {
+      setGuessData({
+        age: 0,
+        proof: 0,
+        mashbill: '',
+        rating: 0,
+        notes: ''
+      });
+      setRating(0);
+      setNotes('');
+    }
+  }, [currentSample, guess]);
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  // Validate required fields
-  if (!guessData.age || !guessData.proof || !guessData.mashbill) {
-    alert('Please fill in age, proof, and mashbill before continuing');
-    return;
-  }
-  
-  const completeGuess: SampleGuess = {
-    ...guessData,
-    rating,  // optional
-    notes,   // optional
-    score: 0,
-    submitted: true
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!samples || Object.keys(samples).length === 0) {
+      alert('Samples are not available. Please wait for initialization.');
+      return;
+    }
+
+    // Validate required fields
+    if (!guessData.age || !guessData.proof || !guessData.mashbill) {
+      alert('Please fill in age, proof, and mashbill before continuing');
+      return;
+    }
+    
+    const completeGuess: SampleGuess = {
+      ...guessData,
+      rating,  // optional
+      notes,   // optional
+      score: 0,
+      submitted: true
+    };
+    
+    console.log('Submitting guess for sample:', currentSample);
+    await submitGuess(currentSample, completeGuess);
+    onSubmitGuess(currentSample, completeGuess);
+    
+    if (isLastSample) {
+      console.log('Last sample submitted, calling onGameComplete');
+      await onGameComplete();
+    } else {
+      console.log('Moving to next sample');
+      onNextSample();
+    }
   };
-  
-  console.log('Submitting guess for sample:', currentSample);
-  await submitGuess(currentSample, completeGuess);
-  onSubmitGuess(currentSample, completeGuess);
-  
-  if (isLastSample) {
-    console.log('Last sample submitted, calling onGameComplete');
-    await onGameComplete();
-  } else {
-    console.log('Moving to next sample');
-    onNextSample();
-  }
-};
   const handleInputChange = (field: keyof GuessFormData) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {

@@ -2,7 +2,7 @@ import { WhiskeySample, SampleId, MASHBILL_TYPES } from '../types/game.types';
 
 const EXPECTED_SAMPLE_IDS: SampleId[] = ['A', 'B', 'C', 'D'];
 
-const DEFAULT_WHISKEY_SAMPLE: Omit<WhiskeySample, 'id'> = {
+export const DEFAULT_WHISKEY_SAMPLE: Omit<WhiskeySample, 'id'> = {
     name: '',
     age: 0,
     proof: 0,
@@ -40,6 +40,10 @@ export const transformQuarterSamples = (samplesMap: Record<string, any>): Record
             id: key,
             ...samplesMap[key]
         }));
+
+        samplesArray.forEach((sample, index) => {
+            console.log(`Transforming Sample ${EXPECTED_SAMPLE_IDS[index]}`, sample);
+        });
 
         if (samplesArray.length < 4) {
             console.warn(`Not enough samples: ${samplesArray.length}. Adding default samples.`);

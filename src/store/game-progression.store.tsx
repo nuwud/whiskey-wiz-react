@@ -8,6 +8,7 @@ import {
     INITIAL_STATE
 } from '../types/game.types';
 import { PlayerStats } from '../components/player/player-stats.component';
+import { DEFAULT_WHISKEY_SAMPLE } from '../utils/data-transform.utils';
 import { ScoreService } from '../services/score.service';
 import { WhiskeySample } from '../types/game.types';
 
@@ -57,6 +58,19 @@ const useGameProgressionStore = create<GameProgressionStore>((set, get) => ({
             acc[sampleId] = sample;
             return acc;
         }, {} as Record<SampleId, WhiskeySample>);
+
+        if (Object.keys(samplesRecord).length < 4) {
+            console.warn("Not enough samples in quarter data, adding defaults.");
+            ['A', 'B', 'C', 'D'].forEach(id => {
+                if (!samplesRecord[id as SampleId]) {
+                    samplesRecord[id as SampleId] = {
+                        ...DEFAULT_WHISKEY_SAMPLE,
+                        id,
+                        name: `Sample ${id}`
+                    };
+                }
+            });
+        }
 
         set(state => ({
             ...state,

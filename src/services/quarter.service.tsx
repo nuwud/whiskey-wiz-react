@@ -29,21 +29,21 @@ export const getSamplesForQuarter = async (quarterId: string) => {
   }
 
   const quarterData = quarterSnap.data();
-  let samples = quarterData.samples || [];
+  let samples = quarterData?.samples || [];
 
-  // If no samples are in the main document, check the subcollection
-  if (samples.length === 0) {
-    const sampleQuery = collection(db, 'quarters', quarterId, 'samples');
-    const sampleSnap = await getDocs(sampleQuery);
-    samples = sampleSnap.docs.map(doc => doc.data());
+  if (!Array.isArray(samples) || samples.length === 0) {
+      console.warn(`No samples found in main document, checking subcollection...`);
+      const sampleQuery = collection(db, 'quarters', quarterId, 'samples');
+      const sampleSnap = await getDocs(sampleQuery);
+      samples = sampleSnap.docs.map(doc => doc.data());
   }
 
-  if (samples.length === 0) {
-    console.error("No samples found in quarter!");
+  if (!Array.isArray(samples) || samples.length === 0) {
+      console.error("Still no samples found. Ensure Firestore structure is correct.");
   }
 
   return samples;
-};
+  };
 
 export class QuarterService {
   private static instance: QuarterService;
