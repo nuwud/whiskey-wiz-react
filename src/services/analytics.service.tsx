@@ -1,8 +1,9 @@
 // analytics.service.tsx
-import { logEvent, Analytics, setUserProperties } from 'firebase/analytics';
+import { logEvent, Analytics, setUserProperties, getAnalytics as firebaseGetAnalytics } from 'firebase/analytics';
 import { getAuth } from 'firebase/auth';
-import { analytics } from '../config/firebase';
+import { firebaseConfig } from '../config/firebase';
 import { UserType, UserRole } from '../types/auth.types';
+import { initializeApp } from 'firebase/app';
 
 export class AnalyticsService {
   private static instance: AnalyticsService;
@@ -10,7 +11,10 @@ export class AnalyticsService {
 
   private constructor() {
     // Initialize analytics in constructor
-    this.analytics = null;
+    if (typeof window !== 'undefined' && firebaseConfig) {
+      initializeApp(firebaseConfig);
+      this.analytics = getAnalytics();
+    }
   }
 
   public static getInstance(): AnalyticsService {
@@ -36,15 +40,15 @@ export class AnalyticsService {
 
   // Add static trackEvent method
   public static trackEvent(eventName: string, data: Record<string, any>): void {
-    try {
-      if (analytics) {
-        logEvent(analytics, eventName, {
-          ...data,
-          timestamp: new Date()
-        });
-      }
-    } catch (error) {
-      console.warn('Analytics event tracking skipped:', error);
+    const instance = AnalyticsService.getInstance();
+    instance.trackEvent(eventName, data);
+
+    // Add user-specific tracking
+    if (data.userId) {
+      instance.trackEvent(`${eventName}_user`, {
+        ...data,
+        user_id: data.userId
+      });
     }
   }
 
@@ -74,7 +78,7 @@ export class AnalyticsService {
       const analyticsData: Record<string, any> = {};
       const auth = getAuth();
       const currentUser = auth.currentUser?.uid;
-      
+
       for (const userId of userIds) {
         analyticsData[userId] = {
           isCurrentUser: userId === currentUser,
@@ -87,7 +91,7 @@ export class AnalyticsService {
       return {};
     }
   }
-  
+
 
   public static trackUserEngagement(eventName: string, eventData: Record<string, any>): void {
     const instance = AnalyticsService.getInstance();
@@ -113,9 +117,9 @@ export class AnalyticsService {
     }
   }
 
-  public static userSignedIn(data: { 
-    userId: string; 
-    role: UserRole; 
+  public static userSignedIn(data: {
+    userId: string;
+    role: UserRole;
     type: UserType;
   }): void {
     console.log('User signed in:', data);
@@ -162,3 +166,13 @@ export class AnalyticsService {
 }
 
 export const analyticsService = AnalyticsService.getInstance();
+function getAnalytics(): Analytics | null {
+  try {
+    const firebaseApp = initializeApp(firebaseConfig);
+    return firebaseGetAnalytics(firebaseApp);
+  } catch (error) {
+    console.error('Failed to initialize analytics:', error);
+    return null;
+  }
+}
+

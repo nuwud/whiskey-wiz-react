@@ -1,18 +1,6 @@
-import { getFirestore } from 'firebase/firestore';
-
-const db = getFirestore();
-import { getAuth } from 'firebase/auth';
-
-const auth = getAuth();
-import { doc, getDoc, updateDoc, collection, addDoc, setDoc } from 'firebase/firestore';
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  updateProfile,
-  sendEmailVerification,
-  sendPasswordResetEmail,
-  User
-} from 'firebase/auth';
+import { db, auth } from '../config/firebase';
+import { doc, getDoc, setDoc, addDoc, updateDoc, collection } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendEmailVerification, sendPasswordResetEmail, User } from 'firebase/auth';
 import { ExtendedUser, UserRole, UserType, PlayerProfile } from '../types/auth.types';
 import { signInAnonymously as firebaseSignInAnonymously } from 'firebase/auth';
 
@@ -107,12 +95,12 @@ export class FirebaseService {
         userId: userCredential.user.uid,
         role: UserRole.GUEST,
         type: UserType.GUEST,
-        registrationType: 'email',
+        registrationType: 'guest',
         guest: true,
         createdAt: new Date(),
         updatedAt: new Date(),
         lastLoginAt: new Date(),
-        displayName: 'Guest',
+        displayName: 'Guest Player',
         email: null,
         photoURL: null,
         metrics: {
@@ -134,13 +122,13 @@ export class FirebaseService {
       await this.createUserDocument(userCredential.user.uid, {
         userId: userCredential.user.uid,
         email: userCredential.user.email || '',
-        displayName: userCredential.user.displayName || 'Guest',
+        displayName: userCredential.user.displayName || 'Player Name',
         role: UserRole.PLAYER,
         type: UserType.REGISTERED,
         isAnonymous: userCredential.user.isAnonymous,
         guest: true,
         emailVerified: userCredential.user.emailVerified,
-        registrationType: 'anonymous',
+        registrationType: userCredential.user.isAnonymous ? 'guest' : 'email',
         adminPrivileges: null,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -261,3 +249,5 @@ export const createUserDocument = async (uid: string, profile: PlayerProfile): P
   await setDoc(userDocRef, profile);
   return profile;
 };
+
+export default FirebaseService;

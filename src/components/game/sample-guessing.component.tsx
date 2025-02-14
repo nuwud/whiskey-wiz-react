@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useGameProgression } from '../../store/game-progression.store';
 import { Flame } from 'lucide-react';
 import { SampleKey, SampleGuess, SampleId } from '../../types/game.types';
+import { ScoreDisplay } from './score-display.component';
 
 const SAMPLE_IDS: SampleId[] = ['A', 'B', 'C', 'D'];
 

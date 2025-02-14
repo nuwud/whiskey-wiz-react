@@ -4,17 +4,15 @@ import {
   sendPasswordResetEmail,
   sendEmailVerification as sendEmailVerificationAuth,
   User as FirebaseUser,
-  signInAnonymously,
-  getAuth,
+  signInAnonymously
 } from 'firebase/auth';
-import { getFirestore, getDoc, doc } from 'firebase/firestore';
+import { getDoc, doc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { FirebaseService } from '../services/firebase.service';
 import { AnalyticsService } from '../services/analytics.service';
 import { PlayerProfile, UserType, UserRole, GuestProfile } from '../types/auth.types';
-
-const auth = getAuth();
-const db = getFirestore();
+import { db } from '../config/firebase';
+import { auth } from '../config/firebase';
 
 interface AuthContextValue {
   user: PlayerProfile | GuestProfile | null;
@@ -124,20 +122,19 @@ const getUserProfile = async (uid: string): Promise<PlayerProfile | null> => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<PlayerProfile | GuestProfile | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const isAuthenticated = Boolean(user);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const navigate = useNavigate();
-
-  const isAuthenticated = Boolean(user);
 
   useEffect(() => {
     let mounted = true;
     setLoading(true);
 
     const handleAuthStateChange = async (fbUser: FirebaseUser | null) => {
+      if (!mounted) return;
+      console.log('Auth state change:', fbUser ? 'User exists' : 'No user');
       try {
-        if (!mounted) return;
-
         if (fbUser) {
           setFirebaseUser(fbUser);
           let userData = await getUserProfile(fbUser.uid);
@@ -202,7 +199,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setFirebaseUser(null);
         }
       } catch (error) {
-        console.error('Auth state error:', error);
+        console.error('Detailed auth state error:', {
+          error,
+          userExists: !!fbUser,
+          userUid: fbUser?.uid || 'No UID'
+        });
         if (mounted) setError(error as Error);
       } finally {
         if (mounted) setLoading(false);
@@ -326,21 +327,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-amber-600"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="w-32 h-32 border-t-2 border-b-2 rounded-full animate-spin border-amber-600"></div>
       </div>
     );
   }
 
   if (value.error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center p-4">
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="p-4 text-center">
           <h2 className="text-xl font-bold text-red-600">Authentication Error</h2>
           <p className="mt-2 text-gray-600">{error?.message}</p>
           <button 
             onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700"
+            className="px-4 py-2 mt-4 text-white rounded bg-amber-600 hover:bg-amber-700"
           >
             Try Again
           </button>

@@ -11,17 +11,17 @@ import { Toaster } from './components/ui/toaster-ui.component';
 const App: React.FC = () => {
   return (
     <ToastProvider>
-      <AuthProvider>
-        <FeatureProvider>
-          <QuarterProvider>
-            <Router>
+      <Router>
+        <AuthProvider>
+          <FeatureProvider>
+            <QuarterProvider>
               <Layout>
                 <AppRoutes />
               </Layout>
-            </Router>
-          </QuarterProvider>
-        </FeatureProvider>
-      </AuthProvider>
+            </QuarterProvider>
+          </FeatureProvider>
+        </AuthProvider>
+      </Router>
       <Toaster />
     </ToastProvider>
   );

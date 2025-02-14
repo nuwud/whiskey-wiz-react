@@ -2,7 +2,7 @@ import { Component, useContext } from 'react';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { getFirestore } from 'firebase/firestore';
 import { initializeApp } from 'firebase/app';
-import { firebaseConfig } from '../config/firebase'; // Ensure firebaseApp is your initialized Firebase app
+import { firebaseConfig } from '../config/firebase'; 
 
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);

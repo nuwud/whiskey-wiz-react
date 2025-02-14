@@ -24,13 +24,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Uncaught error:', error, errorInfo);
-
-    // Only reload if the error is not related to Firebase authentication
-    if (error.message.includes('auth') || error.message.includes('firebase')) {
-      console.warn("Authentication issue detected. Suggesting user to retry instead of auto-reload.");
-      return;
-    }
+    console.error('Uncaught error:', error, errorInfo);``
 
     setTimeout(() => {
       window.location.reload();
@@ -56,7 +50,9 @@ export class ErrorBoundary extends React.Component<Props, State> {
               </p>
               {this.state.error && (
                 <pre className="p-2 overflow-auto text-xs bg-gray-100 rounded">
-                  {this.state.error.message}
+                  {this.state.error && this.state.error.toString()}
+                  <br />
+                  {this.state.error && this.state.error.stack}
                 </pre>
               )}
               <div className="flex space-x-2">

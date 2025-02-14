@@ -1,14 +1,16 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
-import { getFirestore, Firestore } from 'firebase/firestore';
-import { getDatabase, Database } from 'firebase/database';
-import { getAnalytics, Analytics, isSupported } from 'firebase/analytics';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { getDatabase } from 'firebase/database';
+import { getAnalytics, isSupported } from 'firebase/analytics';
 
+// Ensure environment variables are loaded
 if (!import.meta.env.VITE_FIREBASE_API_KEY) {
-  throw new Error('Firebase configuration is missing');
+  throw new Error('Firebase configuration is missing. Ensure .env variables are correctly set.');
 }
 
-const firebaseConfig = {
+// Firebase Configuration
+export const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
@@ -19,45 +21,29 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-const app = initializeApp(firebaseConfig);
-export const db: Firestore = getFirestore(app);
+// Ensure Firebase initializes only once
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-let auth: Auth | null = null;
-let rtdb: Database | null = null;
-let analyticsInstance: Analytics | null = null;
+// Export Firebase services
+const db = getFirestore(app);
+const auth = getAuth(app);
+const rtdb = getDatabase(app);
+let analytics = null;
 
-try {
-  auth = getAuth(app);
-  rtdb = getDatabase(app);
-
-  if (typeof window !== 'undefined') {
-    isSupported().then(supported => {
+// Ensure Analytics runs only in the browser
+if (typeof window !== 'undefined') {
+  isSupported()
+    .then((supported) => {
       if (supported) {
-        analyticsInstance = getAnalytics(app!);
+        analytics = getAnalytics(app);
+        // Here you might want to trigger any function that depends on analytics
       }
-    }).catch(err => {
+    })
+    .catch((err) => {
       console.warn('Analytics initialization error:', err);
     });
-  }
-
-} catch (error) {
-  console.error('Firebase initialization error:', error);
 }
 
-const getAuthInstance = (): Auth => {
-  if (!auth) throw new Error('Firebase Auth not initialized');
-  return auth;
-};
-
-const getDatabaseInstance = (): Database => {
-  if (!rtdb) throw new Error('Realtime Database not initialized');
-  return rtdb;
-};
-
-export { 
-  app, 
-  getAuthInstance as auth, 
-  getDatabaseInstance as rtdb, 
-  analyticsInstance as analytics,
-  firebaseConfig 
-};
+// Export initialized Firebase modules
+export { app, db, auth, rtdb, analytics };
+export default app;
