@@ -5,7 +5,7 @@ import App from './App';
 import './index.css';
 import { AuthProvider } from './contexts/auth.context';
 import { ErrorBoundary } from './components/error-boundary.component';
-import { verifyEnvironment, handleEnvironmentError } from './utils/env.check.utils';
+import { verifyEnvironment, handleEnvironmentError } from './utils/env-check.utils';
 import './config/firebase';
 
 const rootElement = document.getElementById('root');
@@ -14,10 +14,18 @@ if (!rootElement) {
   throw new Error('Failed to find the root element');
 }
 
+const AppWithAuth = () => {
+  return (
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  );
+};
+
 const router = createBrowserRouter([
   {
     path: "*",
-    element: <App />,
+    element: <AppWithAuth />,
   }
 ], {
   future: {
@@ -46,9 +54,7 @@ const init = async () => {
             </div>
           </div>
         }>
-          <AuthProvider>
-            <RouterProvider router={router} />
-          </AuthProvider>
+          <RouterProvider router={router} />
         </ErrorBoundary>
       </React.StrictMode>
     );

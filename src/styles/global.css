@@ -249,7 +249,7 @@ p {
 .dark-mode.form input,
 .dark-mode.form textarea {
   background-color: var(--background-dark);
-  color: var(--text-light);
+  color: var (--text-light);
 }
 
 .dark-mode.form input[type="submit"] {
@@ -758,5 +758,95 @@ p {
 
 .rating-icon-selected {
   animation: pulseGlow 0.3s ease-in-out;
+}
+
+/* Score Display Styles */
+.score-display {
+  background-color: var(--background-light);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+}
+
+.score-display .total-score {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.score-display .total-score .score-value {
+  font-size: 1.875rem; /* 3xl */
+  font-weight: bold;
+  color: var(--primary-gold);
+  animation: scoreReveal 1s ease-out;
+}
+
+.score-display .total-score .max-score {
+  font-size: 1.25rem; /* xl */
+  color: var(--text-gray);
+  margin-left: 0.5rem;
+}
+
+.score-display .total-score .points-label {
+  font-size: 0.875rem; /* sm */
+  color: var(--text-gray);
+  margin-top: 0.25rem;
+}
+
+.score-display .score-breakdown {
+  margin-top: 1.5rem;
+}
+
+.score-display .score-breakdown .category {
+  margin-bottom: 1rem;
+}
+
+.score-display .score-breakdown .category .category-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+  font-weight: medium;
+}
+
+.score-display .score-breakdown .category .category-score {
+  color: var(--primary-gold);
+}
+
+.score-display .score-breakdown .category .progress-bar {
+  position: relative;
+  height: 0.5rem;
+  background-color: var(--background-gray);
+  border-radius: 0.25rem;
+  overflow: hidden;
+}
+
+.score-display .score-breakdown .category .progress-bar .progress {
+  position: absolute;
+  height: 100%;
+  background-color: var(--primary-gold);
+  transition: width 1s ease-out;
+}
+
+.score-display .score-breakdown .category .explanation {
+  font-size: 0.875rem; /* sm */
+  color: var(--text-gray);
+  margin-top: 0.25rem;
+}
+
+.score-display .rank-display {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--background-gray);
+  text-align: center;
+}
+
+.score-display .rank-display .rank {
+  font-size: 1.125rem; /* lg */
+  font-weight: semibold;
+  color: var(--text-dark);
+}
+
+.score-display .rank-display .rank-label {
+  font-size: 0.875rem; /* sm */
+  color: var(--text-gray);
 }
 

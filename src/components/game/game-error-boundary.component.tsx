@@ -1,7 +1,7 @@
 import React, { Component, ErrorInfo } from 'react';
 import { AnalyticsService } from '../../services/analytics.service';
 import { GuestSessionService } from '../../services/guest-session.service';
-import { clearGameState } from '../../utils/storage.util';
+import { clearGameState } from '../../utils/storage.utils';
 
 interface Props {
     children: React.ReactNode;

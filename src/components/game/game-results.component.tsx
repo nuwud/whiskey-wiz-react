@@ -9,7 +9,7 @@ import { quarterService } from '../../services/quarter.service';
 import { WhiskeySample, SampleId } from '../../types/game.types';
 import { transformQuarterSamples } from '../../utils/data-transform.utils';
 import { AnalyticsService } from '../../services/analytics.service';
-import { loadGameState } from '../../utils/storage.util'
+import { loadGameState } from '../../utils/storage.utils'
 
 export const GameResults: React.FC = () => {
     const { quarterId } = useParams<{ quarterId: string }>();  

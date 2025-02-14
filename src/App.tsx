@@ -1,6 +1,4 @@
 import React from 'react';
-import { BrowserRouter as Router } from 'react-router-dom';
-import { AuthProvider } from './contexts/auth.context';
 import { FeatureProvider } from './contexts/feature.context';
 import { QuarterProvider } from './contexts/quarter.context';
 import { Layout } from './components/layout/layout.component';
@@ -10,9 +8,7 @@ import { Toaster } from './components/ui/toaster-ui.component';
 
 const App: React.FC = () => {
   return (
-    <ToastProvider>
-      <Router>
-        <AuthProvider>
+      <ToastProvider>
           <FeatureProvider>
             <QuarterProvider>
               <Layout>
@@ -20,10 +16,8 @@ const App: React.FC = () => {
               </Layout>
             </QuarterProvider>
           </FeatureProvider>
-        </AuthProvider>
-      </Router>
-      <Toaster />
-    </ToastProvider>
+        <Toaster />
+      </ToastProvider >
   );
 };
 

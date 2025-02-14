@@ -9,7 +9,7 @@ const db = getFirestore(firebaseApp);
 import { collection, getDocs, query, where, addDoc } from 'firebase/firestore';
 import { quarterService } from '../services/quarter.service';
 import { transformQuarterSamples } from '../utils/data-transform.utils';
-import { loadGameState, saveGameState, clearGameState } from '../utils/storage.util';
+import { loadGameState, saveGameState, clearGameState } from '../utils/storage.utils';
 
 // Calculate score based on scoring rules
 const calculateScore = (

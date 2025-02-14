@@ -29,7 +29,8 @@
         "react/jsx-runtime"    // Add this line
       ],
       "allowSyntheticDefaultImports": true,
-      "esModuleInterop": true
+      "esModuleInterop": true,
+      "typeRoots": ["./node_modules/@types", "./global.d.ts"]
     },
     "include": ["src"],
     "references": [

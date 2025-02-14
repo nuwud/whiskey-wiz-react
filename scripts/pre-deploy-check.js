@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
-const path = require('path');
+import { join } from 'path';
+import fs from 'fs';
+import process from 'process';
 
 // Colors for output
 const colors = {
@@ -11,15 +12,16 @@ const colors = {
   reset: '\x1b[0m'
 };
 
-// Required environment variables
+// Required environment variables - updated for Vite
 const requiredEnvVars = [
-  'NEXT_PUBLIC_FIREBASE_API_KEY',
-  'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
-  'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
-  'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
-  'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
-  'NEXT_PUBLIC_FIREBASE_APP_ID',
-  'NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID'
+  'VITE_FIREBASE_API_KEY',
+  'VITE_FIREBASE_AUTH_DOMAIN',
+  'VITE_FIREBASE_DATABASE_URL',
+  'VITE_FIREBASE_PROJECT_ID',
+  'VITE_FIREBASE_STORAGE_BUCKET',
+  'VITE_FIREBASE_MESSAGING_SENDER_ID',
+  'VITE_FIREBASE_APP_ID',
+  'VITE_FIREBASE_MEASUREMENT_ID'
 ];
 
 // Required files
@@ -34,7 +36,7 @@ const requiredDeps = [
   'firebase',
   'react',
   'react-dom',
-  'next'
+  'vite'
 ];
 
 let errors = 0;
@@ -42,7 +44,7 @@ let warnings = 0;
 
 // Check environment variables
 console.log('\nChecking environment variables...');
-const envPath = path.join(process.cwd(), '.env.local');
+const envPath = join(process.cwd(), '.env.local');
 if (fs.existsSync(envPath)) {
   const envContent = fs.readFileSync(envPath, 'utf8');
   requiredEnvVars.forEach(envVar => {
@@ -64,7 +66,7 @@ if (fs.existsSync(envPath)) {
 // Check required files
 console.log('\nChecking required files...');
 requiredFiles.forEach(file => {
-  if (fs.existsSync(path.join(process.cwd(), file))) {
+  if (fs.existsSync(join(process.cwd(), file))) {
     console.log(`${colors.green}✓ ${file}${colors.reset}`);
   } else {
     console.log(`${colors.red}❌ Missing ${file}${colors.reset}`);
@@ -74,7 +76,9 @@ requiredFiles.forEach(file => {
 
 // Check dependencies
 console.log('\nChecking dependencies...');
-const packageJson = require(path.join(process.cwd(), 'package.json'));
+const packageJsonPath = join(process.cwd(), 'package.json');
+const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+
 requiredDeps.forEach(dep => {
   if (packageJson.dependencies[dep]) {
     console.log(`${colors.green}✓ ${dep}${colors.reset}`);

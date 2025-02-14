@@ -21,6 +21,26 @@ export const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
+// Ensure all required environment variables are loaded
+const requiredVars = [
+  'VITE_FIREBASE_API_KEY',
+  'VITE_FIREBASE_AUTH_DOMAIN',
+  'VITE_FIREBASE_DATABASE_URL',
+  'VITE_FIREBASE_PROJECT_ID',
+  'VITE_FIREBASE_STORAGE_BUCKET',
+  'VITE_FIREBASE_MESSAGING_SENDER_ID',
+  'VITE_FIREBASE_APP_ID',
+  'VITE_FIREBASE_MEASUREMENT_ID'
+];
+
+const missingVars = requiredVars.filter(
+  varName => !import.meta.env[varName]
+);
+
+if (missingVars.length > 0) {
+  throw new Error(`Firebase configuration is missing: ${missingVars.join(', ')}`);
+}
+
 // Ensure Firebase initializes only once
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 

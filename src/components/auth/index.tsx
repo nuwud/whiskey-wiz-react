@@ -1,3 +1,4 @@
+export { AuthErrorBoundary } from './auth-error-boundary.component';
 export { default as ForgotPassword } from './forgot-password.component';
 export { default as LoginForm } from './login-form.component';
 export { default as Login } from './login.component';
