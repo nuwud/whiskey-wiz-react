@@ -1,7 +1,6 @@
-import React from 'react';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { QuarterService, quarterService, QuarterAnalyticsService } from '../../services/quarter';
 import { Quarter } from '../../types/game.types';
-import { quarterService } from '../../services/quarter.service';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 interface QuarterStats {
@@ -32,10 +31,6 @@ export interface QuarterAnalytics {
   totalPlayers: number;
   totalGames: number;
   averageScore: number;
-  hintUsageStats: {
-    totalHints: number;
-    hintUsageRate: number;
-  };
   difficultyDistribution: {
     beginner: number;
     intermediate: number;
@@ -59,7 +54,75 @@ export interface QuarterAnalytics {
     proof: number;
     mashbill: number;
   };
+  sampleAnalytics: {
+    sampleId: string;
+    totalAttempts: number;
+    averageAccuracy: {
+      age: number;
+      proof: number;
+      mashbill: number;
+    };
+    performance: {
+      totalCorrect: number;
+      accuracy: number;
+    };
+    machineLearningSuggestions: {
+      nextSample: string;
+      improvementTips: string[];
+    };
+  }[];
+  hintUsageStats: {
+    totalHintsUsed: number;
+    hintsUsedPerSample: {
+      sampleId: string;
+      hintsUsed: number;
+    }[];
+  };
+  timeseriesData: {
+    timestamp: Date;
+    value: number;
+  }[];
+  leaderboard: {
+    userId: string;
+    score: number;
+  }[];
+  samplingAccuracy: {
+    sampleId: string;
+    accuracy: number;
+  }[];
+  machineLearning: {
+    modelVersion: string;
+    accuracy: number;
+  };
 }
+
+const QuarterAnalyticsComponent: React.FC<{ quarterId: string }> = ({ quarterId }) => {
+  const [quarterStats, setQuarterStats] = useState<QuarterStats | null>(null);
+
+  useEffect(() => {
+    const fetchQuarterStats = async () => {
+      const quarterService = QuarterService.getInstance();
+      const stats = await quarterService.getQuarterStats(quarterId);
+      setQuarterStats(stats);
+    };
+
+    fetchQuarterStats();
+  }, [quarterId]);
+
+  return (
+    <div>
+      {quarterStats ? (
+        <div>
+          {/* Render quarter stats */}
+        </div>
+      ) : (
+        <p>Loading...</p>
+      )}
+    </div>
+  );
+};
+
+export default QuarterAnalyticsComponent;
 
 export const QuarterAnalytics: React.FC = () => {
   const [selectedQuarter, setSelectedQuarter] = useState<Quarter | null>(null);

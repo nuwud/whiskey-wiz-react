@@ -5,7 +5,7 @@ import { SampleResult } from './sample-result.component';
 import ShareResults from './share-results.component';
 import { useScoreAnalysis } from '../../hooks/use-score-analysis.hook';
 import { Accordion } from '../ui/accordion-ui.component';
-import { quarterService } from '../../services/quarter.service';
+import { quarterService } from '../../services/quarter';
 import { WhiskeySample, SampleId } from '../../types/game.types';
 import { transformQuarterSamples } from '../../utils/data-transform.utils';
 import { AnalyticsService } from '../../services/analytics.service';

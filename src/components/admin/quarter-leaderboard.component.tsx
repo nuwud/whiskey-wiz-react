@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { quarterService } from '../../services/quarter.service';
+import { quarterService } from '../../services/quarter';
 import { LeaderboardEntry } from '../../services/leaderboard.service';
 
 export const QuarterLeaderboard = ({ quarterId }: { quarterId: string }) => {

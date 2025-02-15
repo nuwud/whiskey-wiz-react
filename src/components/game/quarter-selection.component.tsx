@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Quarter } from '../../types/game.types';
-import { quarterService } from '../../services/quarter.service';
+import { quarterService } from '../../services/quarter';
 import { AnalyticsService } from '../../services/analytics.service';
 import { useAuth } from '../../contexts/auth.context';
 import { Difficulty } from '../../types/game.types';

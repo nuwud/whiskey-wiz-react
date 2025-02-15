@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import { quarterService } from '../../services/quarter.service';
+import { quarterService } from '../../services/quarter';
 import { ErrorBoundary } from '../error-boundary.component';
 import { AnalyticsService } from '../../services/analytics.service';
 import { monitoringService } from '../../services/monitoring.service';

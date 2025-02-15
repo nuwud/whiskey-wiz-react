@@ -465,10 +465,6 @@ export interface QuarterAnalytics {
   totalPlayers: number;
   totalGames: number;
   averageScore: number;
-  hintUsageStats: {
-    total: number;
-    averagePerGame: number;
-  };
   completionRate: number;
   totalChallengesCompleted: number;
   bestScore: number;
@@ -477,22 +473,17 @@ export interface QuarterAnalytics {
   favoriteWhiskey?: string;
   totalSamples: number;
   perfectScores: number;
-  lastPlayed?: Date;
+  lastPlayed?: Date | undefined;
+  difficultyBreakdown: {
+    beginner: number;
+    intermediate: number;
+    advanced: number;
+  };
   quarterHistory: {
     quarterId: string;
     score: number;
     date: Date;
   }[];
-  timeseriesData: TimeseriesData[];
-  leaderboard: LeaderboardEntry[];
-  samplingAccuracy: {
-    age: number;
-    proof: number;
-    mashbill: number;
-    ageAccuracy: number;
-    proofAccuracy: number;
-    mashbillAccuracy: number;
-  };
   completionTime: {
     min: number;
     max: number;
@@ -551,22 +542,7 @@ export interface QuarterAnalytics {
     };
     averageCompletionRate: number;
   };
-
-  // Sample analytics
-  sampleAnalytics: Array<{
-    sampleId: string;
-    totalAttempts: number;
-    averageAccuracy: {
-      age: number;
-      proof: number;
-      mashbill: number;
-    };
-    performance: {
-      totalCorrect: number;
-      accuracy: number;
-    };
-  }>;
-
+  playerFeedback: any[];
   // Player statistics
   playerStats: {
     totalGames: number;
@@ -664,11 +640,6 @@ export interface QuarterAnalytics {
       rank?: number;
     };
   }[];
-  machineLearningSuggestions: {
-    recommendedMerchandise: string[];
-    potentialSubscriptionTargets: string[];
-    marketingSegments: string[];
-  };
   playerDemographics: {
     authMethodBreakdown: Record<string, number>;
     ageBreakdown: Record<string, number>;
@@ -689,6 +660,12 @@ export interface QuarterAnalytics {
     mostPopularFlavors: string[];
     flavorDensity: number;
   };
+  sampleDifficulty: {
+    difficultyId: string;
+    totalAttempts: number;
+    totalCorrect: number;
+    accuracy: number;
+  }
   samplePerformance: {
     sampleId: string;
     totalAttempts: number;
@@ -809,11 +786,71 @@ export interface QuarterAnalytics {
     regions: Record<string, number>;
     countries: Record<string, number>;
   };
-
+  
   // Machine learning insights
   machineLearning: {
     recommendations: Record<string, number>;
     predictions: Record<string, number>;
+    modelVersion: string;
+    accuracy: number;
+  };
+  sampleAnalytics: {
+    sampleId: string;
+    totalAttempts: number;
+    averageAccuracy: {
+      age: number;
+      proof: number;
+      mashbill: number;
+    };
+    performance: {
+      totalCorrect: number;
+      accuracy: number;
+    };
+    machineLearningSuggestions: {
+      recommendedMerchandise: string[];
+      potentialSubscriptionTargets: string[];
+      marketingSegments: string[];
+      nextSample: string[];
+      improvementTips: string[];
+    };
+  }[];
+  hintUsageStats: {
+    totalHintsUsed: number;
+    hintsUsedPerSample: {
+      sampleId: string;
+      hintsUsed: number;
+    }[];
+  };
+  timeseriesData: {
+    date: string;
+    timestamp: Date;
+    players: number;
+    averageScore: number;
+    completionRate: number;
+  }[];
+  leaderboard: {
+    userId: string;
+    username: string;
+    displayName: string;
+    quarterId: string;
+    timestamp: Date;
+    totalScore: number;
+    completedAt: Date;
+    totalChallengesCompleted: number;
+    accuracy: {
+      age: number;
+      proof: number;
+      mashbill: number;
+    };
+    score: number;
+  }[];
+  samplingAccuracy: {
+    age: number;
+    proof: number;
+    mashbill: number;
+    ageAccuracy: number;
+    proofAccuracy: number;
+    mashbillAccuracy: number;
   };
 }
 

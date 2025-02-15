@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/auth.context';
-import { quarterService } from '../../services/quarter.service';
+import { quarterService } from '../../services/quarter';
 import { AnalyticsService } from '../../services/analytics.service';
 import { getAnalytics, logEvent } from 'firebase/analytics';
 import { monitoringService } from '../../services/monitoring.service';

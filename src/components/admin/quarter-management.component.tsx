@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, useQuarter } from '../../contexts';
-import { quarterService } from '../../services/quarter.service';
+import { quarterService } from '../../services/quarter';
 import { Quarter, WhiskeySample, ScoringRules, Difficulty, DifficultyEnum, Challenge } from '../../types/game.types';
 import { SampleEditor } from './sample-editor.component';
 import { Timestamp } from 'firebase/firestore';

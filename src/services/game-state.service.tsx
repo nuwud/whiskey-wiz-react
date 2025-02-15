@@ -5,7 +5,7 @@ import { DocumentData } from 'firebase/firestore';
 import { GameState, SampleKey, DEFAULT_SCORING_RULES, WhiskeySample  } from '../types/game.types';
 import { StateRecoveryService } from './state-recovery.service';
 import { serverTimestamp as firestoreTimestamp } from 'firebase/firestore';
-import { QuarterService } from './quarter.service';
+import { QuarterService } from '../services/quarter';
 
 const CHECKPOINT_COLLECTION = 'gameState_checkpoints';
 
@@ -414,7 +414,7 @@ async createGameState(userId: string): Promise<GameState> {
 async initializeGameState(uid: string, quarterId: string): Promise<GameState> {
   try {
       // Get quarter data first
-      const quarterService = QuarterService.getInstance();
+      const quarterService: QuarterService = QuarterService.getInstance();
       const quarter = await quarterService.getQuarterById(quarterId);
       
       if (!quarter) {

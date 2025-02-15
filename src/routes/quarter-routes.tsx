@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { QuarterFactory } from '../components/quarters/quarter-factory.component';
 import { useAuth } from 'src/contexts/auth.context';
 import { useFeatures } from '../config/feature-flags.config';
-import { quarterService } from 'src/services/quarter.service';
+import { quarterService } from '../services/quarter';
 
 export const QuarterRoutes: React.FC = () => {
   const { user } = useAuth();

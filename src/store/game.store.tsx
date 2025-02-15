@@ -7,7 +7,7 @@ import { firebaseConfig } from '../config/firebase';
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 import { collection, getDocs, query, where, addDoc } from 'firebase/firestore';
-import { quarterService } from '../services/quarter.service';
+import { quarterService } from '../services/quarter';
 import { transformQuarterSamples } from '../utils/data-transform.utils';
 import { loadGameState, saveGameState, clearGameState } from '../utils/storage.utils';
 
