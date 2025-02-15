@@ -83,7 +83,9 @@ export const useGameStore = create<GameStore>((set, get) => {
     const initialState = savedState ? {
         ...INITIAL_STATE,
         ...savedState,
-        samples: savedState.samples || defaultSamples,
+        samples: (savedState.samples && Object.values(savedState.samples).some(s => s.age > 0 || s.proof > 0)) 
+            ? savedState.samples 
+            : defaultSamples,
         isInitialized: true,
         currentSampleId: savedState.currentSampleId as SampleId || 'A',
         currentQuarter: savedState.currentQuarter as Quarter | null

@@ -1,6 +1,8 @@
 // Re-export all types
+export * from './admin.types';
 export * from './auth.types';
 export * from './game.types';
+export * from './knowledge.types';
 
 // Core game types that aren't specific to a domain
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced';

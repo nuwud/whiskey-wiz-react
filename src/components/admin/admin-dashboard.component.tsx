@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/auth.store';
 import { AdminProfile as AdminProfileType } from '../../types/auth.types';
 import { Spinner } from '../ui/spinner-ui.component';
@@ -7,19 +7,31 @@ import UserManagement from './user-management.component';
 import { QuarterAnalytics } from './quarter-analytics.component';
 import QuarterManagement from './quarter-management.component';
 import { QuarterProvider } from '../../contexts/quarter.context';
+import { useNavigate } from 'react-router-dom';
+import ErrorDisplay from '../ui/error-display.component';
+import UnauthorizedAccess from '../ui/unauthorized-access.component';
 
 const AdminDashboard = () => {
   const { profile, isLoading } = useAuthStore();
-  const adminProfile = profile as AdminProfileType;
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  // Validate admin profile
+  useEffect(() => {
+    if (!isLoading && (!profile || profile.role !== 'admin')) {
+      setError('Unauthorized access');
+      navigate('/');
+    }
+  }, [profile, isLoading, navigate]);
+
+  // Safe type casting after validation
+  const adminProfile = profile?.role === 'admin' ? (profile as AdminProfileType) : null;
+
   const [activeTab, setActiveTab] = useState<'users' | 'content' | 'analytics' | 'quarter-management'>('users');
 
-  if (isLoading) {
-    return <Spinner />;
-  }
-
-  if (!adminProfile || adminProfile.role !== 'admin') {
-    return <div>Access denied</div>;
-  }
+  if (isLoading) return <Spinner />;
+  if (error) return <ErrorDisplay message={error} />;
+  if (!adminProfile) return <UnauthorizedAccess />;
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -87,13 +99,14 @@ const AdminDashboard = () => {
                   Quarter Management
                 </button>
               </nav>
+                {/* Tab Content */}
+                <div className="p-6">
+                  {renderTabContent()}
+                </div>
+          </div>
             </div>
 
-            {/* Tab Content */}
-            <div className="p-6">
-              {renderTabContent()}
-            </div>
-          </div>
+
 
           {/* Permissions Info */}
           <div className="mt-8 bg-white shadow-lg rounded-lg p-6">
@@ -114,7 +127,7 @@ const AdminDashboard = () => {
 
           {/* Footer */}
           <div className="bg-white shadow-lg rounded-lg p-6 text-center">
-            <p>�� 2025 WhiskeyWiz. All rights reserved.</p>
+            <p>© 2025 WhiskeyWiz. All rights reserved.</p>
             <p>
               <a href="mailto:nuwudorder@gmail.com" className="text-amber-600 hover:text-amber-500">
                 Contact Support

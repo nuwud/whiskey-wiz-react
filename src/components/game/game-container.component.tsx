@@ -35,6 +35,22 @@ export const isValidSampleSet = (
     return [...requiredIds].every(id => sampleIds.has(id));
 };
 
+const validateUserAccess = (user: any, quarterId: string | undefined) => {
+    if (!quarterId) {
+        return { valid: false, error: 'No quarter selected' };
+    }
+    
+    if (!user) {
+        return { valid: false, error: 'Not authenticated' };
+    }
+
+    if (user.guest && !localStorage.getItem('guestToken')) {
+        return { valid: false, error: 'Invalid guest session' };
+    }
+
+    return { valid: true, error: null };
+};
+
 export const GameContainer: React.FC = () => {
     const { quarterId } = useParams<{ quarterId: string }>();
     const navigate = useNavigate();
@@ -88,11 +104,37 @@ export const GameContainer: React.FC = () => {
         console.log('Processing guess for sample:', sampleId, guess);
         const sample = samples[sampleId];
         console.log('Sample data:', sample);
-        if (!sample) return;
+
+        if (!sample || !sample.age || !sample.proof || !sample.mashbill) {
+            console.error('Invalid sample data:', sample);
+            toast({
+                title: "Error",
+                description: "Invalid sample data. Please try again or contact support.",
+                type: "error"
+            });
+            return;
+        }
+
+        const cleanGuess = {
+            ...guess,
+            age: Number(guess.age),
+            proof: Number(guess.proof)
+        };
 
         // Change this line to use the static method
-        const scoreResult = ScoreService.calculateScore(guess, sample);
-        console.log('Score result:', scoreResult);
+        const scoreResult = ScoreService.calculateScore(cleanGuess, sample);
+        console.log('Score calculated:', scoreResult);
+
+            // Update guesses with score
+            setGuesses(prevGuesses => ({
+                ...prevGuesses,
+                [sampleId]: {
+                    ...cleanGuess,
+                    score: scoreResult.totalScore,
+                    breakdown: scoreResult.breakdown,
+                    explanations: scoreResult.explanations
+                }
+            }));
 
         // Create the complete guess with score
         const scoredGuess: SampleGuess = {
@@ -150,9 +192,10 @@ export const GameContainer: React.FC = () => {
     };
 
     const initializeGame = useCallback(async () => {
-        if (!quarterId || !user) {
-            console.log('Missing quarterId or user, redirecting...');
-            navigate('/quarters');
+        const accessCheck = validateUserAccess(user, quarterId);
+        if (!accessCheck.valid) {
+            setError(accessCheck.error);
+            navigate('/quarters', { state: { error: accessCheck.error } });
             return;
         }
 
@@ -167,7 +210,7 @@ export const GameContainer: React.FC = () => {
                 setTimeout(() => reject(new Error('Game initialization timed out')), 10000)
             );
 
-            if (user.guest) {
+            if (user && user.guest) {
                 // Try to load guest state first
                 const guestState = GuestGameStateService.loadGameState(user.userId);
                 if (guestState && GuestGameStateService.isStateValid(guestState)) {
@@ -180,7 +223,7 @@ export const GameContainer: React.FC = () => {
             const results = await Promise.race([
                 Promise.all([
                     loadGameState(),
-                    quarterService.getQuarterById(quarterId)
+                    quarterService.getQuarterById(quarterId!)
                 ]),
                 timeoutPromise
             ]) as [GameState | null, any];
@@ -192,8 +235,8 @@ export const GameContainer: React.FC = () => {
                 const fullGameState: GameState = {
                     ...INITIAL_STATE,
                     ...savedState,
-                    userId: user.userId,
-                    quarterId: quarterId,
+                    userId: user?.userId || 'unknown',
+                    quarterId: quarterId!,
                     isLoading: false,
                     isPlaying: true
                 };
@@ -216,7 +259,9 @@ export const GameContainer: React.FC = () => {
                 console.error('No valid samples found for this quarter.');
             }
 
-            AnalyticsService.trackEvent('game_initialization_success', { quarterId, userId: user.userId });
+            if (user) {
+                AnalyticsService.trackEvent('game_initialization_success', { quarterId, userId: user.userId });
+            }
 
         } catch (error) {
             console.error('Game initialization failed:', error);
@@ -224,7 +269,7 @@ export const GameContainer: React.FC = () => {
             AnalyticsService.trackEvent('game_initialization_failure', {
                 error: error instanceof Error ? error.message : 'Unknown error',
                 quarterId,
-                userId: user.userId
+                userId: user?.userId || 'unknown'
             });
         } finally {
             setLoading(false);
@@ -235,7 +280,23 @@ export const GameContainer: React.FC = () => {
     // Single initialization effect
     useEffect(() => {
         if (user && !useGameStore.getState().isInitialized) {
-            initializeGame();
+            const init = async () => {
+                try {
+                    setLoading(true);
+                    await initializeGame();
+                    // Add this to verify samples are loaded
+                    const currentSamples = useGameStore.getState().samples;
+                    if (!currentSamples || Object.keys(currentSamples).length === 0) {
+                        throw new Error('Samples failed to initialize');
+                    }
+                } catch (error) {
+                    console.error('Initialization error:', error);
+                    setError(error instanceof Error ? error.message : 'Failed to initialize game');
+                } finally {
+                    setLoading(false);
+                }
+            };
+            init();
         }
     }, [user, initializeGame]);
 
@@ -271,31 +332,35 @@ export const GameContainer: React.FC = () => {
 
             const timeSpent = calculateTimeSpent(startTime);
             const currentTotalScore = calculateTotalScore();
+            const finalScore = calculateTotalScore();
+
+            console.log('Final Guesses:', guesses);
+            console.log('Calculated Total Score:', currentTotalScore);
+            console.log('Final score:', finalScore); 
 
             const finalState = {
                 guesses,
-                score: {}, // Add the current score state here
+                score: Object.keys(guesses).reduce((acc, key) => ({
+                    ...acc,
+                    [key as SampleKey]: guesses[key as SampleKey]?.score || 0
+                }), {}),
                 totalScore: currentTotalScore,
                 samples,
                 currentQuarter: quarterId
             };
 
-            saveGameState(finalState);
+            await saveGameState(finalState);
+            console.log('Saved game state:', finalState);
 
             // Submit score for all valid users (guests, players, and admins)
-            if (user.guest) {
-                // Save guest score locally
-                GuestGameStateService.saveScore({
-                    guestId: user.userId,
+            if (user?.guest) {
+                localStorage.setItem('guestScore', JSON.stringify({
                     quarterId,
-                    score: currentTotalScore,
-                    timestamp: Date.now(),
-                    samples,
-                    guesses
-                });
+                    score: finalScore,
+                    timestamp: Date.now()
+                }));
             } else {
-                // Normal score submission
-                await FirebaseService.submitScore(user.userId, quarterId, currentTotalScore);
+                await FirebaseService.submitScore(user.userId, quarterId, finalScore);
             }
 
             logEvent(getAnalytics(), 'game_completed', {
@@ -307,7 +372,7 @@ export const GameContainer: React.FC = () => {
             });
 
             console.log('Navigating to results page...');
-            navigate(`/game/${quarterId}/results`, { replace: true });
+            navigate(`/game/${quarterId}/results`);
 
         } catch (error) {
             console.error('Game completion failed:', error);
@@ -336,6 +401,17 @@ export const GameContainer: React.FC = () => {
             });
         }
     }, [sessionExpired, navigate]);
+
+    if (!samples || Object.keys(samples).length === 0) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <div className="text-center">
+                    <h2 className="text-xl font-bold mb-4">Initializing Game...</h2>
+                    <Spinner />
+                </div>
+            </div>
+        );
+    }
 
     if (loading) {
         return (

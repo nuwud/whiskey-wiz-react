@@ -1,4 +1,4 @@
-import { WhiskeySample, SampleId, MASHBILL_TYPES } from '../types/game.types';
+import { WhiskeySample, SampleId, MASHBILL_TYPES, Score } from '../types/game.types';
 
 const EXPECTED_SAMPLE_IDS: SampleId[] = ['A', 'B', 'C', 'D'];
 
@@ -12,7 +12,7 @@ export const DEFAULT_WHISKEY_SAMPLE: Omit<WhiskeySample, 'id'> = {
     description: '',
     notes: [],
     difficulty: 'beginner',
-    score: 'score A',
+    score: 'score A' as Score,
     challengeQuestions: [],
     image: '',
     rating: 0,
@@ -22,73 +22,90 @@ export const DEFAULT_WHISKEY_SAMPLE: Omit<WhiskeySample, 'id'> = {
     price: 0
 };
 
-export const transformQuarterSamples = (samplesMap: Record<string, any>): Record<SampleId, WhiskeySample> => {
-    if (!samplesMap) return EXPECTED_SAMPLE_IDS.reduce((acc, id) => ({
-        ...acc,
-        [id]: { ...DEFAULT_WHISKEY_SAMPLE, id, name: `Sample ${id}` }
-    }), {} as Record<SampleId, WhiskeySample>);
+const validateSample = (sample: any): boolean => {
+    const isValid = sample && 
+        typeof sample.age === 'number' && 
+        typeof sample.proof === 'number' && 
+        typeof sample.mashbill === 'string';
+    
+    if (!isValid) {
+        console.error('Sample validation failed:', {
+            hasAge: typeof sample?.age === 'number',
+            hasProof: typeof sample?.proof === 'number',
+            hasMashbill: typeof sample?.mashbill === 'string',
+            sample
+        });
+    }
+    
+    return isValid;
+};
 
-    console.log("Raw Samples from Firestore:", samplesMap);
+const createDefaultSample = (id: SampleId): WhiskeySample => ({
+    ...DEFAULT_WHISKEY_SAMPLE,
+    id,
+    name: `Sample ${id}`
+});
 
-    let transformedSamples: Record<SampleId, WhiskeySample> = EXPECTED_SAMPLE_IDS.reduce((acc, id) => ({
-        ...acc,
-        [id]: { ...DEFAULT_WHISKEY_SAMPLE, id, name: `Sample ${id}` }
-    }), {} as Record<SampleId, WhiskeySample>);
+const createDefaultSamples = (): Record<SampleId, WhiskeySample> => {
+    const samples: Record<SampleId, WhiskeySample> = {
+        A: createDefaultSample('A'),
+        B: createDefaultSample('B'),
+        C: createDefaultSample('C'),
+        D: createDefaultSample('D')
+    };
+    return samples;
+};
+
+export const transformQuarterSamples = (samplesInput: any): Record<SampleId, WhiskeySample> => {
+    if (!samplesInput) {
+        console.warn('No samples input provided, creating defaults');
+        return createDefaultSamples();
+    }
+
+    console.log("Raw Samples from Firestore:", samplesInput);
+
+    const transformedSamples: Record<SampleId, WhiskeySample> = createDefaultSamples();
 
     try {
-        const samplesArray = Object.keys(samplesMap).map(key => ({
-            id: key,
-            ...samplesMap[key]
-        }));
-
-        samplesArray.forEach((sample, index) => {
-            console.log(`Transforming Sample ${EXPECTED_SAMPLE_IDS[index]}`, sample);
-        });
-
-        if (samplesArray.length < 4) {
-            console.warn(`Not enough samples: ${samplesArray.length}. Adding default samples.`);
-            while (samplesArray.length < 4) {
-                samplesArray.push({ ...DEFAULT_WHISKEY_SAMPLE });
-            }
+        let samplesArray: any[];
+        if (Array.isArray(samplesInput)) {
+            samplesArray = samplesInput;
+        } else if (typeof samplesInput === 'object') {
+            samplesArray = Object.entries(samplesInput).map(([key, value]) => ({
+                id: key,
+                ...(typeof value === 'object' ? value : {})
+            }));
+        } else {
+            console.error('Invalid samples input format:', samplesInput);
+            return transformedSamples;
         }
 
-        samplesArray.slice(0, 4).forEach((sample, index) => {
-            const sampleId: SampleId = EXPECTED_SAMPLE_IDS[index];
-            transformedSamples[sampleId] = {
-                ...DEFAULT_WHISKEY_SAMPLE,
-                ...sample,
-                id: sampleId,
-                name: sample.name || `Sample ${sampleId}`
-            };
-        });
-
-        // Validate and ensure all samples exist
-        EXPECTED_SAMPLE_IDS.forEach(id => {
-            if (!transformedSamples[id]) {
-                console.warn(`Missing sample ${id}, adding default`);
-                transformedSamples[id] = {
+        samplesArray.forEach((sample, index) => {
+            if (index >= EXPECTED_SAMPLE_IDS.length) return;
+            
+            const sampleId = EXPECTED_SAMPLE_IDS[index];
+            console.log(`Processing sample ${sampleId}:`, sample);
+            
+            if (validateSample(sample)) {
+                transformedSamples[sampleId] = {
                     ...DEFAULT_WHISKEY_SAMPLE,
-                    id,
-                    name: `Sample ${id}`
+                    ...sample,
+                    id: sampleId,
+                    score: `score ${sampleId}` as Score,
+                    name: sample.name || `Sample ${sampleId}`
                 };
+                console.log(`Successfully transformed sample ${sampleId}:`, transformedSamples[sampleId]);
+            } else {
+                console.error(`Invalid sample data for ${sampleId}, using default:`, sample);
+                transformedSamples[sampleId] = createDefaultSample(sampleId);
             }
         });
 
-        console.log('Transformed samples:', transformedSamples);
         return transformedSamples;
 
     } catch (error) {
         console.error('Error transforming samples:', error);
-
-        // Return default samples if transformation fails
-        return EXPECTED_SAMPLE_IDS.reduce((acc, id) => ({
-            ...acc,
-            [id]: {
-                ...DEFAULT_WHISKEY_SAMPLE,
-                id,
-                name: `Sample ${id}`
-            }
-        }), {} as Record<SampleId, WhiskeySample>);
+        return transformedSamples;
     }
 };
 

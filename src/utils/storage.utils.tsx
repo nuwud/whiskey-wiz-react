@@ -18,44 +18,65 @@ interface GameStateToSave {
 
 export const saveGameState = (state: any) => {
     try {
+        // Validate state before saving
+        if (!validateGameState(state)) {
+            throw new Error('Invalid game state');
+        }
+
         const stateToSave = {
-            guesses: state.guesses,
-            score: state.score,
-            totalScore: state.totalScore,
-            currentQuarter: state.currentQuarter,
-            samples: state.samples,
+            ...state,
             timestamp: new Date().toISOString(),
-            isGuest: state.isGuest,
-            currentSampleId: state.currentSampleId,
-            completedSamples: state.completedSamples,
             isInitialized: true
         };
 
-        // If it's a guest session, check validity
-        if (state.isGuest && !GuestSessionService.isSessionValid()) {
-            throw new Error('Guest session expired');
+        // Try both localStorage and IndexedDB
+        try {
+            localStorage.setItem(GAME_STATE_KEY, JSON.stringify(stateToSave));
+        } catch (e) {
+            console.warn('localStorage failed, trying IndexedDB');
+            saveToIndexedDB(GAME_STATE_KEY, stateToSave);
         }
 
-        localStorage.setItem(GAME_STATE_KEY, JSON.stringify(stateToSave));
-
-        // If it's a guest, also save to guest state
-        if (state.isGuest) {
-            GuestSessionService.saveState({
-                currentGame: {
-                    quarterId: state.currentQuarter?.id,
-                    progress: {
-                        guesses: state.guesses,
-                        score: state.score,
-                        completedSamples: state.completedSamples
-                    },
-                    timestamp: new Date().toISOString()
-                }
-            });
-        }
     } catch (error) {
         console.error('Failed to save game state:', error);
-        throw error; // Re-throw to handle in UI
+        throw error;
     }
+};
+
+const validateGameState = (state: any): boolean => {
+    return Boolean(
+        state &&
+        state.samples &&
+        Object.keys(state.samples).length === 4 &&
+        (Object.values(state.samples) as WhiskeySample[]).every((sample: WhiskeySample) => 
+            sample && 
+            typeof sample.age === 'number' &&
+            typeof sample.proof === 'number' &&
+            typeof sample.mashbill === 'string'
+        )
+    );
+};
+
+const saveToIndexedDB = (key: string, value: any) => {
+    const request = indexedDB.open('whiskeywiz', 1);
+
+    request.onupgradeneeded = (event: any) => {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains('gameState')) {
+            db.createObjectStore('gameState');
+        }
+    };
+
+    request.onsuccess = (event: any) => {
+        const db = event.target.result;
+        const transaction = db.transaction(['gameState'], 'readwrite');
+        const store = transaction.objectStore('gameState');
+        store.put(value, key);
+    };
+
+    request.onerror = (event: any) => {
+        console.error('Failed to save to IndexedDB:', event.target.error);
+    };
 };
 
 export const loadGameState = (): Partial<GameStateToSave> | null => {

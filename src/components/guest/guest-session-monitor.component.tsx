@@ -1,54 +1,42 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/auth.context';
-import { GuestSessionService } from '../../services/guest-session.service';
-import { GuestSessionAlert } from './guest-session-alert.component';
 
-interface Props {
-    onSessionExpiring?: () => void;
-    onSessionExpired?: () => void;
-}
-
-export const GuestSessionMonitor: React.FC<Props> = ({
+export const GuestSessionMonitor = ({
     onSessionExpiring,
     onSessionExpired
+}: {
+    onSessionExpiring: () => void;
+    onSessionExpired: () => void;
 }) => {
     const { user } = useAuth();
-    const [showWarning, setShowWarning] = useState(false);
-    const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+
+    const checkSession = useCallback(() => {
+        if (!user?.guest) return;
+
+        const guestToken = localStorage.getItem('guestToken');
+        const expiryTime = localStorage.getItem('guestExpiryTime');
+
+        if (!guestToken || !expiryTime) {
+            onSessionExpired();
+            return;
+        }
+
+        const timeLeft = new Date(expiryTime).getTime() - Date.now();
+        if (timeLeft <= 0) {
+            onSessionExpired();
+        } else if (timeLeft <= 5 * 60 * 1000) { // 5 minutes
+            onSessionExpiring();
+        }
+    }, [user, onSessionExpiring, onSessionExpired]);
 
     useEffect(() => {
         if (!user?.guest) return;
 
-        const checkSession = () => {
-            const session = GuestSessionService.getSession();
-            if (!session) {
-                onSessionExpired?.();
-                return;
-            }
-
-            const remainingTime = session.expiresAt - Date.now();
-            setTimeRemaining(remainingTime);
-
-            // Show warning when less than 5 minutes remain
-            if (remainingTime < 5 * 60 * 1000 && remainingTime > 0) {
-                setShowWarning(true);
-                onSessionExpiring?.();
-            }
-
-            // Session expired
-            if (remainingTime <= 0) {
-                onSessionExpired?.();
-            }
-        };
-
-        // Check every minute
-        const interval = setInterval(checkSession, 60000);
+        const interval = setInterval(checkSession, 60000); // Check every minute
         checkSession(); // Initial check
 
         return () => clearInterval(interval);
-    }, [user, onSessionExpiring, onSessionExpired]);
+    }, [user, checkSession]);
 
-    if (!user?.guest || !showWarning || !timeRemaining) return null;
-
-    return <GuestSessionAlert timeRemaining={timeRemaining} />;
+    return null;
 };

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Quarter } from '../../types/game.types';
 import { quarterService } from '../../services/quarter.service';
 import { AnalyticsService } from '../../services/analytics.service';
@@ -17,7 +18,8 @@ export const QuarterSelection: React.FC<QuarterSelectionProps> = ({
   showInactive = false,
   className = ''
 }) => {
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, signInAsGuest } = useAuth();
   const [quarters, setQuarters] = useState<Quarter[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +32,6 @@ export const QuarterSelection: React.FC<QuarterSelectionProps> = ({
           ? quarterService.getAllQuarters()
           : quarterService.getActiveQuarters());
 
-        // Sort quarters by start date (most recent first)
         const sortedQuarters = [...fetchedQuarters].sort(
           (a, b) => fromFirebaseTimestamp(b.startDate).getTime() - fromFirebaseTimestamp(a.startDate).getTime()
         );
@@ -54,6 +55,25 @@ export const QuarterSelection: React.FC<QuarterSelectionProps> = ({
 
     fetchQuarters();
   }, [showInactive, user]);
+
+  const handleQuarterSelect = async (quarter: Quarter) => {
+    AnalyticsService.trackEvent('quarter_selected', {
+      quarterId: quarter.id,
+      quarterName: quarter.name,
+      userId: user?.userId
+    });
+    onSelect(quarter);
+
+    try {
+      if (!user) {
+        await signInAsGuest();
+      }
+      navigate(`/game/${quarter.id}`);
+    } catch (error) {
+      console.error('Failed to start game:', error);
+      setError('Failed to start game. Please try again.');
+    }
+  };
 
   const getDifficultyColor = (difficulty: Difficulty): string => {
     switch (difficulty) {
@@ -95,15 +115,6 @@ export const QuarterSelection: React.FC<QuarterSelectionProps> = ({
       </div>
     );
   }
-
-  const handleQuarterSelect = (quarter: Quarter): void => {
-    AnalyticsService.trackEvent('quarter_selected', {
-      quarterId: quarter.id,
-      quarterName: quarter.name,
-      userId: user?.userId
-    });
-    onSelect(quarter);
-  };
 
   return (
     <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ${className}`}>

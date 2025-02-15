@@ -79,9 +79,32 @@ export class ScoreService {
   }
 
   static calculateScore(guess: SampleGuess, sample: WhiskeySample): { totalScore: number; breakdown: ScoreBreakdown; explanations: string[] } {
-    const ageScore = this.calculateAgeScore(guess.age, sample.age);
-    const proofScore = this.calculateProofScore(guess.proof, sample.proof);
-    const mashbillScore = this.calculateMashbillScore(guess.mashbill, sample.mashbill);
+    // Validate inputs
+    if (!this.validateInputs(guess, sample)) {
+        return {
+            totalScore: 0,
+            breakdown: { age: 0, proof: 0, mashbill: 0 },
+            explanations: ['Invalid data', 'Invalid data', 'Invalid data']
+        };
+    }
+
+    // Sanitize inputs
+    const sanitizedGuess = {
+        age: Number(guess.age),
+        proof: Number(guess.proof),
+        mashbill: String(guess.mashbill).toLowerCase()
+    };
+
+    const sanitizedSample = {
+        age: Number(sample.age),
+        proof: Number(sample.proof),
+        mashbill: String(sample.mashbill).toLowerCase()
+    };
+
+    // Calculate scores with sanitized data
+    const ageScore = this.calculateAgeScore(sanitizedGuess.age, sanitizedSample.age);
+    const proofScore = this.calculateProofScore(sanitizedGuess.proof, sanitizedSample.proof);
+    const mashbillScore = this.calculateMashbillScore(sanitizedGuess.mashbill, sanitizedSample.mashbill);
 
     const totalScore = ageScore + proofScore + mashbillScore;
 
@@ -89,11 +112,24 @@ export class ScoreService {
       totalScore,
       breakdown: { age: ageScore, proof: proofScore, mashbill: mashbillScore },
       explanations: [
-        this.getAgeExplanation(guess.age, sample.age),
-        this.getProofExplanation(guess.proof, sample.proof),
-        this.getMashbillExplanation(guess.mashbill, sample.mashbill)
+        this.getAgeExplanation(sanitizedGuess.age, sanitizedSample.age),
+        this.getProofExplanation(sanitizedGuess.proof, sanitizedSample.proof),
+        this.getMashbillExplanation(sanitizedGuess.mashbill, sanitizedSample.mashbill)
       ]
     };
+  }
+
+  private static validateInputs(guess: SampleGuess, sample: WhiskeySample): boolean {
+    return Boolean(
+        guess &&
+        sample &&
+        !isNaN(Number(guess.age)) &&
+        !isNaN(Number(guess.proof)) &&
+        typeof guess.mashbill === 'string' &&
+        !isNaN(Number(sample.age)) &&
+        !isNaN(Number(sample.proof)) &&
+        typeof sample.mashbill === 'string'
+    );
   }
 
   // Individual scoring calculations
