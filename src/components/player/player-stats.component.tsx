@@ -5,6 +5,8 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { getFirestore } from 'firebase/firestore';
 import { initializeApp } from 'firebase/app';
 import { firebaseConfig } from '../../config/firebase';
+import { GameMetrics } from '../../types/game.types';
+
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -23,7 +25,7 @@ interface GameResult {
     }>;
 }
 
-export interface PlayerStats {
+export interface PlayerStats extends Partial<GameMetrics> {
     totalScore: number;
     totalGames: number;
     averageScore: number;

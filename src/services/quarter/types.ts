@@ -1,6 +1,6 @@
 import { TimeseriesData } from '../../types/game.types';
-import { Quarter, WhiskeySample, QuarterAnalytics } from '../../types/game.types';
-import { DocumentData } from 'firebase/firestore';
+import { QuarterAnalytics as GameQuarterAnalytics } from '../../types/game.types';
+import { Quarter } from '../../types/game.types';
 
 export interface QuarterServiceInterface {
   getCurrentQuarter(): Promise<Quarter | null>;
@@ -8,7 +8,7 @@ export interface QuarterServiceInterface {
   getGameConfiguration(quarterId: string): Promise<Quarter | null>;
   getQuarterStats: (quarterId: string) => Promise<QuarterStats | null>;
   getQuarterLeaderboard(quarterId: string, top?: number): Promise<LeaderboardEntry[]>;
-  getQuarterAnalytics(quarterId: string): Promise<QuarterAnalytics | null>;
+  getQuarterAnalytics(quarterId: string): Promise<GameQuarterAnalytics | null>;
   updateQuarter(quarterId: string, data: Partial<Quarter>): Promise<void>;
   createQuarter(data: Omit<Quarter, 'id'>): Promise<string>;
   getQuarterById(quarterId: string): Promise<Quarter | null>;
@@ -62,4 +62,24 @@ export interface DailyStats {
   players: number;
   averageScore: number;
   completionRate: number;
+}
+
+export interface QuarterAnalytics {
+  dailyStats: DailyStats[];
+  sampleAnalytics: {
+    totalSamples: number;
+    perfectScores: number;
+    averageSampleScore: number;
+    completionRate: number;
+  };
+  difficultyStats: {
+    beginner: number;
+    intermediate: number;
+    advanced: number;
+  };
+  averageSampleAccuracy: {
+    age: number;
+    proof: number;
+    mashbill: number;
+  };
 }

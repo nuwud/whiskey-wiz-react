@@ -1,7 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { QuarterService, quarterService, QuarterAnalyticsService } from '../../services/quarter';
-import { Quarter } from '../../types/game.types';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { quarterService } from '../../services/quarter';
+import { Quarter, QuarterAnalytics as QuarterAnalyticsType } from '../../types/game.types';
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  ResponsiveContainer, 
+  BarChart, 
+  Bar 
+} from 'recharts';
+import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card-ui.component';
 
 interface QuarterStats {
   topScore: number;
@@ -18,6 +30,7 @@ interface QuarterStats {
     intermediate: number;
     advanced: number;
   };
+  lastPlayed?: Date;
 }
 
 interface DailyStats {
@@ -27,110 +40,23 @@ interface DailyStats {
   completionRate: number;
 }
 
-export interface QuarterAnalytics {
-  totalPlayers: number;
-  totalGames: number;
-  averageScore: number;
-  difficultyDistribution: {
-    beginner: number;
-    intermediate: number;
-    advanced: number;
-  };
-  quarterHistory: Array<{
-    quarterId: string;
-    score: number;
-    date: Date;
-  }>;
-  averageCompletionRate: number;
-  dailyStats: DailyStats[];
-  quarterStats: QuarterStats;
-  difficultyStats: {
-    beginner: number;
-    intermediate: number;
-    advanced: number;
-  };
-  averageSampleAccuracy: {
-    age: number;
-    proof: number;
-    mashbill: number;
-  };
-  sampleAnalytics: {
-    sampleId: string;
-    totalAttempts: number;
-    averageAccuracy: {
-      age: number;
-      proof: number;
-      mashbill: number;
-    };
-    performance: {
-      totalCorrect: number;
-      accuracy: number;
-    };
-    machineLearningSuggestions: {
-      nextSample: string;
-      improvementTips: string[];
-    };
-  }[];
-  hintUsageStats: {
-    totalHintsUsed: number;
-    hintsUsedPerSample: {
-      sampleId: string;
-      hintsUsed: number;
-    }[];
-  };
-  timeseriesData: {
-    timestamp: Date;
-    value: number;
-  }[];
-  leaderboard: {
-    userId: string;
-    score: number;
-  }[];
-  samplingAccuracy: {
-    sampleId: string;
-    accuracy: number;
-  }[];
-  machineLearning: {
-    modelVersion: string;
-    accuracy: number;
-  };
+interface LoadingState {
+  quarters: boolean;
+  stats: boolean;
+  analytics: boolean;
 }
 
-const QuarterAnalyticsComponent: React.FC<{ quarterId: string }> = ({ quarterId }) => {
-  const [quarterStats, setQuarterStats] = useState<QuarterStats | null>(null);
-
-  useEffect(() => {
-    const fetchQuarterStats = async () => {
-      const quarterService = QuarterService.getInstance();
-      const stats = await quarterService.getQuarterStats(quarterId);
-      setQuarterStats(stats);
-    };
-
-    fetchQuarterStats();
-  }, [quarterId]);
-
-  return (
-    <div>
-      {quarterStats ? (
-        <div>
-          {/* Render quarter stats */}
-        </div>
-      ) : (
-        <p>Loading...</p>
-      )}
-    </div>
-  );
-};
-
-export default QuarterAnalyticsComponent;
-
-export const QuarterAnalytics: React.FC = () => {
+const QuarterAnalytics: React.FC = () => {
   const [selectedQuarter, setSelectedQuarter] = useState<Quarter | null>(null);
   const [quarters, setQuarters] = useState<Quarter[]>([]);
   const [stats, setStats] = useState<QuarterStats | null>(null);
+  const [analytics, setAnalytics] = useState<QuarterAnalyticsType | null>(null);
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<LoadingState>({
+    quarters: true,
+    stats: false,
+    analytics: false
+  });
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -139,73 +65,92 @@ export const QuarterAnalytics: React.FC = () => {
 
   const loadQuarters = async () => {
     try {
+      setLoading(prev => ({ ...prev, quarters: true }));
+      setError(null);
+      
       const fetchedQuarters = await quarterService.getAllQuarters();
+      
+      if (!fetchedQuarters || fetchedQuarters.length === 0) {
+        setError('No quarters available');
+        return;
+      }
+
       setQuarters(fetchedQuarters);
-      if (fetchedQuarters.length > 0) {
-        await loadQuarterStats(fetchedQuarters[0]);
-      }
+      await loadQuarterData(fetchedQuarters[0]);
     } catch (err) {
-      setError('Failed to load quarters');
+      setError(err instanceof Error ? err.message : 'Failed to load quarters');
+      console.error('Error loading quarters:', err);
     } finally {
-      setLoading(false);
+      setLoading(prev => ({ ...prev, quarters: false }));
     }
   };
 
-  const loadQuarterStats = async (quarter: Quarter) => {
+  const loadQuarterData = async (quarter: Quarter) => {
     try {
-      setLoading(true);
+      setLoading(prev => ({ ...prev, stats: true, analytics: true }));
+      setError(null);
       setSelectedQuarter(quarter);
-      const [quarterStats, dailyData] = await Promise.all([
+
+      const [quarterStats, dailyData, analyticsData] = await Promise.all([
         quarterService.getQuarterStats(quarter.id),
-        quarterService.getDailyStats(quarter.id)
+        quarterService.getDailyStats(quarter.id),
+        quarterService.getQuarterAnalytics(quarter.id)
       ]);
-      setStats(quarterStats as unknown as QuarterStats);
-      setDailyStats(dailyData as DailyStats[]);
+
+      if (!quarterStats) {
+        throw new Error('Failed to load quarter statistics');
+      }
+
+      setStats(quarterStats);
+      setDailyStats(dailyData || []);
+      setAnalytics(analyticsData);
     } catch (err) {
-      setError('Failed to load statistics');
+      setError(err instanceof Error ? err.message : 'Failed to load quarter data');
+      console.error('Error loading quarter data:', err);
     } finally {
-      setLoading(false);
+      setLoading(prev => ({ ...prev, stats: false, analytics: false }));
     }
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const current = await quarterService.getCurrentQuarter();
-        if (!current || !Array.isArray(current.samples)) {
-          throw new Error('Invalid quarter data structure');
-        }
-        setData(current);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load quarter data');
-        console.error('Quarter fetch error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const renderLoadingState = () => (
+    <div className="flex justify-center items-center min-h-[200px]">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mb-4"></div>
+        <p className="text-gray-600">Loading data...</p>
+      </div>
+    </div>
+  );
 
-    fetchData();
-  }, []);
+  const renderErrorState = () => (
+    <div className="p-4 bg-red-50 text-red-600 rounded">
+      <p>{error}</p>
+      <button 
+        onClick={() => loadQuarters()} 
+        className="mt-2 text-sm underline hover:text-red-700"
+      >
+        Try again
+      </button>
+    </div>
+  );
 
-  if (loading) return <div>Loading analytics...</div>;
-  if (error) return <div>Error: {error}</div>;
-  if (!data) return <div>No data available</div>;
-
-  return (
-    <div className="space-y-8">
-      {/* Quarter Selection */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+  const renderQuarterSelector = () => (
+    <Card>
+      <CardHeader>
+        <CardTitle>Select Quarter</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <label title="Select Quarter" htmlFor="quarter-select" className="block text-sm font-medium text-gray-700">
           Select Quarter
         </label>
-        <select title="Select Quarter"
+        <select
+          id="quarter-select"
           value={selectedQuarter?.id}
           onChange={(e) => {
             const quarter = quarters.find(q => q.id === e.target.value);
-            if (quarter) loadQuarterStats(quarter);
+            if (quarter) loadQuarterData(quarter);
           }}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"
+          className="w-full p-2 border rounded-md border-gray-300 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+          disabled={loading.quarters}
         >
           {quarters.map(quarter => (
             <option key={quarter.id} value={quarter.id}>
@@ -213,53 +158,108 @@ export const QuarterAnalytics: React.FC = () => {
             </option>
           ))}
         </select>
+      </CardContent>
+    </Card>
+  );
+
+  const renderOverviewStats = () => {
+    if (!stats) return null;
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Total Players</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-amber-600">
+              {stats.totalPlayers.toLocaleString()}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Average Score</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-amber-600">
+              {stats.averageScore.toFixed(1)}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Top Score</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-amber-600">
+              {stats.topScore.toLocaleString()}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Completion Rate</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-amber-600">
+              {stats.completionRate.toFixed(1)}%
+            </p>
+          </CardContent>
+        </Card>
       </div>
+    );
+  };
 
-      {/* Overview Stats */}
-      {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow p-4">
-            <h3 className="text-lg font-medium text-gray-900">Total Players</h3>
-            <p className="mt-2 text-3xl font-bold text-amber-600">
-              {stats.totalPlayers}
-            </p>
-          </div>
+  const renderDailyTrends = () => {
+    if (!dailyStats || dailyStats.length === 0) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Daily Trends</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center p-4 text-gray-500">
+              No daily statistics available
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <h3 className="text-lg font-medium text-gray-900">Average Score</h3>
-            <p className="mt-2 text-3xl font-bold text-amber-600">
-              {Math.round(stats.averageScore)}
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-4">
-            <h3 className="text-lg font-medium text-gray-900">Top Score</h3>
-            <p className="mt-2 text-3xl font-bold text-amber-600">
-              {stats.topScore}
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-4">
-            <h3 className="text-lg font-medium text-gray-900">Completion Rate</h3>
-            <p className="mt-2 text-3xl font-bold text-amber-600">
-              {Math.round(stats.completionRate)}%
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Daily Trends Chart */}
-      {dailyStats.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Daily Trends</h3>
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Daily Trends</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={dailyStats}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis yAxisId="left" />
-                <YAxis yAxisId="right" orientation="right" />
-                <Tooltip />
+                <XAxis 
+                  dataKey="date"
+                  tick={{ fontSize: 12 }}
+                  tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                />
+                <YAxis 
+                  yAxisId="left"
+                  domain={[0, 'auto']}
+                  tick={{ fontSize: 12 }}
+                />
+                <YAxis 
+                  yAxisId="right" 
+                  orientation="right"
+                  domain={[0, 'auto']}
+                  tick={{ fontSize: 12 }}
+                />
+                <Tooltip
+                  formatter={(value: number) => value.toFixed(1)}
+                  labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                />
                 <Legend />
                 <Line
                   yAxisId="left"
@@ -267,6 +267,8 @@ export const QuarterAnalytics: React.FC = () => {
                   dataKey="averageScore"
                   stroke="#f59e0b"
                   name="Average Score"
+                  strokeWidth={2}
+                  dot={false}
                 />
                 <Line
                   yAxisId="right"
@@ -274,60 +276,165 @@ export const QuarterAnalytics: React.FC = () => {
                   dataKey="players"
                   stroke="#3b82f6"
                   name="Players"
+                  strokeWidth={2}
+                  dot={false}
                 />
               </LineChart>
             </ResponsiveContainer>
           </div>
-        </div>
-      )}
+        </CardContent>
+      </Card>
+    );
+  };
 
-      {/* Sample Accuracy */}
-      {stats && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Sample Accuracy</h3>
+  const renderAnalytics = () => {
+    if (!analytics) return null;
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Quarter Analytics</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-lg">Some analytics data here...</p>
+          {/* Add more detailed analytics data as needed */}
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderSampleAccuracy = () => {
+    if (!stats) return null;
+
+    const accuracyData = [
+      { category: 'Age', accuracy: stats.sampleAccuracy.age * 100 },
+      { category: 'Proof', accuracy: stats.sampleAccuracy.proof * 100 },
+      { category: 'Mashbill', accuracy: stats.sampleAccuracy.mashbill * 100 }
+    ];
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Sample Accuracy</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={[
-                  { category: 'Age', accuracy: stats.sampleAccuracy.age },
-                  { category: 'Proof', accuracy: stats.sampleAccuracy.proof },
-                  { category: 'Mashbill', accuracy: stats.sampleAccuracy.mashbill }
-                ]}
-              >
+              <BarChart data={accuracyData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="category" />
-                <YAxis domain={[0, 100]} />
-                <Tooltip />
-                <Bar dataKey="accuracy" fill="#f59e0b" name="Accuracy %" />
+                <XAxis 
+                  dataKey="category"
+                  tick={{ fontSize: 12 }}
+                />
+                <YAxis
+                  domain={[0, 100]}
+                  tick={{ fontSize: 12 }}
+                  label={{ 
+                    value: 'Accuracy %',
+                    angle: -90,
+                    position: 'insideLeft',
+                    style: { textAnchor: 'middle' }
+                  }}
+                />
+                <Tooltip
+                  formatter={(value: number) => `${value.toFixed(1)}%`}
+                />
+                <Bar 
+                  dataKey="accuracy" 
+                  fill="#f59e0b"
+                  name="Accuracy %"
+                  radius={[4, 4, 0, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
-      )}
+        </CardContent>
+      </Card>
+    );
+  };
 
-      {/* Difficulty Distribution */}
-      {stats && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Player Difficulty Distribution</h3>
+  const renderDifficultyDistribution = () => {
+    if (!stats) return null;
+
+    const difficultyData = [
+      { level: 'Beginner', players: stats.difficultyDistribution.beginner },
+      { level: 'Intermediate', players: stats.difficultyDistribution.intermediate },
+      { level: 'Advanced', players: stats.difficultyDistribution.advanced }
+    ];
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Player Difficulty Distribution</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={[
-                  { level: 'Beginner', players: stats.difficultyDistribution.beginner },
-                  { level: 'Intermediate', players: stats.difficultyDistribution.intermediate },
-                  { level: 'Advanced', players: stats.difficultyDistribution.advanced }
-                ]}
-              >
+              <BarChart data={difficultyData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="level" />
-                <YAxis />
+                <XAxis 
+                  dataKey="level"
+                  tick={{ fontSize: 12 }}
+                />
+                <YAxis
+                  tick={{ fontSize: 12 }}
+                  label={{ 
+                    value: 'Number of Players',
+                    angle: -90,
+                    position: 'insideLeft',
+                    style: { textAnchor: 'middle' }
+                  }}
+                />
                 <Tooltip />
-                <Bar dataKey="players" fill="#f59e0b" name="Players" />
+                <Bar 
+                  dataKey="players" 
+                  fill="#f59e0b"
+                  name="Players"
+                  radius={[4, 4, 0, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  if (loading.quarters) {
+    return renderLoadingState();
+  }
+
+  if (error) {
+    return renderErrorState();
+  }
+
+  if (!selectedQuarter || quarters.length === 0) {
+    return (
+      <div className="p-4 bg-yellow-50 text-yellow-700 rounded">
+        <p>No quarters available. Please create a quarter first.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8 p-6">
+      {renderQuarterSelector()}
+      
+      {loading.stats ? (
+        renderLoadingState()
+      ) : (
+        <>
+          {renderOverviewStats()}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {renderDailyTrends()}
+            {renderSampleAccuracy()}
+          </div>
+          {renderDifficultyDistribution()}
+          {renderAnalytics()}
+        </>
       )}
     </div>
   );
 };
+
+export default QuarterAnalytics;

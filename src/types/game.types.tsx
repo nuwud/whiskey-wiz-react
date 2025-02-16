@@ -1,6 +1,7 @@
 import { PlayerProfile } from "./auth.types";
 import { LeaderboardEntry } from "../services/leaderboard.service";
 import { Timestamp } from 'firebase/firestore';
+import { PlayerStats } from '../components/player/player-stats.component'
 
 // Sample and basic types
 
@@ -74,6 +75,7 @@ export interface WhiskeySample {
   notes: string[];
   type: string;
   region: string;
+  availability: string;
   imageUrl: string;
   price: number;
   difficulty: Difficulty;
@@ -462,10 +464,14 @@ export interface TimeseriesData {
 
 export interface QuarterAnalytics {
   // Basic metrics
+  totalScore: number;
   totalPlayers: number;
   totalGames: number;
   averageScore: number;
+  totalCompleted: number;
   completionRate: number;
+  totalHintsUsed: number;
+  totalChallenges: number;
   totalChallengesCompleted: number;
   bestScore: number;
   correctAnswers: number;
@@ -511,7 +517,6 @@ export interface QuarterAnalytics {
     intermediate: number;
     advanced: number;
   };
-
   // Performance metrics
   accuracy: {
     age: number;
@@ -544,24 +549,7 @@ export interface QuarterAnalytics {
   };
   playerFeedback: any[];
   // Player statistics
-  playerStats: {
-    totalGames: number;
-    averageScore: number;
-    bestScore: number;
-    totalChallengesCompleted: number;
-    correctAnswers: number;
-    hintsUsed: number;
-    favoriteWhiskey?: string;
-    totalSamples: number;
-    perfectScores: number;
-    lastPlayed?: Date;
-    quarterHistory: Array<{
-      quarterId: string;
-      score: number;
-      date: Date;
-    }>;
-  };
-
+  playerStats: PlayerStats;
   difficultyDistribution: {
     beginner: number;
     intermediate: number;
@@ -693,6 +681,7 @@ export interface QuarterAnalytics {
     totalSamples: number;
     perfectScores: number;
     lastPlayed?: Date;
+    totalGames: number; 
   };
   playerLeaderboard: {
     global: PlayerProfile[];
