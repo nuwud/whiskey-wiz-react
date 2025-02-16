@@ -48,6 +48,7 @@ export class QuarterConverters {
       score: typeof data.score === 'number' ? data.score : 0,
       challengeQuestions: Array.isArray(data.challengeQuestions) ? data.challengeQuestions : [],
       image: data.image || '',
+      availability: 'in stock' 
     };
   }
 
@@ -175,7 +176,8 @@ export class QuarterConverters {
       difficulty: 'beginner',
       score: 0,
       challengeQuestions: [],
-      image: ''
+      image: '',
+      availability: 'in stock' 
     };
   }
 

@@ -17,7 +17,7 @@ export { monitoringService } from './monitoring.service';
 export { PerformanceService } from './performance.service';
 export { PlayerTrackingService } from './player-tracking.service';
 export { QuarterTemplateService } from './quarter-template.service';
-export { quarterService } from './quarter.service';
+export { quarterService } from './quarter/quarter.service';
 export { recommendationService } from './recommendation.service';
 export { scoreService } from './score.service';
 export { seasonalTrendsService } from './seasonal-trends.service'

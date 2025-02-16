@@ -140,7 +140,8 @@ export const SampleEditor: FC<SampleEditorProps> = ({ samples, onUpdate, onClose
         type: samples[editingIndex]?.type || '',
         region: samples[editingIndex]?.region || '',
         imageUrl: samples[editingIndex]?.imageUrl || '',
-        price: samples[editingIndex]?.price || 0
+        price: samples[editingIndex]?.price || 0,
+        availability: samples[editingIndex]?.availability || 'In Stock'
       };
       onUpdate(newSamples);
     }

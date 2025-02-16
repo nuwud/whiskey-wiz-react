@@ -80,7 +80,8 @@ export class ShopifyIntegrationService {
           type: challengeData.whiskeySample.type,
           rating: challengeData.whiskeySample.rating,
           imageUrl: challengeData.whiskeySample.imageUrl,
-          price: challengeData.whiskeySample.price
+          price: challengeData.whiskeySample.price,
+          availability: 'in stock'
         }
       };
 

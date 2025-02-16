@@ -49,10 +49,10 @@ const calculateScore = (
 };
 
 const defaultSamples: Record<SampleId, WhiskeySample> = {
-    A: { id: 'A', name: '', age: 0, proof: 0, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' },
-    B: { id: 'B', name: '', age: 0, proof: 0, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' },
-    C: { id: 'C', name: '', age: 0, proof: 0, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' },
-    D: { id: 'D', name: '', age: 0, proof: 0, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' }
+    A: { id: 'A', name: '', age: 0, proof: 0, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, availability: 'in stock', difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' },
+    B: { id: 'B', name: '', age: 0, proof: 0, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, availability: 'in stock', difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' },
+    C: { id: 'C', name: '', age: 0, proof: 0, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, availability: 'in stock', difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' },
+    D: { id: 'D', name: '', age: 0, proof: 0, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, availability: 'in stock', difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' }
 };
 
 interface GameStore extends Omit<GameState, 'totalScore'> {

@@ -19,7 +19,8 @@ export const DEFAULT_WHISKEY_SAMPLE: Omit<WhiskeySample, 'id'> = {
     type: '',
     region: '',
     imageUrl: '',
-    price: 0
+    price: 0,
+    availability: 'in stock'
 };
 
 const validateSample = (sample: any): boolean => {

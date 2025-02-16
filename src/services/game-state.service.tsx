@@ -5,9 +5,11 @@ import { DocumentData } from 'firebase/firestore';
 import { GameState, SampleKey, DEFAULT_SCORING_RULES, WhiskeySample  } from '../types/game.types';
 import { StateRecoveryService } from './state-recovery.service';
 import { serverTimestamp as firestoreTimestamp } from 'firebase/firestore';
-import { QuarterService } from '../services/quarter';
+import { quarterService } from '../services/quarter';
 
 const CHECKPOINT_COLLECTION = 'gameState_checkpoints';
+
+
 
 export class GameStateService {
   private gameStateCollection = collection(db, 'gameStates');
@@ -21,6 +23,95 @@ export class GameStateService {
       GameStateService.instance = new GameStateService();
     }
     return GameStateService.instance;
+  }
+
+  async initializeGameState(uid: string, quarterId: string): Promise<GameState> {
+    try {
+        // Get quarter data first
+        const quarter = await quarterService.getQuarterById(quarterId);
+        
+        if (!quarter) {
+            throw new Error('Quarter not found');
+        }
+  
+        if (!quarter.samples || quarter.samples.length === 0) {
+            throw new Error('No samples found in quarter');
+        }
+  
+        // Create initial state
+        const initialState: GameState = {
+            userId: uid,
+            quarterId,
+            isInitialized: true,
+            currentSample: 'A',
+            score: {
+                'A': 0, 'B': 0, 'C': 0, 'D': 0
+            } as Record<SampleKey, number>,
+            scores: {
+                A: 'A',
+                B: 'B',
+                C: 'C',
+                D: 'D'
+            },
+            totalScore: 0,
+            completedSamples: [],
+            progress: 0,
+            lastUpdated: new Date(),
+            isPlaying: true,
+            currentChallengeIndex: 0,
+            challenges: quarter.challenges || [],
+            samples: quarter.samples.reduce((acc: Record<SampleKey, WhiskeySample>, sample: WhiskeySample, index: number) => {
+                const sampleId = String.fromCharCode(65 + index) as SampleKey; // A, B, C, D
+                acc[sampleId] = {
+                    ...sample,
+                    id: sampleId
+                } as WhiskeySample;
+                return acc;
+            }, {
+                A: { id: 'A', name: '', age: 0, proof: 0, mashbill: 'Bourbon' as const, rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, availability: 'in stock', difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' } as WhiskeySample,
+                B: { id: 'B', name: '', age: 0, proof: 0, mashbill: 'Bourbon' as const, rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, availability: 'in stock', difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' } as WhiskeySample,
+                C: { id: 'C', name: '', age: 0, proof: 0, mashbill: 'Bourbon' as const, rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, availability: 'in stock', difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' } as WhiskeySample,
+                D: { id: 'D', name: '', age: 0, proof: 0, mashbill: 'Bourbon' as const, rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, availability: 'in stock', difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' } as WhiskeySample
+            }),
+            guesses: {
+                A: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false },
+                B: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false },
+                C: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false },
+                D: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false }
+            },
+            answers: {},
+            timeRemaining: 300,
+            lives: 3,
+            hints: 3,
+            isComplete: false,
+            totalChallenges: quarter.challenges?.length || 0,
+            hasSubmitted: false,
+            startTime: new Date(),
+            endTime: new Date(),
+            currentRound: 1,
+            totalRounds: 4,
+            mode: 'standard',
+            difficulty: quarter.difficulty || 'beginner',
+            isLoading: false,
+            error: null,
+            currentSampleId: 'A',
+            currentQuarter: quarter,
+            scoringRules: quarter.scoringRules || { ...DEFAULT_SCORING_RULES }
+        };
+  
+        // Save to Firestore
+        const gameStateRef = doc(this.gameStateCollection, uid);
+        await setDoc(gameStateRef, {
+            ...initialState,
+            startTime: serverTimestamp(),
+            lastUpdated: serverTimestamp()
+        });
+  
+        return initialState;
+    } catch (error) {
+        console.error('Failed to initialize game state', error);
+        throw error;
+    }
   }
 
   // Score tracking methods
@@ -361,10 +452,10 @@ async createGameState(userId: string): Promise<GameState> {
           currentChallengeIndex: 0,
           challenges: [],
           samples: {
-              A: { id: 'A', name: '', age: 0, proof: 0, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' },
-              B: { id: 'B', name: '', age: 0, proof: 0, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' },
-              C: { id: 'C', name: '', age: 0, proof: 0, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' },
-              D: { id: 'D', name: '', age: 0, proof: 0, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' }
+              A: { id: 'A', name: '', age: 0, proof: 0, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, availability:'', difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' },
+              B: { id: 'B', name: '', age: 0, proof: 0, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, availability:'', difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' },
+              C: { id: 'C', name: '', age: 0, proof: 0, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, availability:'', difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' },
+              D: { id: 'D', name: '', age: 0, proof: 0, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, availability:'', difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' }
           },
           answers: {},
           timeRemaining: 300,
@@ -411,95 +502,7 @@ async createGameState(userId: string): Promise<GameState> {
     }
 }
 
-async initializeGameState(uid: string, quarterId: string): Promise<GameState> {
-  try {
-      // Get quarter data first
-      const quarterService: QuarterService = QuarterService.getInstance();
-      const quarter = await quarterService.getQuarterById(quarterId);
-      
-      if (!quarter) {
-          throw new Error('Quarter not found');
-      }
 
-      if (!quarter.samples || quarter.samples.length === 0) {
-          throw new Error('No samples found in quarter');
-      }
-
-      // Create initial state
-      const initialState: GameState = {
-          userId: uid,
-          quarterId,
-          isInitialized: true,
-          currentSample: 'A',
-          score: {
-              'A': 0, 'B': 0, 'C': 0, 'D': 0
-          } as Record<SampleKey, number>,
-          scores: {
-              A: 'A',
-              B: 'B',
-              C: 'C',
-              D: 'D'
-          },
-          totalScore: 0,
-          completedSamples: [],
-          progress: 0,
-          lastUpdated: new Date(),
-          isPlaying: true,
-          currentChallengeIndex: 0,
-          challenges: quarter.challenges || [],
-          samples: quarter.samples.reduce((acc, sample, index) => {
-              const sampleId = String.fromCharCode(65 + index) as SampleKey; // A, B, C, D
-              acc[sampleId] = {
-                  ...sample,
-                  id: sampleId
-              } as WhiskeySample;
-              return acc;
-          }, {
-              A: { id: 'A', name: '', age: 0, proof: 0, mashbill: 'Bourbon' as const, rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' } as WhiskeySample,
-              B: { id: 'B', name: '', age: 0, proof: 0, mashbill: 'Bourbon' as const, rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' } as WhiskeySample,
-              C: { id: 'C', name: '', age: 0, proof: 0, mashbill: 'Bourbon' as const, rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' } as WhiskeySample,
-              D: { id: 'D', name: '', age: 0, proof: 0, mashbill: 'Bourbon' as const, rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', imageUrl: '', price: 0, difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' } as WhiskeySample
-          }),
-          guesses: {
-              A: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false },
-              B: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false },
-              C: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false },
-              D: { age: 0, proof: 0, mashbill: '', rating: 0, notes: '', score: 0, submitted: false }
-          },
-          answers: {},
-          timeRemaining: 300,
-          lives: 3,
-          hints: 3,
-          isComplete: false,
-          totalChallenges: quarter.challenges?.length || 0,
-          hasSubmitted: false,
-          startTime: new Date(),
-          endTime: new Date(),
-          currentRound: 1,
-          totalRounds: 4,
-          mode: 'standard',
-          difficulty: quarter.difficulty || 'beginner',
-          isLoading: false,
-          error: null,
-          currentSampleId: 'A',
-          currentQuarter: quarter,
-          scoringRules: quarter.scoringRules || { ...DEFAULT_SCORING_RULES }
-      };
-
-      // Save to Firestore
-      const gameStateRef = doc(this.gameStateCollection, uid);
-      await setDoc(gameStateRef, {
-          ...initialState,
-          startTime: serverTimestamp(),
-          lastUpdated: serverTimestamp()
-      });
-
-      return initialState;
-  } catch (error) {
-      console.error('Failed to initialize game state', error);
-      throw error;
-  }
-}
 }
 
 // Export singleton instance
