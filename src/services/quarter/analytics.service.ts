@@ -1,13 +1,14 @@
-import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-import { QuarterAnalytics, TimeseriesData, WhiskeySample } from '../../types/game.types';
+import { QuarterAnalytics } from '../../types/game.types';
 import { AnalyticsService } from '../analytics.service';
-import { QuarterConverters } from './converters';
 import { QuarterStats, DailyStats } from './types';
+import { PlayerStats } from '../../components/player/player-stats.component';
 
 export class QuarterAnalyticsService {
   private static instance: QuarterAnalyticsService;
   private resultsCollection = collection(db, 'game_results'); // Fixed collection name
+  private quartersCollection = collection(db, 'quarters');
 
   private constructor() {
     // Private constructor to prevent direct instantiation
@@ -19,75 +20,63 @@ export class QuarterAnalyticsService {
     }
     return QuarterAnalyticsService.instance;
   }
-  async getQuarterAnalytics(quarterId: string): Promise<QuarterAnalytics | null> {
+
+  async getQuarterAnalytics(quarterId: string): Promise<QuarterAnalytics | null | undefined> {
+    if (!quarterId) {
+      console.error('Quarter ID is required');
+      return null;
+    }
     try {
-      const progressionStats = await this.getPlayerProgressionStats(quarterId);
-      if (!progressionStats) return null;
 
-      const sampleAnalytics = await this.getDetailedSampleAnalytics(quarterId);
-      const resultsSnapshot = await getDocs(query(this.resultsCollection, where('quarterId', '==', quarterId)));
-      const timeSpentData = await this.calculateTimeSpentMetrics(quarterId);
+      const samplesQuery = collection(db, `quarters/${quarterId}/samples`);
+      const samplesSnapshot = await getDocs(samplesQuery);
+      const samples = samplesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
 
-      return {
-        totalChallengesCompleted: progressionStats.totalChallengesCompleted,
-        bestScore: progressionStats.bestScore,
-        correctAnswers: progressionStats.correctAnswers,
-        hintsUsed: progressionStats.hintsUsed,
-        completionTime: { min: 0, max: 0, average: 0 },
-        playerRetention: { totalPlayers: 0, newPlayers: 0, returningPlayers: 0 },
-        challengeCompletion: {
-          progressionRate: 0,
-          difficultyRating: {
-            totalAttempts: 0,
-            totalCorrect: 0,
-            accuracy: 0
+      const resultsQuery = query(
+        this.resultsCollection,
+        where('quarterId', '==', quarterId)
+      );
+      const resultsSnapshot = await getDocs(resultsQuery);
+
+      const totalPlayers = resultsSnapshot.size;
+      let totalScore = 0;
+      let totalChallenges = 0;
+
+      resultsSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        totalScore += data.score || 0;
+        totalChallenges += data.challengesCompleted || 0;
+      });
+
+      const analytics: QuarterAnalytics = {
+
+          totalGames: 0,
+          averageScore: 0,
+          bestScore: 0,
+          totalChallengesCompleted: 0,
+          correctAnswers: 0,
+          hintsUsed: 0,
+          favoriteWhiskey: '',
+          totalSamples: 0,
+          perfectScores: 0,
+          lastPlayed: undefined,
+          quarterHistory: {
+            quarterId: '',
+            totalGames: 0,
+            averageScore: 0,
+            bestScore: 0,
+            totalChallengesCompleted: 0,
+            correctAnswers: 0,
+            hintsUsed: 0,
+            favoriteWhiskey: '',
+            totalSamples: 0,
+            perfectScores: 0,
+            lastPlayed: undefined
           },
-          playerProgression: 0,
-          totalChallenges: 0,
-          totalCorrect: 0,
-          accuracy: 0
-        },
-        difficultyRating: {
-          beginner: 0,
-          intermediate: 0,
-          advanced: 0
-        },
-        sampleAnalytics,
-        gameStats: {
-          totalGamesPlayed: progressionStats.totalGames,
-          uniquePlayers: resultsSnapshot.size,
-          averagePlaytime: timeSpentData.totalTimeSpent / (progressionStats.totalGames || 1),
-          completionRate: progressionStats.totalChallengesCompleted / (progressionStats.totalGames || 1),
-        },
-        playerStats: progressionStats,
-        totalPlayers: resultsSnapshot.size,
-        totalGames: progressionStats.totalGames,
-        averageScore: progressionStats.averageScore,
-        completionRate: progressionStats.totalChallengesCompleted / (progressionStats.totalGames || 1),
-        totalSamples: progressionStats.totalSamples,
-        perfectScores: progressionStats.perfectScores,
-        lastPlayed: progressionStats.lastPlayed,
-        difficultyBreakdown: progressionStats.difficultyBreakdown,
-        quarterHistory: progressionStats.quarterHistory,
-        accuracy: {
-          age: 0,
-          proof: 0,
-          mashbill: 0,
-          sampleAccuracy: {
-            age: 0,
-            proof: 0,
-            mashbill: 0
-          },
-          totalAttempts: {
-            age: 0,
-            proof: 0,
-            mashbill: 0
-          },
-          difficulty: {
-            beginner: 0,
-            intermediate: 0,
-            advanced: 0
-          },
+          totalAttempts: 0,
           averageAttempts: 0,
           averageTimeToComplete: 0,
           completionRateByDifficulty: {
@@ -97,54 +86,221 @@ export class QuarterAnalyticsService {
             overall: 0
           },
           averageCompletionRate: 0,
-        },
-        difficultyDistribution: {
-          beginner: 0,
-          intermediate: 0,
-          advanced: 0
-        },
-        averageCompletionRate: 0,
-        dailyStats: [],
-        engagement: {
-          dailyActive: 0,
-          monthlyActive: 0,
-          totalTimeSpent: timeSpentData.totalTimeSpent,
-          averageTimeSpentPerGame: timeSpentData.avgTimePerGame,
-        },
-        playerFeedback: [],
-        retention: { day1: 0, day7: 0, day30: 0 },
-        sampleDifficulty: {
-          beginner: 0,
-          intermediate: 0,
-          advanced: 0
-        },
-        sampleEngagement: 0,
-        sampleRetention: 0,
-        sampleSuccessRate: 0,
-        sampleTimeSpent: 0,
-        sampleUsage: 0,
-        totalChallenges: 0,
-        totalCorrect: 0,
-        totalHints: 0,
-        totalPlaytime: 0,
-        totalRetention: 0,
-        totalScore: 0,
-        totalTimeSpent: 0,
-        totalUsage: 0,
-        uniquePlayers: 0,
-        userFeedback: [],
-        userProgression: [],
-        userRetention: 0,
-        userSatisfaction: 0,
-        userSuccessRate: 0,
-        userTimeSpent: 0,
-        userUsage: 0,
-      };
-    } catch (error) {
-      console.error('❌ Failed to fetch quarter analytics', error);
-      return null;
-    }
-  }
+
+          difficultyDistribution: {
+            beginner: 0,
+            intermediate: 0,
+            advanced: 0
+          },
+          dailyStats: [],
+          weeklyStats: [],
+          monthlyStats: [],
+          quarterlyStats: [],
+          yearlyStats: [],
+          playerRetentionStats: [],
+          playerEngagementStats: [],
+          playerProgressionStats: [],
+          playerFeedbackStats: [],
+          playerAchievementStats: [],
+          playerChallengeStats: [],
+          playerHintStats: [],
+          playerTimeStats: [],
+          playerScoreStats: [],
+          playerAccuracyStats: [],
+          playerCompletionStats: [],
+          playerLeaderboardStats: [],
+          playerSocialStats: [],
+          playerTechnicalStats: [],
+          playerMarketingStats: [],
+          playerCustomEventStats: [],
+          playerABTestStats: [],
+          playerSeasonalTrendStats: [],
+          playerGeographicStats: [],
+          playerMachineLearningStats: [],
+          playerHintUsageStats: [],
+          playerTimeseriesStats: [],
+          playerLeaderboard: {
+            global: [],
+            quarterly: []
+          },
+          playerSamplingAccuracyStats: [],
+          playerAccuracy: {
+            age: 0,
+            proof: 0,
+            mashbill: 0,
+            sampleAccuracy: {
+              age: 0,
+              proof: 0,
+              mashbill: 0
+            },
+            totalAttempts: {
+              age: 0,
+              proof: 0,
+              mashbill: 0
+            },
+            difficulty: { beginner: 0, intermediate: 0, advanced: 0 },
+            averageAttempts: 0,
+            averageTimeToComplete: 0,
+            completionRateByDifficulty: {
+              beginner: 0,
+              intermediate: 0,
+              advanced: 0,
+              overall: 0
+            },
+            averageCompletionRate: 0
+          },
+          totalPlayers,
+          completionRate: 0,
+          difficultyBreakdown: {
+            beginner: 0,
+            intermediate: 0,
+            advanced: 0
+          },
+          sampleAnalytics: samples.map(sample => ({
+            sampleId: sample.id,
+            totalAttempts: 0,
+            averageAccuracy: {
+              age: 0,
+              proof: 0,
+              mashbill: 0
+            },
+            performance: {
+              totalCorrect: 0,
+              accuracy: 0
+            },
+            machineLearningSuggestions: {
+              recommendedMerchandise: [],
+              potentialSubscriptionTargets: [],
+              marketingSegments: [],
+              nextSample: [],
+              improvementTips: []
+            }
+          })),
+          gameStats: {
+            totalGamesPlayed: resultsSnapshot.size,
+            uniquePlayers: totalPlayers,
+            averagePlaytime: 0,
+            completionRate: 0
+          },
+          playerEngagement: {
+            totalTimeSpent: 0,
+            averageTimeSpentPerGame: 0,
+            totalHintsUsed: 0,
+            averageHintsUsedPerGame: 0,
+            averageHintsUsedPerPlayer: 0,
+            averageHintsUsedPerChallenge: 0
+          },
+          completionTime: {
+            min: 0,
+            max: 0,
+            average: 0
+          },
+          playerRetention: {
+            totalPlayers: 0,
+            newPlayers: 0,
+            returningPlayers: 0
+          },
+          challengeCompletion: {
+            progressionRate: 0,
+            difficultyRating: {
+              beginner: 0,
+              intermediate: 0,
+              advanced: 0
+            },
+            playerProgression: 0,
+            totalChallenges: 0,
+            totalCorrect: 0,
+            accuracy: 0
+          },
+          difficultyRating: {
+            beginner: 0,
+            intermediate: 0,
+            advanced: 0
+          },
+          engagement: {
+            dailyActive: 0,
+            monthlyActive: 0,
+            totalTimeSpent: 0,
+            averageTimeSpentPerGame: 0
+          },
+          retention: {
+            day1: 0,
+            day7: 0,
+            day30: 0
+          },
+          socialMetrics: {
+            shares: 0,
+            invites: 0
+          },
+          technicalMetrics: {
+            errors: 0,
+            loadTime: 0
+          },
+          marketingMetrics: {
+            acquisition: {},
+            conversion: 0
+          },
+          customEvents: [],
+          abTestResults: {},
+          seasonalTrends: {
+            quarterly: [],
+            monthly: []
+          },
+          geographicData: {
+            regions: {},
+            countries: {}
+          },
+          machineLearning: {
+            recommendations: {},
+            predictions: {},
+            modelVersion: '',
+            accuracy: 0
+          },
+          hintUsageStats: {
+            totalHintsUsed: 0,
+            hintsUsedPerSample: []
+          },
+          timeseriesData: [],
+          leaderboard: [],
+          samplingAccuracy: {
+            age: 0,
+            proof: 0,
+            mashbill: 0,
+            ageAccuracy: 0,
+            proofAccuracy: 0,
+            mashbillAccuracy: 0
+          },
+          accuracy: {
+            age: 0,
+            proof: 0,
+            mashbill: 0,
+            sampleAccuracy: {
+              age: 0,
+              proof: 0,
+              mashbill: 0
+            },
+            totalAttempts: {
+              age: 0,
+              proof: 0,
+              mashbill: 0
+            },
+            difficulty: { beginner: 0, intermediate: 0, advanced: 0 },
+            averageAttempts: 0,
+            averageTimeToComplete: 0,
+            completionRateByDifficulty: {
+              beginner: 0,
+              intermediate: 0,
+              advanced: 0,
+              overall: 0
+            },
+            averageCompletionRate: 0
+          },
+          playerFeedback: []
+          
+        };
+
+
+
 
   async getQuarterStats(quarterId: string): Promise<QuarterStats | null> {
     try {
@@ -197,16 +353,39 @@ export class QuarterAnalyticsService {
     }
   }
 
-  async getDailyStats(quarterId: string): Promise<any> {
+  async getDailyStats(quarterId: string): Promise<DailyStats[]> {
     try {
-      const q = query(this.resultsCollection, where('quarterId', '==', quarterId));
+      const q = query(
+        this.resultsCollection,
+        where('quarterId', '==', quarterId)
+      );
       const snapshot = await getDocs(q);
 
-      const dailyStats = snapshot.docs.map(doc => doc.data());
-      return dailyStats;
+      const dailyStats = new Map<string, DailyStats>();
+
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const date = data.completedAt?.toDate().toDateString() || new Date().toDateString();
+
+        if (!dailyStats.has(date)) {
+          dailyStats.set(date, {
+            date,
+            players: 0,
+            averageScore: 0,
+            completionRate: 0
+          });
+        }
+
+        const stats = dailyStats.get(date)!;
+        stats.players++;
+        stats.averageScore = ((stats.averageScore * (stats.players - 1)) + (data.score || 0)) / stats.players;
+        stats.completionRate = stats.players / snapshot.size;
+      });
+
+      return Array.from(dailyStats.values());
     } catch (error) {
       console.error('Failed to fetch daily stats:', error);
-      return null;
+      return [];
     }
   }
 
@@ -290,11 +469,11 @@ export class QuarterAnalyticsService {
         stats.hintsUsed += data.hintsUsed || 0;
         stats.totalSamples += data.samplesAttempted || 0;
         stats.perfectScores += data.score === 100 ? 1 : 0;
-        
+
         if (data.difficulty) {
           stats.difficultyBreakdown[data.difficulty as keyof typeof stats.difficultyBreakdown]++;
         }
-        
+
         const completedAt = data.completedAt?.toDate();
         if (completedAt && (!stats.lastPlayed || completedAt > stats.lastPlayed)) {
           stats.lastPlayed = completedAt;
@@ -341,10 +520,10 @@ export class QuarterAnalyticsService {
           averageAccuracy: accuracyStats,
           performance: {
             totalCorrect: sampleResults.filter(result => result.sampleResults[sample.id]?.correct).length,
-            accuracy: sampleResults.length > 0 ? 
+            accuracy: sampleResults.length > 0 ?
               sampleResults.filter(result => result.sampleResults[sample.id]?.correct).length / sampleResults.length : 0
           },
-          averageTimeSpent: sampleResults.reduce((acc, result) => 
+          averageTimeSpent: sampleResults.reduce((acc, result) =>
             acc + (result.sampleResults[sample.id]?.timeSpent || 0), 0) / (sampleResults.length || 1),
           machineLearningSuggestions: {
             nextBestAction: 'none',
@@ -392,6 +571,7 @@ export class QuarterAnalyticsService {
       mashbill: stats.mashbill / totalResults
     };
   }
+
 }
 
 export const quarterAnalyticsService = QuarterAnalyticsService.getInstance();

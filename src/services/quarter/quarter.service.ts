@@ -1,26 +1,12 @@
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  doc,
-  getDoc,
-  updateDoc,
-  serverTimestamp,
-  addDoc,
-  setDoc,
-  orderBy,
-  limit,
-  DocumentSnapshot
-} from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc, serverTimestamp, addDoc, setDoc, orderBy, limit, DocumentSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-import { Quarter, WhiskeySample } from '../../types/game.types';
-import { AnalyticsService } from '../analytics.service';
+import { Quarter, QuarterAnalytics, WhiskeySample } from '../../types/game.types';
 import { QuarterConverters } from './converters';
-import { QuarterAnalyticsService } from './analytics.service';
+import { quarterAnalyticsService, QuarterAnalyticsService } from './analytics.service';
+import { AnalyticsService } from '../analytics.service'
 import { QuarterServiceInterface, LeaderboardEntry } from './types';
 
-export class QuarterService implements QuarterServiceInterface {
+class QuarterService implements QuarterServiceInterface {
   private static instance: QuarterService;
   private quartersCollection = collection(db, 'quarters');
   private resultsCollection = collection(db, 'game_results');
@@ -55,14 +41,14 @@ export class QuarterService implements QuarterServiceInterface {
       return quarter;
     } catch (error) {
       console.error('Failed to fetch current quarter:', error);
-      AnalyticsService.trackEvent('quarter_fetch_error', {
+      quarterAnalyticsService('quarter_fetch_error', {
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       return null;
     }
   }
 
-  private async enrichQuarterWithSamples(quarterDoc: DocumentSnapshot): Promise<Quarter> {
+  async enrichQuarterWithSamples(quarterDoc: DocumentSnapshot): Promise<Quarter> {
     const quarterData = quarterDoc.data();
     if (!quarterData) throw new Error('Quarter document exists but has no data');
 
@@ -94,7 +80,7 @@ export class QuarterService implements QuarterServiceInterface {
       return quarters;
     } catch (error) {
       console.error('Failed to fetch active quarters:', error);
-      AnalyticsService.trackEvent('active_quarters_fetch_error', {
+      quarterAnalyticsService.trackEvent('active_quarters_fetch_error', {
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       return [];
@@ -113,7 +99,7 @@ export class QuarterService implements QuarterServiceInterface {
       return this.enrichQuarterWithSamples(quarterDoc);
     } catch (error) {
       console.error('Failed to fetch game configuration:', error);
-      AnalyticsService.trackEvent('game_config_fetch_error', {
+      quarterAnalyticsService.trackEvent('game_config_fetch_error', {
         quarterId,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -162,7 +148,7 @@ export class QuarterService implements QuarterServiceInterface {
       });
     } catch (error) {
       console.error('Failed to fetch quarter leaderboard:', error);
-      AnalyticsService.trackEvent('leaderboard_fetch_error', {
+      quarterAnalyticsService.trackEvent('leaderboard_fetch_error', {
         quarterId,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -195,13 +181,13 @@ export class QuarterService implements QuarterServiceInterface {
         }));
       }
 
-      AnalyticsService.trackEvent('quarter_updated', {
+      quarterAnalyticsService.trackEvent('quarter_updated', {
         quarterId,
         updatedFields: Object.keys(data)
       });
     } catch (error) {
       console.error('Failed to update quarter:', error);
-      AnalyticsService.trackEvent('quarter_update_error', {
+      quarterAnalyticsService.trackEvent('quarter_update_error', {
         quarterId,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -235,7 +221,7 @@ export class QuarterService implements QuarterServiceInterface {
         ));
       }
   
-      AnalyticsService.trackEvent('quarter_created', {
+      quarterAnalyticsService.trackEvent('quarter_created', {
         quarterId: docRef.id,
         sampleCount: data.samples?.length || 0
       });
@@ -243,7 +229,7 @@ export class QuarterService implements QuarterServiceInterface {
       return docRef.id;
     } catch (error) {
       console.error('Failed to create quarter:', error);
-      AnalyticsService.trackEvent('quarter_creation_error', {
+      quarterAnalyticsService.trackEvent('quarter_creation_error', {
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       throw error;
@@ -268,7 +254,7 @@ export class QuarterService implements QuarterServiceInterface {
       // Filter out any nulls from failed quarter processing
       const validQuarters = quarters.filter((q): q is Quarter => q !== null);
 
-      AnalyticsService.trackEvent('quarters_fetched', {
+      quarterAnalyticsService.trackEvent('quarters_fetched', {
         totalCount: validQuarters.length,
         failedCount: quarters.length - validQuarters.length
       });
@@ -276,7 +262,7 @@ export class QuarterService implements QuarterServiceInterface {
       return validQuarters;
     } catch (error) {
       console.error('Failed to fetch quarters:', error);
-      AnalyticsService.trackEvent('quarters_fetch_error', {
+      quarterAnalyticsService.trackEvent('quarters_fetch_error', {
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       return [];
@@ -297,7 +283,7 @@ export class QuarterService implements QuarterServiceInterface {
   
       const quarter = await this.enrichQuarterWithSamples(quarterSnap);
       
-      AnalyticsService.trackEvent('quarter_fetched', {
+      quarterAnalyticsService.trackEvent('quarter_fetched', {
         quarterId,
         sampleCount: quarter.samples.length
       });
@@ -305,7 +291,7 @@ export class QuarterService implements QuarterServiceInterface {
       return quarter;
     } catch (error) {
       console.error(`Error fetching quarter ${quarterId}:`, error);
-      AnalyticsService.trackEvent('quarter_fetch_error', {
+      quarterAnalyticsService.trackEvent('quarter_fetch_error', {
         quarterId,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -313,16 +299,156 @@ export class QuarterService implements QuarterServiceInterface {
     }
   }
 
-  async getQuarterAnalytics(quarterId: string) {
-    return QuarterAnalyticsService.getInstance().getQuarterAnalytics(quarterId);
+  async getQuarterAnalytics(quarterId: string): Promise<QuarterAnalytics | null> {
+    try {
+      const progressionStats = await this.getPlayerProgressionStats(quarterId);
+      if (!progressionStats) return null;
+  
+      const sampleAnalytics = await this.getDetailedSampleAnalytics(quarterId);
+      const resultsSnapshot = await getDocs(query(this.resultsCollection, where('quarterId', '==', quarterId)));
+      const timeSpentData = await this.calculateTimeSpentMetrics(quarterId);
+  
+      const progression = await this.getPlayerProgressionStats(quarterId);
+      return {
+
+      } as QuarterAnalytics;
+          
+    } catch (error) {
+      console.error('❌ Failed to fetch quarter analytics', error);
+      return null;
+    }
+  }
+
+  async getQuarterAnalyticsService(quarterId: string): Promise<QuarterAnalyticsService | null> {
+    try {
+      const progressionStats = await this.getPlayerProgressionStats(quarterId);
+      if (!progressionStats) return null;
+  
+      const sampleAnalytics = await this.getDetailedSampleAnalytics(quarterId);
+      const resultsSnapshot = await getDocs(query(this.resultsCollection, where('quarterId', '==', quarterId)));
+      const timeSpentData = await this.calculateTimeSpentMetrics(quarterId);
+  
+      return {};
+          
+    } catch (error) {
+      console.error('❌ Failed to fetch quarter analytics', error);
+      return null;
+    }
   }
 
   async getQuarterStats(quarterId: string) {
-    return QuarterAnalyticsService.getInstance().getQuarterStats(quarterId);
+    try {
+      if (!quarterId) throw new Error('Quarter ID is required');
+  
+      const resultsQuery = query(
+        this.resultsCollection,
+        where('quarterId', '==', quarterId)
+      );
+      const snapshot = await getDocs(resultsQuery);
+  
+      const stats = {
+        topScore: 0,
+        totalPlayers: snapshot.size,
+        averageScore: 0,
+        completionRate: 0,
+        sampleAccuracy: {
+          age: 0,
+          proof: 0,
+          mashbill: 0
+        },
+        difficultyDistribution: {
+          beginner: 0,
+          intermediate: 0,
+          advanced: 0
+        }
+      };
+  
+      let totalScore = 0;
+      let totalCompleted = 0;
+  
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        totalScore += data.score || 0;
+        stats.topScore = Math.max(stats.topScore, data.score || 0);
+        totalCompleted += data.completed ? 1 : 0;
+        
+        if (data.accuracy) {
+          stats.sampleAccuracy.age += data.accuracy.age || 0;
+          stats.sampleAccuracy.proof += data.accuracy.proof || 0;
+          stats.sampleAccuracy.mashbill += data.accuracy.mashbill || 0;
+        }
+  
+        if (data.difficulty) {
+          stats.difficultyDistribution[data.difficulty as keyof typeof stats.difficultyDistribution]++;
+        }
+      });
+  
+      if (snapshot.size > 0) {
+        stats.averageScore = totalScore / snapshot.size;
+        stats.completionRate = (totalCompleted / snapshot.size) * 100;
+        
+        stats.sampleAccuracy.age /= snapshot.size;
+        stats.sampleAccuracy.proof /= snapshot.size;
+        stats.sampleAccuracy.mashbill /= snapshot.size;
+      }
+  
+      return stats;
+    } catch (error) {
+      console.error('Failed to fetch quarter stats:', error);
+      QuarterAnalyticsService('quarter_stats_error', {
+        quarterId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return null;
+    }
   }
 
   async getDailyStats(quarterId: string) {
-    return QuarterAnalyticsService.getInstance().getDailyStats(quarterId);
+    try {
+      if (!quarterId) throw new Error('Quarter ID is required');
+  
+      const q = query(
+        this.resultsCollection,
+        where('quarterId', '==', quarterId),
+        orderBy('completedAt', 'asc')
+      );
+  
+      const snapshot = await getDocs(q);
+      const resultsByDay = new Map<string, {
+        date: string;
+        players: number;
+        averageScore: number;
+        completionRate: number;
+      }>();
+  
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const date = data.completedAt.toDate().toDateString();
+  
+        if (!resultsByDay.has(date)) {
+          resultsByDay.set(date, {
+            date,
+            players: 0,
+            averageScore: 0,
+            completionRate: 0
+          });
+        }
+  
+        const dayStats = resultsByDay.get(date)!;
+        dayStats.players++;
+        dayStats.averageScore = (dayStats.averageScore * (dayStats.players - 1) + data.score) / dayStats.players;
+        dayStats.completionRate = dayStats.players / snapshot.size;
+      });
+  
+      return Array.from(resultsByDay.values());
+    } catch (error) {
+      console.error('Failed to fetch daily stats:', error);
+      AnalyticsService.trackEvent('daily_stats_error', {
+        quarterId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return [];
+    }
   }
 
   async validateQuarter(data: Partial<Quarter>): Promise<string[]> {
@@ -333,6 +459,143 @@ export class QuarterService implements QuarterServiceInterface {
     if (!data.isActive) errors.push('Active status is required');
     return errors;
   }
+
+  async getPlayerProgressionStats(quarterId: string) {
+    try {
+      const q = query(this.resultsCollection, where('quarterId', '==', quarterId));
+      const snapshot = await getDocs(q);
+
+      const stats = {
+        totalGames: snapshot.size,
+        averageScore: 0,
+        bestScore: 0,
+        totalChallengesCompleted: 0,
+        correctAnswers: 0,
+        hintsUsed: 0,
+        totalSamples: 0,
+        perfectScores: 0,
+        lastPlayed: undefined as Date | undefined,
+        quarterHistory: [] as any[],
+        difficultyBreakdown: {
+          beginner: 0,
+          intermediate: 0,
+          advanced: 0
+        }
+      };
+
+      let totalScore = 0;
+
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        totalScore += data.score || 0;
+        stats.bestScore = Math.max(stats.bestScore, data.score || 0);
+        stats.totalChallengesCompleted += data.completed ? 1 : 0;
+        stats.correctAnswers += data.correctAnswers || 0;
+        stats.hintsUsed += data.hintsUsed || 0;
+        stats.totalSamples += data.samplesAttempted || 0;
+        stats.perfectScores += data.score === 100 ? 1 : 0;
+        
+        if (data.difficulty) {
+          stats.difficultyBreakdown[data.difficulty as keyof typeof stats.difficultyBreakdown]++;
+        }
+        
+        const completedAt = data.completedAt?.toDate();
+        if (completedAt && (!stats.lastPlayed || completedAt > stats.lastPlayed)) {
+          stats.lastPlayed = completedAt;
+        }
+      });
+
+      if (snapshot.size > 0) {
+        stats.averageScore = totalScore / snapshot.size;
+      }
+
+      return stats;
+    } catch (error) {
+      console.error('Failed to fetch progression stats:', error);
+      return null;
+    }
+  }
+
+  async getDetailedSampleAnalytics(quarterId: string) {
+    try {
+      const samplesQuery = collection(db, `quarters/${quarterId}/samples`);
+      const samplesSnapshot = await getDocs(samplesQuery);
+      const samples = samplesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      const resultsQuery = query(this.resultsCollection, where('quarterId', '==', quarterId));
+      const resultsSnapshot = await getDocs(resultsQuery);
+
+      return samples.map(sample => {
+        const sampleResults = resultsSnapshot.docs
+          .map(doc => doc.data())
+          .filter(data => data.sampleResults?.[sample.id]);
+
+        return {
+          sampleId: sample.id,
+          totalAttempts: sampleResults.length,
+          averageAccuracy: {
+            age: 0,
+            proof: 0,
+            mashbill: 0
+          },
+          performance: {
+            totalCorrect: sampleResults.filter(result => result.sampleResults[sample.id]?.correct).length,
+            accuracy: sampleResults.length > 0 ? 
+              sampleResults.filter(result => result.sampleResults[sample.id]?.correct).length / sampleResults.length : 0
+          }
+        };
+      });
+    } catch (error) {
+      console.error('Failed to fetch sample analytics:', error);
+      return [];
+    }
+  }
+
+  async calculateTimeSpentMetrics(quarterId: string) {
+    try {
+      const q = query(
+        this.resultsCollection,
+        where('quarterId', '==', quarterId)
+      );
+
+      const snapshot = await getDocs(q);
+      const metrics = {
+        totalTimeSpent: 0,
+        avgTimePerGame: 0,
+        avgTimePerChallenge: 0,
+        totalGames: snapshot.size,
+        totalChallenges: 0
+      };
+
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        metrics.totalTimeSpent += data.timeSpent || 0;
+        metrics.totalChallenges += data.challengesCompleted || 0;
+      });
+
+      if (metrics.totalGames > 0) {
+        metrics.avgTimePerGame = metrics.totalTimeSpent / metrics.totalGames;
+      }
+      if (metrics.totalChallenges > 0) {
+        metrics.avgTimePerChallenge = metrics.totalTimeSpent / metrics.totalChallenges;
+      }
+
+      return metrics;
+    } catch (error) {
+      console.error('Failed to calculate time metrics:', error);
+      return {
+        totalTimeSpent: 0,
+        avgTimePerGame: 0,
+        avgTimePerChallenge: 0,
+        totalGames: 0,
+        totalChallenges: 0
+      };
+    }
+  }
+
 }
 
 export const quarterService = QuarterService.getInstance();
