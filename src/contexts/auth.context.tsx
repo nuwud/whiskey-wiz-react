@@ -32,12 +32,11 @@ interface AuthContextValue {
 
 export interface AuthContextType extends AuthContextValue {
   setUser: React.Dispatch<React.SetStateAction<PlayerProfile | GuestProfile | null>>;
-  setError: React.Dispatch<React.SetStateAction<Error | null>>;  // Added
+  setError: React.Dispatch<React.SetStateAction<Error | null>>;
 }
 
 export const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 
-// Custom hook to use the auth context
 export const useAuth = (): AuthContextValue => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -46,15 +45,6 @@ export const useAuth = (): AuthContextValue => {
   return context;
 };
 
-// Ensure authentication persistence
-useEffect(() => {
-  setPersistence(auth, browserSessionPersistence)
-    .then(() => console.log("Auth persistence set to SESSION"))
-    .catch(error => console.error("Auth persistence error:", error));
-}, []);
-
-
-// Get user profile from Firestore
 const getUserProfile = async (uid: string): Promise<PlayerProfile | null> => {
   try {
     if (!uid) return null;
@@ -134,6 +124,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const navigate = useNavigate();
+
+  // Moved the auth persistence useEffect inside the component
+  useEffect(() => {
+    setPersistence(auth, browserSessionPersistence)
+      .then(() => console.log("Auth persistence set to SESSION"))
+      .catch(error => console.error("Auth persistence error:", error));
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -250,7 +247,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await auth.signOut();
       setUser(null);
-      // Clear guest data
       localStorage.removeItem('guestToken');
       localStorage.removeItem('guestSessionToken');
       localStorage.removeItem('guestSessionExpiry');
@@ -264,8 +260,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInAsGuest = async () => {
     try {
       const result = await signInAnonymously(auth);
-      const sessionToken = `guest_${Date.now()}`; // Unique session token
-      const sessionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24-hour expiration
+      const sessionToken = `guest_${Date.now()}`;
+      const sessionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
   
       const guestProfile: GuestProfile = {
         userId: result.user.uid,
@@ -276,7 +272,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAnonymous: true,
         guest: true,
         createdAt: new Date(),
-        guestToken: result.user.uid, // Ensure token consistency
+        guestToken: result.user.uid,
         guestSessionToken: sessionToken,
         guestSessionExpiresAt: sessionExpiry,
         email: null,
@@ -287,7 +283,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       };
   
-      // Store guest session data in localStorage
       localStorage.setItem('guestToken', guestProfile.guestToken);
       localStorage.setItem('guestSessionToken', guestProfile.guestSessionToken);
       localStorage.setItem('guestSessionExpiresAt', guestProfile.guestSessionExpiresAt.toISOString());
@@ -299,7 +294,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw err;
     }
   };
-  
 
   const resetPassword = async (email: string) => {
     await sendPasswordResetEmail(auth, email);
@@ -352,7 +346,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           <h2 className="text-xl font-bold text-red-600">Authentication Error</h2>
           <p className="mt-2 text-gray-600">{error?.message}</p>
           <button
-            onClick={() => setError(null)} // Reset error instead of full page reload
+            onClick={() => setError(null)}
             className="px-4 py-2 mt-4 text-white rounded bg-amber-600 hover:bg-amber-700"
           >
             Try Again
@@ -361,8 +355,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       </div>
     );
   }
-  
-  
 
   return (
     <AuthContext.Provider value={value}>
@@ -370,4 +362,3 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthContext.Provider>
   );
 };
-
