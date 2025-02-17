@@ -298,4 +298,5 @@ export interface GuestProfile {
     totalScore: number;
     bestScore: number;
   };
+  adminPrivileges: null,
 }

@@ -1,7 +1,7 @@
 import { db, auth } from '../config/firebase';
 import { doc, getDoc, setDoc, addDoc, updateDoc, collection } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendEmailVerification, sendPasswordResetEmail, User } from 'firebase/auth';
-import { ExtendedUser, UserRole, UserType, PlayerProfile } from '../types/auth.types';
+import { ExtendedUser, UserRole, UserType, PlayerProfile, GuestProfile } from '../types/auth.types';
 import { signInAnonymously as firebaseSignInAnonymously } from 'firebase/auth';
 
 export class FirebaseService {
@@ -210,7 +210,7 @@ export class FirebaseService {
     }
   }
 
-  static async createUserDocument(uid: string, profile: PlayerProfile): Promise<PlayerProfile> {
+  static async createUserDocument(uid: string, profile: PlayerProfile | GuestProfile): Promise<PlayerProfile | GuestProfile> {
     const userDocRef = doc(db, 'users', uid);
     await setDoc(userDocRef, profile);
     return profile;

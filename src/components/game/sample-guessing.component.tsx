@@ -28,7 +28,7 @@ export const createGuess = (partial?: Partial<SampleGuess>): SampleGuess => ({
   ...partial
 });
 
-export const createInitialGuesses = (): Record<SampleKey, SampleGuess> => 
+export const createInitialGuesses = (): Record<SampleKey, SampleGuess> =>
   Object.fromEntries(
     SAMPLE_IDS.map(id => [id, createGuess()])
   ) as Record<SampleKey, SampleGuess>;
@@ -73,56 +73,56 @@ export const SampleGuessing: React.FC<SampleGuessingProps> = ({
 
   useEffect(() => {
     if (!samples || Object.keys(samples).length === 0) {
-        console.warn("Samples are still empty, waiting for state update...");
-    } else {
-        console.log("Samples are now available in store:", samples);
-        if (guess) {
-            setGuessData({
-                age: guess.age,
-                proof: guess.proof,
-                mashbill: guess.mashbill,
-                rating: guess.rating,
-                notes: guess.notes
-            });
-            setRating(guess.rating);
-            setNotes(guess.notes);
-        }
+      console.warn("Samples are still empty, waiting for state update...");
+      return;
     }
-}, [samples, currentSample, guess]);
+
+    console.log("Samples are now available in store:", samples);
+    if (guess) {
+      setGuessData({
+        age: guess.age,
+        proof: guess.proof,
+        mashbill: guess.mashbill,
+        rating: guess.rating,
+        notes: guess.notes
+      });
+      setRating(guess.rating);
+      setNotes(guess.notes);
+    }
+  }, [samples, currentSample, guess]);
 
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  if (!samples || Object.keys(samples).length === 0) {
-      console.error("Samples not available yet. Delaying submission...");
-      return;
-  }
-  
-  if (!guessData.age || !guessData.proof || !guessData.mashbill) {
-      alert('Please fill in age, proof, and mashbill before continuing');
-      return;
-  }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  const completeGuess: SampleGuess = {
-      ...guessData,
-      rating,
-      notes,
-      score: 0,
-      submitted: true
-  };
+    if (!samples || Object.keys(samples).length < 4) {
+        console.error("Samples not available yet. Delaying submission...");
+        return;
+    }
 
-  console.log("Submitting guess for sample:", currentSample);
-  await submitGuess(currentSample, completeGuess);
-  onSubmitGuess(currentSample, completeGuess);
+    if (!guessData.age || !guessData.proof || !guessData.mashbill) {
+        alert('Please fill in age, proof, and mashbill before continuing');
+        return;
+    }
 
-  if (isLastSample) {
-      console.log("Last sample submitted, calling onGameComplete");
-      await onGameComplete();
-  } else {
-      console.log("Moving to next sample");
-      onNextSample();
-  }
+    console.log("Submitting guess for sample:", currentSample);
+    const completeGuess = {
+        ...guess,
+        ...guessData,
+        rating,
+        notes,
+        submitted: true
+    };
+
+    await submitGuess(currentSample, completeGuess);
+    onSubmitGuess(currentSample, completeGuess);
+
+    if (isLastSample) {
+        console.log("Last sample submitted, calling onGameComplete");
+        await onGameComplete();
+    } else {
+        onNextSample();
+    }
 };
 
 
@@ -143,9 +143,8 @@ const handleSubmit = async (e: React.FormEvent) => {
         {SAMPLE_IDS.map((sample) => (
           <div
             key={sample}
-            className={`w-24 h-16 flex items-center justify-center border ${
-              currentSample === sample ? 'border-amber-500' : 'border-gray-200'
-            } rounded`}
+            className={`w-24 h-16 flex items-center justify-center border ${currentSample === sample ? 'border-amber-500' : 'border-gray-200'
+              } rounded`}
           >
             Sample {sample}
           </div>
@@ -262,10 +261,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                       flex items-center justify-center 
                       rounded-lg
                       transition-all duration-200
-                      ${
-                        rating >= value
-                          ? 'text-amber-500 hover:text-amber-600 rating-icon rating-icon-selected'
-                          : 'text-gray-300 hover:text-gray-400 rating-icon'
+                      ${rating >= value
+                        ? 'text-amber-500 hover:text-amber-600 rating-icon rating-icon-selected'
+                        : 'text-gray-300 hover:text-gray-400 rating-icon'
                       }
                       focus:outline-none 
                       focus:ring-2 
@@ -276,9 +274,8 @@ const handleSubmit = async (e: React.FormEvent) => {
                   >
                     <Flame
                       size={20}
-                      className={`transform transition-transform ${
-                        rating >= value ? 'scale-110' : 'scale-100'
-                      }`}
+                      className={`transform transition-transform ${rating >= value ? 'scale-110' : 'scale-100'
+                        }`}
                     />
                   </button>
                 ))}
@@ -304,12 +301,12 @@ const handleSubmit = async (e: React.FormEvent) => {
                   {rating <= 3
                     ? 'Not my favorite'
                     : rating <= 5
-                    ? 'Decent'
-                    : rating <= 7
-                    ? 'Pretty good'
-                    : rating <= 9
-                    ? 'Excellent'
-                    : 'Exceptional!'}
+                      ? 'Decent'
+                      : rating <= 7
+                        ? 'Pretty good'
+                        : rating <= 9
+                          ? 'Excellent'
+                          : 'Exceptional!'}
                 </span>
               )}
             </div>
@@ -347,13 +344,14 @@ const handleSubmit = async (e: React.FormEvent) => {
           <button
             type="button"
             onClick={onPreviousSample}
-            disabled={!guessData.age || !guessData.proof || !guessData.mashbill}
+            // disabled={!guessData.age || !guessData.proof || !guessData.mashbill}
             className="px-4 py-2 ${!guessData.age || !guessData.proof || !guessData.mashbill ? 'opacity-50 cursor-not-allowed' : ''} border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
           >
             Previous Sample
           </button>
           <button
-            type="submit"  
+            type="submit"
+            disabled={!samples || Object.keys(samples).length < 4}
             className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-amber-600 hover:bg-amber-700"
           >
             {isLastSample ? 'Submit' : 'Next Sample'}

@@ -48,7 +48,7 @@ export const authService = {
             registrationType: 'guest',
             isAnonymous: true,
             guest: true,
-            emailVerified: false, // Add this property
+            emailVerified: false,
             createdAt: new Date(),
             metrics: {
                 gamesPlayed: 0,
@@ -57,9 +57,9 @@ export const authService = {
             },
             guestToken: guestId,
             guestSessionToken: guestId,
-            guestSessionExpiresAt: new Date(Date.now() + 3600000), // 1 hour
+            guestSessionExpiresAt: new Date(Date.now() + 3600000),
+            adminPrivileges: null
         };
-
         await setDoc(doc(db, 'users', guestId), profile);
         return profile;
     },

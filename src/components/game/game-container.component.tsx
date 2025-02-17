@@ -45,21 +45,7 @@ export const GameContainer: React.FC = () => {
         return Math.floor((Date.now() - startTime) / 1000);
     };
         
-    const validateUserAccess = (user: any, quarterId: string | undefined) => {
-        if (!quarterId) {
-            return { valid: false, error: 'No quarter selected' };
-        }
-        
-        if (!user) {
-            return { valid: false, error: 'Not authenticated' };
-        }
-    
-        if (user.guest && !localStorage.getItem('guestToken')) {
-            return { valid: false, error: 'Invalid guest session' };
-        }
-    
-        return { valid: true, error: null };
-    };
+    // Removed unused validateUserAccess function
 
     const handleSessionExpiring = () => {
         toast({
@@ -97,19 +83,13 @@ export const GameContainer: React.FC = () => {
     // Add guess handling
     const handleGuessSubmit = (sampleId: SampleId, guess: SampleGuess) => {
         
-
         console.log('Processing guess for sample:', sampleId, guess);
         const sample = samples[sampleId];
-        console.log('Sample data:', sample);
         console.log('Raw sample data:', sample);
         console.log('Raw guess data:', guess);
 
     if (!sample || Number(sample.age) <= 0 || Number(sample.proof) <= 0) {
-        console.error('Invalid sample data:', {
-            age: sample?.age,
-            proof: sample?.proof,
-            mashbill: sample?.mashbill
-        });
+        console.error('Invalid sample data:', sample);
         toast({
             title: "Error",
             description: "Invalid sample data detected. Please contact support.",
@@ -158,9 +138,13 @@ export const GameContainer: React.FC = () => {
     }, [guesses]);
 
     const isGameComplete = useCallback(() => {
-        return Object.keys(samples).length > 0 &&
-            SAMPLE_IDS.every(id => samples[id] && guesses[id]?.submitted);
+        if (!samples || Object.keys(samples).length < SAMPLE_IDS.length) {
+            return false; // Prevent incorrect completion state
+        }
+    
+        return SAMPLE_IDS.every(id => samples[id] && guesses[id]?.submitted);
     }, [samples, guesses]);
+    
 
     // Update effect to handle game completion
     useEffect(() => {
@@ -193,101 +177,87 @@ export const GameContainer: React.FC = () => {
     };
 
     const initializeGame = useCallback(async () => {
-        const accessCheck = validateUserAccess(user, quarterId);
-        if (!accessCheck.valid) {
-            setError(accessCheck.error);
-            navigate('/quarters', { state: { error: accessCheck.error } });
-            return;
-        }
+        if (!user || !quarterId) return;
     
+        setLoading(true);
+        setError(null);
         const traceId = monitoringService.startTrace('game_initialization');
+        console.time("Game Initialization Time");
     
         try {
-            setLoading(true);
-            setError(null);
-    
-            // Import and use retryOperation from your retry utils
             await retryOperation(async () => {
-                // Get quarter data first
-                const quarter = await quarterService.getQuarterById(quarterId!);
+                console.time("Fetching Quarter Data");
+                const quarter = await quarterService.getQuarterById(quarterId);
                 if (!quarter || !validateQuarterData(quarter)) {
                     throw new Error('Invalid quarter data');
                 }
-    
-                // Then handle samples
-                if (!quarter.samples || quarter.samples.length === 0) {
-                    throw new Error('No samples found for this quarter');
-                }
-    
+
+                console.time("Transforming Samples");
                 const transformedSamples = transformQuarterSamples(quarter.samples);
+                console.timeEnd("Transforming Samples");
+
                 if (!transformedSamples || Object.keys(transformedSamples).length < 4) {
                     throw new Error('Sample transformation failed');
                 }
     
-                console.log('Setting samples in store:', transformedSamples);
+                console.log('Setting samples:', transformedSamples);
+                console.time("Updating State");
                 setSamples(transformedSamples);
-                
-                // Make sure state is initialized
                 useGameStore.setState({
                     ...INITIAL_STATE,
                     samples: transformedSamples,
                     isInitialized: true
                 });
-                
-                console.log('Game store after initialization:', useGameStore.getState());
-                await saveGameState({ ...INITIAL_STATE, samples: transformedSamples });
+                console.timeEnd("Updating State");
+
+                console.timeEnd("Game Initialization Time");
+
+                setGameState(prevState => ({
+                    ...(prevState || INITIAL_STATE),
+                    samples,
+                    isInitialized: true,
+                    userId: user?.userId || '',
+                    quarterId: quarterId || '',
+                    isLoading: false,
+                    isPlaying: true
+                }));
     
-                // Set the game state after initialization
-                setGameState({
-                    ...INITIAL_STATE,
-                    samples: transformedSamples,
-                    guesses: createInitialGuesses(),
-                    currentSampleId: SAMPLE_IDS[0],
-                    isPlaying: true,
-                    isLoading: false
+                    await saveGameState({ ...INITIAL_STATE, samples: transformedSamples });
                 });
-    
-                if (user) {
-                    AnalyticsService.trackEvent('game_initialization_success', { 
-                        quarterId, 
-                        userId: user.userId 
-                    });
-                }
-            }, {
-                maxAttempts: 3,
-                initialDelay: 1000
-            });
-    
+
         } catch (error) {
             console.error('Game initialization failed:', error);
             setError(error instanceof Error ? error.message : 'Failed to initialize game');
-            AnalyticsService.trackEvent('game_initialization_failure', {
-                error: error instanceof Error ? error.message : 'Unknown error',
-                quarterId,
-                userId: user?.userId || 'unknown'
-            });
         } finally {
             setLoading(false);
             monitoringService.endTrace('game_initialization', traceId);
         }
-    }, [quarterId, user, navigate, setSamples]);
+    }, [quarterId, user, setSamples]);
+
+    if (!isStateInitialized || !samples || Object.keys(samples).length < 4) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <Spinner />
+                <p>Loading game data...</p>
+            </div>
+        );
+    } 
 
     // Single initialization effect
     useEffect(() => {
-        let mounted = { current: true }; // Track mount state
-        
+        let mounted = { current: true };
+    
         if (user && !useGameStore.getState().isInitialized) {
             (async () => {
                 try {
-                    if (!mounted.current) return; // Check if still mounted
+                    if (!mounted.current) return;
                     setLoading(true);
                     await initializeGame();
-                    
-                    if (!mounted.current) return; // Check again after async operation
-                    
+    
+                    if (!mounted.current) return;
                     const currentSamples = useGameStore.getState().samples;
                     logSamples(currentSamples);
-                    
+    
                     if (!currentSamples || Object.keys(currentSamples).length < 4) {
                         throw new Error('Samples failed to initialize');
                     }
@@ -302,12 +272,12 @@ export const GameContainer: React.FC = () => {
                 }
             })();
         }
-
+    
         return () => {
             mounted.current = false;
         };
     }, [user, initializeGame]);
-
+    
     useEffect(() => {
         if (!samples || Object.keys(samples).length < 4) {
             return;
@@ -354,20 +324,25 @@ export const GameContainer: React.FC = () => {
     }, [gameState, user]);
 
     const handleNextSample = () => {
-        if (currentSampleIndex < SAMPLE_IDS.length - 1) {
-            setCurrentSampleIndex((prev: number) => prev + 1);
-            setCurrentSample(SAMPLE_IDS[currentSampleIndex + 1]);
-        }
+        setCurrentSampleIndex(prevIndex => {
+            const newIndex = prevIndex + 1;
+            if (newIndex < SAMPLE_IDS.length) {
+                setCurrentSample(SAMPLE_IDS[newIndex]);
+            }
+            return newIndex;
+        });
     };
 
     const handlePreviousSample = () => {
-        if (currentSampleIndex > 0) {
-            setCurrentSampleIndex((prev: number) => prev - 1);
-            setCurrentSample(SAMPLE_IDS[currentSampleIndex - 1]);
-        }
+        setCurrentSampleIndex(prevIndex => {
+            const newIndex = Math.max(0, prevIndex - 1); // Ensure it doesn't go below 0
+            setCurrentSample(SAMPLE_IDS[newIndex]);
+            return newIndex;
+        });
     };
+    
 
-    const handleGameComplete = async () => {
+    const handleGameComplete = () => {
         if (!quarterId || !user) return;
 
         const gameCompletionTrace = monitoringService.startTrace('game_completion');
@@ -414,7 +389,7 @@ export const GameContainer: React.FC = () => {
                 }
             };
 
-            await saveGameState(finalState);
+            saveGameState(finalState);
             console.log('Saved game state:', finalState);
 
             // Submit score for all valid users (guests, players, and admins)
@@ -425,7 +400,7 @@ export const GameContainer: React.FC = () => {
                     timestamp: Date.now()
                 }));
             } else {
-                await FirebaseService.submitScore(user.userId, quarterId, finalScore);
+                FirebaseService.submitScore(user.userId, quarterId, finalScore);
             }
 
             logEvent(getAnalytics(), 'game_completed', {

@@ -99,13 +99,8 @@ export class GameStateService {
             scoringRules: quarter.scoringRules || { ...DEFAULT_SCORING_RULES }
         };
   
-        // Save to Firestore
-        const gameStateRef = doc(this.gameStateCollection, uid);
-        await setDoc(gameStateRef, {
-            ...initialState,
-            startTime: serverTimestamp(),
-            lastUpdated: serverTimestamp()
-        });
+        // Single Firestore write
+        await setDoc(doc(this.gameStateCollection, uid), initialState);
   
         return initialState;
     } catch (error) {

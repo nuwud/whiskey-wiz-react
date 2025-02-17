@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { FirebaseService } from '../services/firebase.service';
 import { PlayerProfile, UserType, UserRole, GuestProfile } from '../types/auth.types';
 import { db, auth } from '../config/firebase';
+import { GuestSessionService } from '../services/guest-session.service';
 
 interface AuthContextValue {
   user: PlayerProfile | GuestProfile | null;
@@ -45,78 +46,6 @@ export const useAuth = (): AuthContextValue => {
   return context;
 };
 
-const getUserProfile = async (uid: string): Promise<PlayerProfile | null> => {
-  try {
-    if (!uid) return null;
-
-    const userDocRef = doc(db, 'users', uid);
-    const userSnap = await getDoc(userDocRef);
-
-    if (!userSnap.exists()) {
-      console.warn(`Creating new profile for user: ${uid}`);
-      const defaultProfile: PlayerProfile = {
-        userId: uid,
-        email: '',
-        displayName: 'New Player',
-        role: UserRole.PLAYER,
-        type: UserType.REGISTERED,
-        isAnonymous: false,
-        guest: false,
-        emailVerified: false,
-        registrationType: 'email',
-        adminPrivileges: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        lastLoginAt: new Date(),
-        lastActive: new Date(),
-        version: 1,
-        totalGames: 0,
-        averageScore: 0,
-        winRate: 0,
-        level: 1,
-        experience: 0,
-        lifetimeScore: 0,
-        totalQuartersCompleted: 0,
-        quarterPerformance: {},
-        metrics: {
-          gamesPlayed: 0,
-          totalScore: 0,
-          averageScore: 0,
-          bestScore: 0,
-          badges: [],
-          achievements: [],
-          lastVisit: new Date(),
-          visitCount: 1,
-        },
-        preferences: {
-          favoriteWhiskeys: [],
-          preferredDifficulty: 'beginner',
-          notifications: true,
-        },
-        geographicData: null,
-        statistics: {
-          totalSamplesGuessed: 0,
-          correctGuesses: 0,
-          hintsUsed: 0,
-          averageAccuracy: 0,
-          bestScore: 0,
-          worstScore: 0,
-          lastUpdated: new Date(),
-        },
-        achievements: [],
-      };
-
-      await FirebaseService.createUserDocument(uid, defaultProfile);
-      return defaultProfile;
-    }
-
-    return userSnap.data() as PlayerProfile;
-  } catch (error) {
-    console.error('Error fetching user profile:', error);
-    return null;
-  }
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<PlayerProfile | GuestProfile | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
@@ -131,6 +60,80 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .then(() => console.log("Auth persistence set to SESSION"))
       .catch(error => console.error("Auth persistence error:", error));
   }, []);
+
+  const getUserProfile = async (uid: string): Promise<PlayerProfile | GuestProfile | null> => {
+    try {
+      if (!uid) return null;
+  
+      const userDocRef = doc(db, 'users', uid);
+      const userSnap = await getDoc(userDocRef);
+  
+      if (userSnap.exists()) {
+        if (userSnap.data().type === UserType.GUEST) {
+          return userSnap.data() as GuestProfile;
+        }
+        return userSnap.data() as PlayerProfile;
+      }
+        console.warn(`Creating new profile for user: ${uid}`);
+        const defaultProfile: PlayerProfile = {
+          userId: uid,
+          email: '',
+          displayName: 'New Player',
+          role: UserRole.PLAYER,
+          type: UserType.REGISTERED,
+          isAnonymous: false,
+          guest: false,
+          emailVerified: false,
+          registrationType: 'email',
+          adminPrivileges: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          lastLoginAt: new Date(),
+          lastActive: new Date(),
+          version: 1,
+          totalGames: 0,
+          averageScore: 0,
+          winRate: 0,
+          level: 1,
+          experience: 0,
+          lifetimeScore: 0,
+          totalQuartersCompleted: 0,
+          quarterPerformance: {},
+          metrics: {
+            gamesPlayed: 0,
+            totalScore: 0,
+            averageScore: 0,
+            bestScore: 0,
+            badges: [],
+            achievements: [],
+            lastVisit: new Date(),
+            visitCount: 1,
+          },
+          preferences: {
+            favoriteWhiskeys: [],
+            preferredDifficulty: 'beginner',
+            notifications: true,
+          },
+          geographicData: null,
+          statistics: {
+            totalSamplesGuessed: 0,
+            correctGuesses: 0,
+            hintsUsed: 0,
+            averageAccuracy: 0,
+            bestScore: 0,
+            worstScore: 0,
+            lastUpdated: new Date(),
+          },
+          achievements: [],
+        };
+  
+        await FirebaseService.createUserDocument(uid, defaultProfile);
+        return defaultProfile;
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      return null;
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -282,8 +285,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           totalScore: 0,
           bestScore: 0,
         },
+        adminPrivileges: null
       };
+
+      await FirebaseService.createUserDocument(result.user.uid, guestProfile);
+      GuestSessionService.saveSession(guestProfile);
+      GuestSessionService.saveState({
+          preferences: {
+              favoriteWhiskeys: [],
+              preferredDifficulty: 'beginner',
+              notifications: true
+          },
+          gameProgress: {
+              gamesPlayed: 0,
+              totalScore: 0,
+              bestScore: 0,
+              lastPlayed: new Date().toISOString()
+          }
+      });
   
+      localStorage.removeItem('guestToken');
+      localStorage.removeItem('guestSessionToken');
+      localStorage.removeItem('guestSessionExpiry');
       localStorage.setItem('guestToken', guestProfile.guestToken);
       localStorage.setItem('guestSessionToken', guestProfile.guestSessionToken);
       localStorage.setItem('guestSessionExpiresAt', guestProfile.guestSessionExpiresAt.toISOString());
