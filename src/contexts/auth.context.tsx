@@ -259,6 +259,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInAsGuest = async () => {
     try {
+      setLoading(true);
       const result = await signInAnonymously(auth);
       const sessionToken = `guest_${Date.now()}`;
       const sessionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -291,8 +292,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       navigate('/quarters');
     } catch (err) {
       console.error('Guest sign in error:', err);
+      setError(err as Error);
       throw err;
-    }
+    } finally {
+      setLoading(false);
+      }
   };
 
   const resetPassword = async (email: string) => {

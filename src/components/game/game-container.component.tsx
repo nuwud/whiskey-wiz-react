@@ -8,7 +8,7 @@ import { monitoringService } from '../../services/monitoring.service';
 import { FirebaseService } from '../../services/firebase.service';
 import { Spinner } from '../../components/ui/spinner-ui.component';
 import { useGameStore } from '../../store/game.store';
-import { GameState, SampleGuess, SampleId, SampleKey, WhiskeySample, INITIAL_STATE } from '../../types/game.types';
+import { GameState, SampleGuess, SampleId, SampleKey, WhiskeySample, INITIAL_STATE, DEFAULT_SCORING_RULES, Difficulty } from '../../types/game.types';
 import { SampleGuessing, createInitialGuesses } from './sample-guessing.component';
 import { useGameProgression } from '../../store/game-progression.store';
 import { ScoreService } from '../../services/score.service';
@@ -274,7 +274,7 @@ export const GameContainer: React.FC = () => {
 
     // Single initialization effect
     useEffect(() => {
-        const mounted = { current: true }; // Track mount state
+        let mounted = { current: true }; // Track mount state
         
         if (user && !useGameStore.getState().isInitialized) {
             (async () => {
@@ -307,6 +307,44 @@ export const GameContainer: React.FC = () => {
             mounted.current = false;
         };
     }, [user, initializeGame]);
+
+    useEffect(() => {
+        if (!samples || Object.keys(samples).length < 4) {
+            return;
+        }
+        setGameState(prevState => ({
+            ...(prevState || INITIAL_STATE),
+            samples,
+            isInitialized: true,
+            userId: user?.userId || '',
+            quarterId: quarterId || '',
+            isLoading: false,
+            isPlaying: true,
+            error: null,
+            currentSampleId: SAMPLE_IDS[0],
+            lastUpdated: new Date(),
+            startTime: new Date(),
+            endTime: new Date(),
+            currentRound: 0,
+            totalRounds: SAMPLE_IDS.length,
+            completedSamples: [],
+            progress: 0,
+            hasSubmitted: false,
+            currentChallengeIndex: 0,
+            totalChallenges: 0,
+            challenges: [],
+            currentSample: 'A',
+            difficulty: 'beginner',
+            mode: 'standard',
+            totalScore: 0,
+            guesses: createInitialGuesses(),
+            answers: {},
+            timeRemaining: 300,
+            lives: 3,
+            hints: 3,
+            isComplete: false
+        }));
+    }, [samples]);
 
     // Save guest state
     useEffect(() => {
@@ -354,7 +392,26 @@ export const GameContainer: React.FC = () => {
                 }), {}),
                 totalScore: currentTotalScore,
                 samples,
-                currentQuarter: quarterId
+                currentQuarter: {
+                    id: quarterId,
+                    name: '',
+                    startDate: new Date(),
+                    endDate: new Date(),
+                    startTime: new Date(),
+                    endTime: new Date(),
+                    duration: 0,
+                    difficulty: 'beginner' as Difficulty, // Add type assertion
+                    minimumScore: 0,
+                    maximumScore: 100,
+                    minimumChallengesCompleted: 0,
+                    isActive: true,
+                    samples: Object.values(samples),
+                    description: '',
+                    scoringRules: DEFAULT_SCORING_RULES,
+                    challenges: [],
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                }
             };
 
             await saveGameState(finalState);

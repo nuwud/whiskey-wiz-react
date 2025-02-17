@@ -1,9 +1,9 @@
-import { Quarter, SampleId, WhiskeySample } from '../types/game.types';
+import { Quarter, SampleId, WhiskeySample, GameState, INITIAL_STATE, MASHBILL_TYPES, DifficultyEnum  } from '../types/game.types';
 import { GuestSessionService } from '../services/guest-session.service';
 
 export const GAME_STATE_KEY = 'whiskeywiz_game_state';
 
-interface GameStateToSave {
+interface GameStateToSave extends Partial<GameState> {
     guesses: Record<string, any>;
     score: Record<string, number>;
     totalScore: number;
@@ -16,25 +16,158 @@ interface GameStateToSave {
     isGuest?: boolean;
 }
 
-export const saveGameState = (state: any) => {
+const validateSamples = (samples: Record<SampleId, WhiskeySample>): boolean => {
+    if (!samples || typeof samples !== 'object') return false;
+    
+    const requiredSamples = ['A', 'B', 'C', 'D'];
+    const hasSamples = requiredSamples.every(id => {
+        const sample = samples[id as SampleId];
+        return sample && 
+                typeof sample.age === 'number' && sample.age > 0 &&
+                typeof sample.proof === 'number' && sample.proof > 0 &&
+                typeof sample.mashbill === 'string' && sample.mashbill.length > 0;
+    });
+
+    if (!hasSamples) {
+        console.error('Sample validation failed:', samples);
+    }
+    
+    return hasSamples;
+};
+
+const validateGameState = (state: any): boolean => {
+    if (!state || typeof state !== 'object') {
+        console.error('Invalid state structure');
+        return false;
+    }
+
+    const isValid = Boolean(
+        state.samples &&
+        validateSamples(state.samples) &&
+        (!state.currentSampleId || typeof state.currentSampleId === 'string') &&
+        Array.isArray(state.completedSamples) &&
+        typeof state.isInitialized === 'boolean'
+    );
+
+    if (!isValid) {
+        console.error('Game state validation failed:', {
+            hasSamples: Boolean(state.samples),
+            samplesValid: state.samples ? validateSamples(state.samples) : false,
+            currentSampleIdValid: !state.currentSampleId || typeof state.currentSampleId === 'string',
+            completedSamplesValid: Array.isArray(state.completedSamples),
+            isInitializedValid: typeof state.isInitialized === 'boolean'
+        });
+    }
+
+    return isValid;
+};
+
+export const saveGameState = async (state: Partial<GameStateToSave>): Promise<void> => {
     try {
-        // Validate state before saving
         if (!validateGameState(state)) {
-            throw new Error('Invalid game state');
+            throw new Error('Invalid game state structure');
         }
 
-        const stateToSave = {
+        const stateToSave: GameStateToSave = {
+            ...INITIAL_STATE,
             ...state,
+            samples: state.samples || {
+                'A': {
+                    id: 'A',
+                    name: '',
+                    age: 0,
+                    proof: 0,
+                    mashbill: MASHBILL_TYPES.BOURBON,
+                    hints: [],
+                    distillery: '',
+                    description: '',
+                    notes: [],
+                    type: '',
+                    region: '',
+                    availability: '',
+                    imageUrl: '',
+                    price: 0,
+                    difficulty: DifficultyEnum.Beginner,                    score: 'score A',
+                    challengeQuestions: [],
+                    image: '',
+                    rating: 0
+                },
+                'B': {
+                    id: 'B',
+                    name: '',
+                    age: 0,
+                    proof: 0,
+                    mashbill: MASHBILL_TYPES.BOURBON, 
+                    hints: [],
+                    distillery: '',
+                    description: '',
+                    notes: [],
+                    type: '',
+                    region: '',
+                    availability: '',
+                    imageUrl: '',
+                    price: 0,
+                    difficulty: DifficultyEnum.Beginner,                    score: 'score B',
+                    challengeQuestions: [],
+                    image: '',
+                    rating: 0
+                },
+                'C': {
+                    id: 'C',
+                    name: '',
+                    age: 0,
+                    proof: 0,
+                    mashbill: MASHBILL_TYPES.BOURBON,
+                    hints: [],
+                    distillery: '',
+                    description: '',
+                    notes: [],
+                    type: '',
+                    region: '',
+                    availability: '',
+                    imageUrl: '',
+                    price: 0,
+                    difficulty: DifficultyEnum.Beginner,                    score: 'score C',
+                    challengeQuestions: [],
+                    image: '',
+                    rating: 0
+                },
+                'D': {
+                    id: 'D',
+                    name: '',
+                    age: 0,
+                    proof: 0,
+                    mashbill: MASHBILL_TYPES.BOURBON,
+                    hints: [],
+                    distillery: '',
+                    description: '',
+                    notes: [],
+                    type: '',
+                    region: '',
+                    availability: '',
+                    imageUrl: '',
+                    price: 0,
+                    difficulty: DifficultyEnum.Beginner,                    score: 'score D',
+                    challengeQuestions: [],
+                    image: '',
+                    rating: 0
+                }
+            } as Record<SampleId, WhiskeySample>,
+            score: state.score || INITIAL_STATE.score,
+            totalScore: state.totalScore || 0,
+            currentQuarter: state.currentQuarter || null,
             timestamp: new Date().toISOString(),
-            isInitialized: true
+            currentSampleId: state.currentSampleId || null,
+            completedSamples: state.completedSamples || [],
+            isInitialized: true,
+            isGuest: !!state.isGuest,
         };
 
-        // Try both localStorage and IndexedDB
         try {
             localStorage.setItem(GAME_STATE_KEY, JSON.stringify(stateToSave));
         } catch (e) {
-            console.warn('localStorage failed, trying IndexedDB');
-            saveToIndexedDB(GAME_STATE_KEY, stateToSave);
+            console.warn('localStorage failed, falling back to IndexedDB');
+            await saveToIndexedDB(GAME_STATE_KEY, stateToSave);
         }
 
     } catch (error) {
@@ -43,80 +176,72 @@ export const saveGameState = (state: any) => {
     }
 };
 
-const validateGameState = (state: any): boolean => {
-    return Boolean(
-        state &&
-        state.samples &&
-        Object.keys(state.samples).length === 4 &&
-        (Object.values(state.samples) as WhiskeySample[]).every((sample: WhiskeySample) => 
-            sample && 
-            typeof sample.age === 'number' &&
-            typeof sample.proof === 'number' &&
-            typeof sample.mashbill === 'string'
-        )
-    );
+const saveToIndexedDB = (key: string, value: any): Promise<void> => {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('whiskeywiz', 1);
+
+        request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
+            const db = (event.target as IDBOpenDBRequest).result;
+            if (!db.objectStoreNames.contains('gameState')) {
+                db.createObjectStore('gameState');
+            }
+        };
+
+        request.onsuccess = (event: Event) => {
+            const db = (event.target as IDBOpenDBRequest).result;
+            const transaction = db.transaction(['gameState'], 'readwrite');
+            const store = transaction.objectStore('gameState');
+            
+            const putRequest = store.put(value, key);
+            
+            putRequest.onsuccess = () => resolve();
+            putRequest.onerror = () => reject(putRequest.error);
+        };
+
+        request.onerror = () => reject(request.error);
+    });
 };
 
-const saveToIndexedDB = (key: string, value: any) => {
-    const request = indexedDB.open('whiskeywiz', 1);
-
-    request.onupgradeneeded = (event: any) => {
-        const db = event.target.result;
-        if (!db.objectStoreNames.contains('gameState')) {
-            db.createObjectStore('gameState');
-        }
-    };
-
-    request.onsuccess = (event: any) => {
-        const db = event.target.result;
-        const transaction = db.transaction(['gameState'], 'readwrite');
-        const store = transaction.objectStore('gameState');
-        store.put(value, key);
-    };
-
-    request.onerror = (event: any) => {
-        console.error('Failed to save to IndexedDB:', event.target.error);
-    };
-};
-
-export const loadGameState = (): Partial<GameStateToSave> | null => {
+export const loadGameState = (): GameStateToSave | null => {
     try {
         const saved = localStorage.getItem(GAME_STATE_KEY);
-        if (!saved) return null;
-
-        const state = JSON.parse(saved);
-        
-        // If it's a guest session, verify validity
-        if (state.isGuest) {
-            if (!GuestSessionService.isSessionValid()) {
-                clearGameState();
-                throw new Error('Guest session expired');
-            }
-            // Extend guest session on valid load
-            GuestSessionService.extendSession();
+        if (!saved) {
+            console.log('No saved game state found');
+            return null;
         }
 
-        // Validate saved state
-        if (!state.samples || 
-            Object.keys(state.samples).length !== 4 ||
-            !state.currentSampleId ||
-            !state.isInitialized) {
-            console.warn('Invalid saved state, clearing...');
+        const state = JSON.parse(saved) as GameStateToSave;
+        
+        if (state.isGuest && !GuestSessionService.isSessionValid()) {
+            console.warn('Guest session expired, clearing state');
             clearGameState();
             return null;
+        }
+
+        if (!validateGameState(state)) {
+            console.warn('Invalid saved state structure, clearing');
+            clearGameState();
+            return null;
+        }
+
+        // Extend guest session if valid
+        if (state.isGuest) {
+            GuestSessionService.extendSession();
         }
 
         return state;
     } catch (error) {
         console.error('Failed to load game state:', error);
         clearGameState();
-        throw error; // Re-throw to handle in UI
+        return null;
     }
 };
 
-export const clearGameState = () => {
+export const clearGameState = (): void => {
     try {
         localStorage.removeItem(GAME_STATE_KEY);
+        indexedDB.deleteDatabase('whiskeywiz');
+        
         const state = loadGameState();
         if (state?.isGuest) {
             GuestSessionService.clearSession();
