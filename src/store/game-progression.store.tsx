@@ -8,7 +8,6 @@ import {
     INITIAL_STATE
 } from '../types/game.types';
 import { PlayerStats } from '../components/player/player-stats.component';
-import { DEFAULT_WHISKEY_SAMPLE } from '../utils/data-transform.utils';
 import { ScoreService } from '../services/score.service';
 import { WhiskeySample } from '../types/game.types';
 
@@ -53,30 +52,27 @@ const useGameProgressionStore = create<GameProgressionStore>((set, get) => ({
     setCurrentSample: (sample: SampleId) => set({ currentSample: sample }),
     
     updateQuarter: (quarter: Quarter) => {
+        console.log("Updating quarter data...", quarter);
+
+        if (!quarter.samples || quarter.samples.length < 4) {
+            console.warn("Quarter data is missing or incomplete.");
+            return;
+        }
+
         const samplesRecord = quarter.samples.reduce((acc, sample, index) => {
             const sampleId = String.fromCharCode(65 + index) as SampleId; // Convert 0,1,2,3 to A,B,C,D
             acc[sampleId] = sample;
             return acc;
         }, {} as Record<SampleId, WhiskeySample>);
 
-        if (Object.keys(samplesRecord).length < 4) {
-            console.warn("Not enough samples in quarter data, adding defaults.");
-            ['A', 'B', 'C', 'D'].forEach(id => {
-                if (!samplesRecord[id as SampleId]) {
-                    samplesRecord[id as SampleId] = {
-                        ...DEFAULT_WHISKEY_SAMPLE,
-                        id,
-                        name: `Sample ${id}`
-                    };
-                }
-            });
-        }
+        console.log("Validated samples:", samplesRecord);
 
         set(state => ({
             ...state,
             currentQuarter: quarter,
             samples: samplesRecord
         }));
+        
         localStorage.setItem("currentQuarter", JSON.stringify(quarter));
     },
 
@@ -95,8 +91,12 @@ const useGameProgressionStore = create<GameProgressionStore>((set, get) => ({
         const state = get();
 
         if (!state.samples || Object.keys(state.samples).length === 0) {
-            console.error('No samples available');
-            return;
+            console.warn("Samples not ready, waiting for state update...");
+            await new Promise(resolve => setTimeout(resolve, 500));
+            if (!state.samples || Object.keys(state.samples).length === 0) {
+                console.error("Samples are still unavailable, cannot submit guess.");
+                return;
+            }
         }
 
         const sample = state.samples[sampleId];
@@ -118,7 +118,7 @@ const useGameProgressionStore = create<GameProgressionStore>((set, get) => ({
             },
             score: {
                 ...state.score,
-                [sampleId]: (state.score[sampleId] || 0) + scoreResult.totalScore // ISSUE HERE
+                [sampleId]: (state.score[sampleId] || 0) + scoreResult.totalScore
             },
         }));
     },
@@ -129,18 +129,21 @@ const useGameProgressionStore = create<GameProgressionStore>((set, get) => ({
         return state.stats.totalScore / state.stats.totalQuartersCompleted;
     },
 
-    resetGameProgression: () => set({
-        ...INITIAL_STATE,
-        stats: {
-            totalScore: 0,
-            totalGames: 0,
-            averageScore: 0,
-            recentResults: [],
-            bestQuarterScore: 0,
-            totalQuartersCompleted: 0,
-            averageScorePerQuarter: 0
-        }
-    }),
+    resetGameProgression: () => {
+        console.log("Resetting game progression...");
+        set({
+            ...INITIAL_STATE,
+            stats: {
+                totalScore: 0,
+                totalGames: 0,
+                averageScore: 0,
+                recentResults: [],
+                bestQuarterScore: 0,
+                totalQuartersCompleted: 0,
+                averageScorePerQuarter: 0
+            }
+        });
+    },
 
     isGameCompleted: () => {
         const state = get();

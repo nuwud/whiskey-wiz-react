@@ -72,63 +72,60 @@ export const SampleGuessing: React.FC<SampleGuessingProps> = ({
   });
 
   useEffect(() => {
-    if (guess) {
-      setGuessData({
-        age: guess.age,
-        proof: guess.proof,
-        mashbill: guess.mashbill,
-        rating: guess.rating,
-        notes: guess.notes
-      });
-      setRating(guess.rating);
-      setNotes(guess.notes);
-    } else {
-      setGuessData({
-        age: 0,
-        proof: 0,
-        mashbill: '',
-        rating: 0,
-        notes: ''
-      });
-      setRating(0);
-      setNotes('');
-    }
-  }, [currentSample, guess]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
     if (!samples || Object.keys(samples).length === 0) {
-      alert('Samples are not available. Please wait for initialization.');
-      return;
+        console.warn("Samples are still empty, waiting for state update...");
+    } else {
+        console.log("Samples are now available in store:", samples);
+        if (guess) {
+            setGuessData({
+                age: guess.age,
+                proof: guess.proof,
+                mashbill: guess.mashbill,
+                rating: guess.rating,
+                notes: guess.notes
+            });
+            setRating(guess.rating);
+            setNotes(guess.notes);
+        }
     }
+}, [samples, currentSample, guess]);
 
-    // Validate required fields
-    if (!guessData.age || !guessData.proof || !guessData.mashbill) {
+
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!samples || Object.keys(samples).length === 0) {
+      console.error("Samples not available yet. Delaying submission...");
+      return;
+  }
+  
+  if (!guessData.age || !guessData.proof || !guessData.mashbill) {
       alert('Please fill in age, proof, and mashbill before continuing');
       return;
-    }
-    
-    const completeGuess: SampleGuess = {
+  }
+
+  const completeGuess: SampleGuess = {
       ...guessData,
-      rating,  // optional
-      notes,   // optional
+      rating,
+      notes,
       score: 0,
       submitted: true
-    };
-    
-    console.log('Submitting guess for sample:', currentSample);
-    await submitGuess(currentSample, completeGuess);
-    onSubmitGuess(currentSample, completeGuess);
-    
-    if (isLastSample) {
-      console.log('Last sample submitted, calling onGameComplete');
-      await onGameComplete();
-    } else {
-      console.log('Moving to next sample');
-      onNextSample();
-    }
   };
+
+  console.log("Submitting guess for sample:", currentSample);
+  await submitGuess(currentSample, completeGuess);
+  onSubmitGuess(currentSample, completeGuess);
+
+  if (isLastSample) {
+      console.log("Last sample submitted, calling onGameComplete");
+      await onGameComplete();
+  } else {
+      console.log("Moving to next sample");
+      onNextSample();
+  }
+};
+
+
   const handleInputChange = (field: keyof GuessFormData) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {

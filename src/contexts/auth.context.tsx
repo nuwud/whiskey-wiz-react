@@ -4,15 +4,15 @@ import {
   sendPasswordResetEmail,
   sendEmailVerification as sendEmailVerificationAuth,
   User as FirebaseUser,
-  signInAnonymously
+  signInAnonymously,
+  setPersistence,
+  browserSessionPersistence
 } from 'firebase/auth';
 import { getDoc, doc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { FirebaseService } from '../services/firebase.service';
-import { AnalyticsService } from '../services/analytics.service';
 import { PlayerProfile, UserType, UserRole, GuestProfile } from '../types/auth.types';
-import { db } from '../config/firebase';
-import { auth } from '../config/firebase';
+import { db, auth } from '../config/firebase';
 
 interface AuthContextValue {
   user: PlayerProfile | GuestProfile | null;
@@ -46,6 +46,14 @@ export const useAuth = (): AuthContextValue => {
   return context;
 };
 
+// Ensure authentication persistence
+useEffect(() => {
+  setPersistence(auth, browserSessionPersistence)
+    .then(() => console.log("Auth persistence set to SESSION"))
+    .catch(error => console.error("Auth persistence error:", error));
+}, []);
+
+
 // Get user profile from Firestore
 const getUserProfile = async (uid: string): Promise<PlayerProfile | null> => {
   try {
@@ -56,7 +64,6 @@ const getUserProfile = async (uid: string): Promise<PlayerProfile | null> => {
 
     if (!userSnap.exists()) {
       console.warn(`Creating new profile for user: ${uid}`);
-
       const defaultProfile: PlayerProfile = {
         userId: uid,
         email: '',
@@ -120,26 +127,6 @@ const getUserProfile = async (uid: string): Promise<PlayerProfile | null> => {
   }
 };
 
-const createGuestProfile = (result: any): GuestProfile => ({
-  userId: result.user.uid,
-  email: null,
-  displayName: 'Guest',
-  role: UserRole.GUEST,
-  type: UserType.GUEST,
-  registrationType: 'guest',
-  isAnonymous: true,
-  guest: true,
-  createdAt: new Date(),
-  guestToken: result.user.uid,
-  guestSessionToken: result.user.refreshToken || '',
-  guestSessionExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
-  metrics: {
-    gamesPlayed: 0,
-    totalScore: 0,
-    bestScore: 0
-  }
-});
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<PlayerProfile | GuestProfile | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
@@ -155,12 +142,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const handleAuthStateChange = async (fbUser: FirebaseUser | null) => {
       if (!mounted) return;
       console.log('Auth state change:', fbUser ? 'User exists' : 'No user');
+
       try {
         if (fbUser) {
           setFirebaseUser(fbUser);
           let userData = await getUserProfile(fbUser.uid);
 
           if (!userData) {
+            console.warn(`No existing profile found for user ${fbUser.uid}, creating new.`);
             userData = await FirebaseService.createUserDocument(fbUser.uid, {
               userId: fbUser.uid,
               email: fbUser.email || '',
@@ -220,11 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setFirebaseUser(null);
         }
       } catch (error) {
-        console.error('Detailed auth state error:', {
-          error,
-          userExists: !!fbUser,
-          userUid: fbUser?.uid || 'No UID'
-        });
+        console.error('Detailed auth state error:', error);
         if (mounted) setError(error as Error);
       } finally {
         if (mounted) setLoading(false);
@@ -267,6 +252,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       // Clear guest data
       localStorage.removeItem('guestToken');
+      localStorage.removeItem('guestSessionToken');
       localStorage.removeItem('guestSessionExpiry');
       navigate('/login');
     } catch (err) {
@@ -278,44 +264,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInAsGuest = async () => {
     try {
       const result = await signInAnonymously(auth);
-      const guestProfile = createGuestProfile(result);
-
-      // Store guest token immediately
-      localStorage.setItem('guestToken', guestProfile.guestToken);
-      localStorage.setItem('guestSessionExpiry', guestProfile.guestSessionExpiresAt.toISOString());
-        
-      setUser(guestProfile);
-      AnalyticsService.userSignedIn({
-        userId: guestProfile.userId,
+      const sessionToken = `guest_${Date.now()}`; // Unique session token
+      const sessionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24-hour expiration
+  
+      const guestProfile: GuestProfile = {
+        userId: result.user.uid,
+        displayName: 'Guest',
         role: UserRole.GUEST,
-        type: UserType.GUEST
-      });
-      navigate('/quarters'); // Redirect to game page for guests
+        type: UserType.GUEST,
+        registrationType: 'guest',
+        isAnonymous: true,
+        guest: true,
+        createdAt: new Date(),
+        guestToken: result.user.uid, // Ensure token consistency
+        guestSessionToken: sessionToken,
+        guestSessionExpiresAt: sessionExpiry,
+        email: null,
+        metrics: {
+          gamesPlayed: 0,
+          totalScore: 0,
+          bestScore: 0,
+        },
+      };
+  
+      // Store guest session data in localStorage
+      localStorage.setItem('guestToken', guestProfile.guestToken);
+      localStorage.setItem('guestSessionToken', guestProfile.guestSessionToken);
+      localStorage.setItem('guestSessionExpiresAt', guestProfile.guestSessionExpiresAt.toISOString());
+  
+      setUser(guestProfile);
+      navigate('/quarters');
     } catch (err) {
       console.error('Guest sign in error:', err);
       throw err;
     }
   };
+  
 
   const resetPassword = async (email: string) => {
     await sendPasswordResetEmail(auth, email);
   };
 
-  const updateProfile = async (displayName: string) => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
-    try {
-      await FirebaseService.updateUserProfile(currentUser, displayName);
-      setUser((prev: PlayerProfile | GuestProfile | null) => (prev ? { ...prev, displayName } : null));
-    } catch (err) {
-      console.error('Profile update error:', err);
-      throw err;
-    }
-  };
-
   const sendEmailVerification = async () => {
     if (auth.currentUser) {
       await sendEmailVerificationAuth(auth.currentUser);
+    }
+  };
+
+  const updateProfile = async (displayName: string) => {
+    if (firebaseUser) {
+      await FirebaseService.updateUserProfile(firebaseUser, displayName);
+      const updatedUser = await getUserProfile(firebaseUser.uid);
+      setUser(updatedUser);
     }
   };
 
@@ -330,11 +330,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signUp,
     signOut,
     resetPassword,
-    updateProfile,
     signInAsGuest,
     sendEmailVerification,
-    setUser
-  } as AuthContextType;
+    setUser,
+    setError,
+    updateProfile
+  };
 
   if (loading) {
     return (
@@ -351,7 +352,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           <h2 className="text-xl font-bold text-red-600">Authentication Error</h2>
           <p className="mt-2 text-gray-600">{error?.message}</p>
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => setError(null)} // Reset error instead of full page reload
             className="px-4 py-2 mt-4 text-white rounded bg-amber-600 hover:bg-amber-700"
           >
             Try Again
@@ -360,9 +361,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       </div>
     );
   }
+  
+  
 
   return (
-    <AuthContext.Provider value={{ ...value, setUser }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
