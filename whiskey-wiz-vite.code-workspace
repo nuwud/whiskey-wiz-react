@@ -22,6 +22,14 @@
 				"command": "extension.execute",
 				"priority": 4
 			}
-		]
+		],
+		"github.copilot.chat.edits.codesearch.enabled": true,
+		"github.copilot.nextEditSuggestions.enabled": true,
+		"github.copilot.chat.completionContext.typescript.mode": "on",
+		"github.copilot.chat.editor.temporalContext.enabled": true,
+		"github.copilot.chat.edits.temporalContext.enabled": true,
+		"github.copilot.chat.generateTests.codeLens": true,
+		"github.copilot.chat.languageContext.typescript.enabled": true,
+		"github.copilot.chat.search.semanticTextResults": true
 	}
 }

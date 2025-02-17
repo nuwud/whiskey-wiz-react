@@ -350,12 +350,13 @@ export const SampleGuessing: React.FC<SampleGuessingProps> = ({
           <button
             type="button"
             onClick={onPreviousSample}
-            className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            disabled={!guessData.age || !guessData.proof || !guessData.mashbill}
+            className="px-4 py-2 ${!guessData.age || !guessData.proof || !guessData.mashbill ? 'opacity-50 cursor-not-allowed' : ''} border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
           >
             Previous Sample
           </button>
           <button
-            type="submit"
+            type="submit"  
             className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-amber-600 hover:bg-amber-700"
           >
             {isLastSample ? 'Submit' : 'Next Sample'}

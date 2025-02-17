@@ -24,19 +24,15 @@ export const DEFAULT_WHISKEY_SAMPLE: Omit<WhiskeySample, 'id'> = {
 };
 
 const validateSample = (sample: any): boolean => {
-    const isValid = sample && 
-        typeof sample.age === 'number' && 
-        typeof sample.proof === 'number' && 
-        typeof sample.mashbill === 'string';
+    const age = typeof sample?.age === 'string' ? Number(sample.age) : sample?.age;
+    const proof = typeof sample?.proof === 'string' ? Number(sample.proof) : sample?.proof;
     
-    if (!isValid) {
-        console.error('Sample validation failed:', {
-            hasAge: typeof sample?.age === 'number',
-            hasProof: typeof sample?.proof === 'number',
-            hasMashbill: typeof sample?.mashbill === 'string',
-            sample
-        });
-    }
+    const isValid = sample && 
+        !isNaN(age) && 
+        !isNaN(proof) && 
+        age > 0 && 
+        proof > 0 && 
+        typeof sample.mashbill === 'string';
     
     return isValid;
 };

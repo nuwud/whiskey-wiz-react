@@ -13,7 +13,7 @@ interface Props {
 interface State {
     hasError: boolean;
     error: Error | null;
-    errorType: 'session' | 'game' | 'network' | 'unknown';
+    errorType: 'session' | 'game' | 'network' | 'initialization' | 'unknown';
 }
 
 export class GameErrorBoundary extends Component<Props, State> {
@@ -27,24 +27,25 @@ export class GameErrorBoundary extends Component<Props, State> {
     }
 
     static getDerivedStateFromError(error: Error): State {
-        // Categorize error type
-        let errorType: 'session' | 'game' | 'network' | 'unknown' = 'unknown';
+        let errorType: State['errorType'] = 'unknown';
         
         if (error.message.includes('Guest session expired')) {
             errorType = 'session';
         } else if (error.message.includes('network')) {
             errorType = 'network';
+        } else if (error.message.includes('initialization')) {
+            errorType = 'initialization';
         } else if (error.message.includes('game')) {
             errorType = 'game';
         }
-
+    
         return {
             hasError: true,
             error,
             errorType
         };
     }
-
+    
     componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
         console.error('Game error:', error, errorInfo);
 

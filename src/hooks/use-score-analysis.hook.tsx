@@ -79,7 +79,6 @@ export const useScoreAnalysis = ({
                 setLoading(true);
             } catch (err) {
                 console.error("Failed to fetch scores", err);
-                // Handle error appropriately - maybe set an error state if you plan to display it
             } finally {
                 setLoading(false);
             }
@@ -89,7 +88,6 @@ export const useScoreAnalysis = ({
     }, [playerId, quarterId]);
 
     return useMemo(() => {
-        // Handle loading state
         if (loading) {
             return {
                 totalScore: 0,
@@ -108,9 +106,29 @@ export const useScoreAnalysis = ({
                 }
             };
         }
-
+    
         const totalSamples = samples.length;
-        const finalScore = Object.values(totalScore).reduce((sum, score) => sum + score, 0);
+        console.log(`Total samples analyzed: ${totalSamples}`);
+
+        if (totalSamples === 0) {
+            console.warn("No samples available for scoring.");
+            return {
+                totalScore: 0,
+                totalSamples: 0,
+                bestGuess: { sampleId: 'A', accuracy: 0, name: 'No Data' },
+                averageAccuracy: 0,
+                individualScores: {
+                    'A': { age: 0, proof: 0, mashbill: 0, total: 0 },
+                    'B': { age: 0, proof: 0, mashbill: 0, total: 0 },
+                    'C': { age: 0, proof: 0, mashbill: 0, total: 0 },
+                    'D': { age: 0, proof: 0, mashbill: 0, total: 0 }
+                }
+            };
+        }
+
+        const finalScore = Object.values(guesses).reduce((sum, guess) => sum + (guess.score || 0), 0);
+        const normalizedScore = totalSamples > 0 ? finalScore / totalSamples : 0;
+
         const individualScores: Record<SampleId, any> = {
             'A': { age: 0, proof: 0, mashbill: 0, total: 0 },
             'B': { age: 0, proof: 0, mashbill: 0, total: 0 },
@@ -118,37 +136,42 @@ export const useScoreAnalysis = ({
             'D': { age: 0, proof: 0, mashbill: 0, total: 0 }
         };
 
-        // Calculate accuracy and scores for each guess
         const accuracies = samples
             .map(sample => {
                 if (!isSampleId(sample.id)) {
                     console.warn(`Invalid sample ID: ${sample.id}`);
                     return null;
                 }
-
+    
                 const guess = guesses[sample.id];
                 if (!guess) {
                     console.warn(`No guess found for sample: ${sample.id}`);
                     return null;
                 }
-
-                // Calculate individual scores using the same logic as sample-result
+    
                 const ageScore = calculateAgeScore(sample.age, guess.age);
                 const proofScore = calculateProofScore(sample.proof, guess.proof);
                 const mashbillScore = calculateMashbillScore(sample.mashbill, guess.mashbill);
                 const totalScore = ageScore + proofScore + mashbillScore;
-
-                // Store individual scores
+    
+                if (totalScore === 0 && ageScore === 0 && proofScore === 0 && mashbillScore === 0) {
+                    console.error('All scores are zero for sample:', {
+                        sampleId: sample.id,
+                        sample,
+                        guess,
+                        scores: { ageScore, proofScore, mashbillScore }
+                    });
+                }
+    
                 individualScores[sample.id] = {
                     age: ageScore,
                     proof: proofScore,
                     mashbill: mashbillScore,
                     total: totalScore
                 };
-
-                // Calculate accuracy as a percentage of total possible points (150)
+    
                 const accuracy = (totalScore / 150) * 100;
-
+    
                 return {
                     accuracy,
                     sampleId: sample.id,
@@ -184,11 +207,11 @@ export const useScoreAnalysis = ({
             : 0;
 
         return {
-            totalScore: finalScore,
+            totalScore: normalizedScore,
             totalSamples,
             bestGuess,
             averageAccuracy,
             individualScores
-        };
+        } as ScoreAnalysis; 
     }, [samples, guesses, totalScore, loading]);
 };

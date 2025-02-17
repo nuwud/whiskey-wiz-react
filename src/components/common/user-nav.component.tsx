@@ -26,10 +26,14 @@ export function UserNav() {
     await signOut();
     navigate('/');
   };
+  const handleLogout = () => {
+    const confirmLogout = window.confirm("Are you sure you want to log out?");
+    if (confirmLogout) handleSignOut();
+  };
 
   const menuItems: MenuItem[] = user ? [
     { label: 'Profile', href: '/profile' },
-    { label: 'Sign Out', onClick: handleSignOut }
+    { label: 'Logout', onClick: handleLogout } // Updated to use handleLogout
   ] : [
     { label: 'Sign In', onClick: handleSignIn }
   ];

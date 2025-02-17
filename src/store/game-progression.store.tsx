@@ -118,13 +118,8 @@ const useGameProgressionStore = create<GameProgressionStore>((set, get) => ({
             },
             score: {
                 ...state.score,
-                [sampleId]: (state.score[sampleId] || 0) + scoreResult.totalScore
+                [sampleId]: (state.score[sampleId] || 0) + scoreResult.totalScore // ISSUE HERE
             },
-            completedSamples: [...new Set([...state.completedSamples, sampleId])],
-            stats: {
-                ...state.stats,
-                totalScore: state.stats.totalScore + scoreResult.totalScore
-            }
         }));
     },
 

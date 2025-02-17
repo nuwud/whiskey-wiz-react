@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../contexts/auth.context';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/auth.context';
 
 const RegisterForm: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -16,6 +16,12 @@ const RegisterForm: React.FC = () => {
     } catch (err) {
       console.error('Failed to sign up:', err);
     }
+  };
+
+  const getPasswordStrength = (password: string): string => {
+    if (password.length < 6) return "Weak";
+    if (password.match(/[0-9]/) && password.match(/[A-Z]/)) return "Strong";
+    return "Medium";
   };
 
   return (
@@ -36,6 +42,7 @@ const RegisterForm: React.FC = () => {
           placeholder="Enter your password"
           required
         />
+        <p className="text-sm">{getPasswordStrength(password)}</p>
         <button type="submit" disabled={loading}>
           {loading ? 'Signing up...' : 'Sign Up'}
         </button>

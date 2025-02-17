@@ -91,6 +91,22 @@ export const GameResults: React.FC = () => {
     if (error) return <ErrorMessage message={error} />;
     if (Object.keys(samplesMap).length === 0) return <NoSamplesMessage />;
 
+    if (scoreAnalysis.totalScore === 0 && Object.keys(guesses).length > 0) {
+        console.error('Zero score detected with valid guesses:', {
+            samples: samplesMap,
+            guesses,
+            score,
+            analysis: scoreAnalysis,
+            individualScores: Object.values(guesses).map(g => g.score)
+        });
+        return (
+            <div className="text-center p-8">
+                <p className="text-red-600 mb-4">Error: Invalid score calculation</p>
+                <p className="text-gray-600">Please try resubmitting your guesses</p>
+            </div>
+        );
+    }
+
     return (
         <div className="max-w-4xl mx-auto px-4 py-8">
             <ResultsHeader scoreAnalysis={scoreAnalysis} />

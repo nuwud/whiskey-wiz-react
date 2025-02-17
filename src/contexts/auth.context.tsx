@@ -32,6 +32,7 @@ interface AuthContextValue {
 
 export interface AuthContextType extends AuthContextValue {
   setUser: React.Dispatch<React.SetStateAction<PlayerProfile | GuestProfile | null>>;
+  setError: React.Dispatch<React.SetStateAction<Error | null>>;  // Added
 }
 
 export const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
@@ -119,6 +120,26 @@ const getUserProfile = async (uid: string): Promise<PlayerProfile | null> => {
   }
 };
 
+const createGuestProfile = (result: any): GuestProfile => ({
+  userId: result.user.uid,
+  email: null,
+  displayName: 'Guest',
+  role: UserRole.GUEST,
+  type: UserType.GUEST,
+  registrationType: 'guest',
+  isAnonymous: true,
+  guest: true,
+  createdAt: new Date(),
+  guestToken: result.user.uid,
+  guestSessionToken: result.user.refreshToken || '',
+  guestSessionExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+  metrics: {
+    gamesPlayed: 0,
+    totalScore: 0,
+    bestScore: 0
+  }
+});
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<PlayerProfile | GuestProfile | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
@@ -193,7 +214,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
           }
 
-          if (mounted) setUser(userData);
+          if (mounted) setUser(userData as PlayerProfile);
         } else if (mounted) {
           setUser(null);
           setFirebaseUser(null);
@@ -244,6 +265,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await auth.signOut();
       setUser(null);
+      // Clear guest data
+      localStorage.removeItem('guestToken');
+      localStorage.removeItem('guestSessionExpiry');
       navigate('/login');
     } catch (err) {
       console.error('Sign out error:', err);
@@ -254,33 +278,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInAsGuest = async () => {
     try {
       const result = await signInAnonymously(auth);
-      const guestProfile: GuestProfile = {
-        userId: result.user.uid,
-        email: null,
-        displayName: 'Guest',
-        role: UserRole.GUEST,
-        type: UserType.GUEST,
-        registrationType: 'guest',
-        isAnonymous: true,
-        guest: true,
-        createdAt: new Date(),
-        guestToken: result.user.uid,
-        guestSessionToken: result.user.refreshToken || '',
-        guestSessionExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
-        metrics: {
-          gamesPlayed: 0,
-          totalScore: 0,
-          bestScore: 0
-        }
-      };
+      const guestProfile = createGuestProfile(result);
 
+      // Store guest token immediately
+      localStorage.setItem('guestToken', guestProfile.guestToken);
+      localStorage.setItem('guestSessionExpiry', guestProfile.guestSessionExpiresAt.toISOString());
+        
       setUser(guestProfile);
       AnalyticsService.userSignedIn({
         userId: guestProfile.userId,
         role: UserRole.GUEST,
         type: UserType.GUEST
       });
-      navigate('/game'); // Redirect to game page for guests
+      navigate('/quarters'); // Redirect to game page for guests
     } catch (err) {
       console.error('Guest sign in error:', err);
       throw err;
@@ -309,21 +319,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const value: AuthContextValue = {
+  const value = {
     user,
     firebaseUser,
     userId: user?.userId || '',
     isAuthenticated,
     loading,
-    error,  // Add error to the context value
+    error,
     signIn,
     signUp,
     signOut,
     resetPassword,
     updateProfile,
     signInAsGuest,
-    sendEmailVerification
-  };
+    sendEmailVerification,
+    setUser
+  } as AuthContextType;
 
   if (loading) {
     return (
@@ -333,13 +344,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
   }
 
-  if (value.error) {
+  if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="p-4 text-center">
           <h2 className="text-xl font-bold text-red-600">Authentication Error</h2>
           <p className="mt-2 text-gray-600">{error?.message}</p>
-          <button 
+          <button
             onClick={() => window.location.reload()}
             className="px-4 py-2 mt-4 text-white rounded bg-amber-600 hover:bg-amber-700"
           >

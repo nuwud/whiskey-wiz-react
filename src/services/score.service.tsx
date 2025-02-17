@@ -120,17 +120,22 @@ export class ScoreService {
   }
 
   private static validateInputs(guess: SampleGuess, sample: WhiskeySample): boolean {
+    const guessAge = Number(guess?.age);
+    const guessProof = Number(guess?.proof);
+    const sampleAge = Number(sample?.age);
+    const sampleProof = Number(sample?.proof);
+    
     return Boolean(
         guess &&
         sample &&
-        !isNaN(Number(guess.age)) &&
-        !isNaN(Number(guess.proof)) &&
+        !isNaN(guessAge) && guessAge > 0 &&
+        !isNaN(guessProof) && guessProof > 0 &&
         typeof guess.mashbill === 'string' &&
-        !isNaN(Number(sample.age)) &&
-        !isNaN(Number(sample.proof)) &&
+        !isNaN(sampleAge) && sampleAge > 0 &&
+        !isNaN(sampleProof) && sampleProof > 0 &&
         typeof sample.mashbill === 'string'
     );
-  }
+}
 
   // Individual scoring calculations
   static calculateAgeScore(guessed: number, actual: number): number {
