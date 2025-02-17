@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { FirebaseService } from '../services/firebase.service';
 import { PlayerProfile, UserType, UserRole, GuestProfile } from '../types/auth.types';
 import { db, auth } from '../config/firebase';
-import { GuestSessionService } from '../services/guest-session.service';
+import { GuestGameStateService } from '../services/guest-game-state.service';
 
 interface AuthContextValue {
   user: PlayerProfile | GuestProfile | null;
@@ -260,26 +260,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signInAsGuest = async () => {
+  const signInAsGuest = async (): Promise<void> => {
     try {
       setLoading(true);
       const result = await signInAnonymously(auth);
-      const sessionToken = `guest_${Date.now()}`;
-      const sessionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  
+      
       const guestProfile: GuestProfile = {
         userId: result.user.uid,
-        displayName: 'Guest',
+        displayName: 'Guest Player',
         role: UserRole.GUEST,
         type: UserType.GUEST,
         registrationType: 'guest',
         isAnonymous: true,
         guest: true,
+        emailVerified: false,
         createdAt: new Date(),
-        guestToken: result.user.uid,
-        guestSessionToken: sessionToken,
-        guestSessionExpiresAt: sessionExpiry,
         email: null,
+        guestToken: result.user.uid,
+        guestSessionToken: `guest_${Date.now()}`,
+        guestSessionExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
         metrics: {
           gamesPlayed: 0,
           totalScore: 0,
@@ -287,39 +286,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
         adminPrivileges: null
       };
-
+  
       await FirebaseService.createUserDocument(result.user.uid, guestProfile);
-      GuestSessionService.saveSession(guestProfile);
-      GuestSessionService.saveState({
-          preferences: {
-              favoriteWhiskeys: [],
-              preferredDifficulty: 'beginner',
-              notifications: true
-          },
-          gameProgress: {
-              gamesPlayed: 0,
-              totalScore: 0,
-              bestScore: 0,
-              lastPlayed: new Date().toISOString()
-          }
-      });
-  
-      localStorage.removeItem('guestToken');
-      localStorage.removeItem('guestSessionToken');
-      localStorage.removeItem('guestSessionExpiry');
-      localStorage.setItem('guestToken', guestProfile.guestToken);
-      localStorage.setItem('guestSessionToken', guestProfile.guestSessionToken);
-      localStorage.setItem('guestSessionExpiresAt', guestProfile.guestSessionExpiresAt.toISOString());
-  
+      
+      // Replace saveGameState with GuestGameStateService
+      GuestGameStateService.saveGameState({
+        isGuest: true,
+        currentSampleId: 'A',
+        isInitialized: true
+      } as any,
+        result.user.uid
+      );
+      
       setUser(guestProfile);
-      navigate('/quarters');
-    } catch (err) {
-      console.error('Guest sign in error:', err);
-      setError(err as Error);
-      throw err;
+
+      navigate('/guest-home');
+    } catch (error) {
+      console.error('Guest sign-in failed:', error);
+      throw error;
     } finally {
       setLoading(false);
-      }
+    }
   };
 
   const resetPassword = async (email: string) => {

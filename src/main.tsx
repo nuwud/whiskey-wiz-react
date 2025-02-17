@@ -9,51 +9,48 @@ import { verifyEnvironment, handleEnvironmentError } from './utils/env-check.uti
 import './config/firebase';
 
 const rootElement = document.getElementById('root');
+if (!rootElement) throw new Error('Failed to find the root element');
 
-if (!rootElement) {
-  throw new Error('Failed to find the root element');
-}
-
-const AppWithAuth = () => {
-  return (
-    <AuthProvider>
-      <App />
-    </AuthProvider>
-  );
-};
-
-const router = createBrowserRouter([
+const router = createBrowserRouter(
+  [
+    {
+      path: "*",
+      element: (
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      ),
+    }
+  ],
   {
-    path: "*",
-    element: <AppWithAuth />,
+    future: {
+      v7_relativeSplatPath: true
+    }
   }
-], {
-  future: {
-    v7_relativeSplatPath: true
-  }
-});
+);
+
+const ErrorFallback = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="text-center p-4">
+      <h2 className="text-xl font-bold text-red-600">Something went wrong</h2>
+      <button 
+        onClick={() => window.location.reload()}
+        className="mt-4 px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700"
+      >
+        Try Again
+      </button>
+    </div>
+  </div>
+);
 
 const init = async () => {
   try {
     verifyEnvironment();
-    
     const root = ReactDOM.createRoot(rootElement);
-
+    
     root.render(
       <React.StrictMode>
-        <ErrorBoundary fallback={
-          <div className="min-h-screen flex items-center justify-center">
-            <div className="text-center p-4">
-              <h2 className="text-xl font-bold text-red-600">Something went wrong</h2>
-              <button 
-                onClick={() => window.location.reload()}
-                className="mt-4 px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700"
-              >
-                Try Again
-              </button>
-            </div>
-          </div>
-        }>
+        <ErrorBoundary fallback={<ErrorFallback />}>
           <RouterProvider router={router} />
         </ErrorBoundary>
       </React.StrictMode>

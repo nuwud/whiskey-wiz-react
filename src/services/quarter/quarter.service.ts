@@ -548,35 +548,79 @@ class QuarterService implements QuarterServiceInterface {
     }
   }
 
-  async getQuarterById(quarterId: string): Promise<Quarter | null> {
+  async getQuarterById(quarterId: string) {
     try {
-      if (!quarterId) throw new Error("Quarter ID is required");
-  
-      const quarterRef = doc(this.quartersCollection, quarterId);
-      const quarterSnap = await getDoc(quarterRef);
-      
-      if (!quarterSnap.exists()) {
-        console.warn(`No quarter found with ID: ${quarterId}`);
-        return null;
+      // Check cache first
+      const cachedData = localStorage.getItem(`quarter_${quarterId}`);
+      if (cachedData) {
+        try {
+          return JSON.parse(cachedData);
+        } catch (e) {
+          console.warn('Failed to parse cached quarter data');
+        }
       }
   
-      const quarter = await this.enrichQuarterWithSamples(quarterSnap);
+      // Get quarter document with retry
+      const quarterRef = doc(db, 'quarters', quarterId);
+      let attempts = 0;
+      let quarterSnap;
       
-      QuarterAnalyticsService.trackEvent('quarter_fetched', {
-        quarterId,
-        sampleCount: quarter.samples.length
-      });
-
-      return quarter;
+      while (attempts < 3) {
+        try {
+          quarterSnap = await getDoc(quarterRef);
+          if (quarterSnap.exists()) break;
+          attempts++;
+        } catch (error) {
+          if (attempts >= 2) throw error;
+          attempts++;
+          await new Promise(resolve => setTimeout(resolve, 500 * attempts));
+        }
+      }
+      
+      if (!quarterSnap || !quarterSnap.exists()) {
+        throw new Error('Quarter not found');
+      }
+  
+      // Get samples with optimized query
+      const samplesQuery = query(
+        collection(db, 'samples'),
+        where('quarterId', '==', quarterId)
+      )
+  
+      const samplesSnap = await getDocs(samplesQuery);
+      const samples = samplesSnap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+  
+      // Structure and cache result
+      const result = {
+        ...quarterSnap.data(),
+        id: quarterSnap.id,
+        samples
+      };
+  
+      try {
+        localStorage.setItem(`quarter_${quarterId}`, JSON.stringify(result));
+      } catch (e) {
+        console.warn('Failed to cache quarter data');
+      }
+  
+      return result;
     } catch (error) {
-      console.error(`Error fetching quarter ${quarterId}:`, error);
-      QuarterAnalyticsService.trackEvent('quarter_fetch_error', {
-        quarterId,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      return null;
+      console.error('Error fetching quarter:', error);
+      // Check if cached data available as fallback
+      const cachedData = localStorage.getItem(`quarter_${quarterId}`);
+      if (cachedData) {
+        try {
+          return JSON.parse(cachedData);
+        } catch (e) {
+          // If cache parsing fails, throw the original error
+        }
+      }
+      throw error;
     }
-  }
+  };
 
   async getQuarterAnalyticsService(quarterId: string): Promise<QuarterAnalytics | null> {
     try {
@@ -1035,7 +1079,10 @@ class QuarterService implements QuarterServiceInterface {
 
   async getDetailedSampleAnalytics(quarterId: string) {
     try {
-      const samplesQuery = collection(db, `quarters/${quarterId}/samples`);
+      const samplesQuery = query(
+        collection(db, 'samples'),
+        where('quarterId', '==', quarterId)
+      );
       const samplesSnapshot = await getDocs(samplesQuery);
       const samples = samplesSnapshot.docs.map(doc => ({
         id: doc.id,
