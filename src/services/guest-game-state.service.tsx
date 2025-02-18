@@ -22,10 +22,7 @@ interface GuestScore {
 export class GuestGameStateService {
     static saveGameState(state: GameState, guestId: string): void {
         try {
-            // Verify guest session is still valid
-            if (!GuestSessionService.isSessionValid()) {
-                throw new Error('Guest session expired');
-            }
+            
 
             const guestState: GuestGameState = {
                 ...state,

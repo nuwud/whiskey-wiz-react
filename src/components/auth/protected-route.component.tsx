@@ -17,9 +17,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   redirectPath = '/login'
 }) => {
-  const { user, loading, error } = useAuth();
+  const { user, loading } = useAuth();
   const userRole = user?.role as UserRole;
-  const isGuest = user?.role === UserRole.GUEST;
   const isAllowed = allowedRoles.length === 0 || allowedRoles.includes(userRole);
 
   if (!isAllowed) {

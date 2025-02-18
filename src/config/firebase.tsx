@@ -1,7 +1,7 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { 
   initializeFirestore, 
-  persistentLocalCache,
+  memoryLocalCache,
   type Firestore,
   type FirestoreSettings
 } from 'firebase/firestore';
@@ -28,7 +28,7 @@ let analytics: Analytics;
 let storage: FirebaseStorage;
 
 const firestoreSettings: FirestoreSettings = {
-  localCache: persistentLocalCache()
+  localCache: memoryLocalCache()
 };
 
 // Initialize Firebase

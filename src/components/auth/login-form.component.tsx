@@ -26,7 +26,12 @@ const LoginForm: React.FC = () => {
 
   // Skip authentication completely for fastest guest access
   const handleDirectGuestPlay = () => {
-    // Go directly to game without authentication
+    // Clear any previous state that might cause issues
+    localStorage.removeItem('guestToken');
+    localStorage.removeItem('guestSessionToken');
+    localStorage.removeItem('guestSessionExpiry');
+    
+    // Go directly to quarter selection
     navigate('/');
   };
 

@@ -228,7 +228,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const firebaseUser = await FirebaseService.signIn(email, password);
       setUser(await getUserProfile(firebaseUser.uid));
-      navigate('/profile');
+      navigate('/'); // Navigate to home instead of profile
     } catch (err) {
       console.error('Sign in error:', err);
       throw err;
