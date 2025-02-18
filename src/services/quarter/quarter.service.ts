@@ -1,14 +1,186 @@
 import { collection, query, where, getDocs, doc, getDoc, updateDoc, serverTimestamp, addDoc, setDoc, orderBy, limit, DocumentSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-import { Quarter, QuarterAnalytics } from '../../types/game.types';
+import { Quarter, QuarterAnalytics, WhiskeySample } from '../../types/game.types';
 import { QuarterConverters } from './converters';
 import { QuarterAnalyticsService } from './analytics.service';
 import { analyticsService as AnalyticsService } from '../analytics.service'
 import { QuarterServiceInterface, LeaderboardEntry } from './types';
 
+const QUARTERS_COLLECTION = 'quarters';
+const SAMPLES_COLLECTION = 'samples';
+const CACHE_PREFIX = 'whiskeywiz_quarter_';
+const CACHE_TTL = 3600000; // 1 hour
+
+export const getQuarterById = async (quarterId: string): Promise<Quarter> => {
+  try {
+    console.time(`getQuarterById:${quarterId}`);
+    
+    // Try cache first
+    const cachedQuarter = checkCache(quarterId);
+    if (cachedQuarter) {
+      console.timeEnd(`getQuarterById:${quarterId}`);
+      return cachedQuarter;
+    }
+
+    // Get quarter document
+    const quarterRef = doc(db, QUARTERS_COLLECTION, quarterId);
+    const quarterDoc = await getDoc(quarterRef);
+    
+    if (!quarterDoc.exists()) {
+      throw new Error(`Quarter ${quarterId} not found`);
+    }
+    
+    const quarterData = {
+      id: quarterDoc.id,
+      ...quarterDoc.data()
+    } as Quarter;
+    
+    // Get samples - optimized query
+    const samplesQuery = query(
+      collection(db, SAMPLES_COLLECTION),
+      where('quarterId', '==', quarterId),
+      limit(4) // assuming 4 samples per quarter
+    );
+    
+    const samplesSnapshot = await getDocs(samplesQuery);
+    
+    // Process samples
+    if (samplesSnapshot.empty) {
+      console.warn(`No samples found for quarter ${quarterId}`);
+      quarterData.samples = [];
+    } else {
+      quarterData.samples = samplesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as WhiskeySample[];
+      
+      // Verify samples data integrity
+      quarterData.samples = quarterData.samples.map((sample, index) => {
+        // Ensure ID is set correctly (A, B, C, D)
+        const sampleId = String.fromCharCode(65 + index);
+        return {
+          ...sample,
+          id: sampleId
+        };
+      });
+    }
+    
+    // Cache result
+    cacheQuarter(quarterId, quarterData);
+    
+    console.timeEnd(`getQuarterById:${quarterId}`);
+    return quarterData;
+  } catch (error) {
+    console.error(`Error in getQuarterById(${quarterId}):`, error);
+    throw error;
+  }
+};
+
+export const getCurrentQuarter = async (): Promise<Quarter | null> => {
+  try {
+    // Try cache first
+    const cachedQuarter = localStorage.getItem('current_quarter');
+    if (cachedQuarter) {
+      const parsed = JSON.parse(cachedQuarter);
+      if (parsed.timestamp > Date.now() - CACHE_TTL) {
+        return parsed.data;
+      }
+    }
+    
+    // Get active quarter
+    const quartersQuery = query(
+      collection(db, QUARTERS_COLLECTION),
+      where('isActive', '==', true),
+      limit(1)
+    );
+    
+    const snapshot = await getDocs(quartersQuery);
+    
+    if (snapshot.empty) {
+      return null;
+    }
+    
+    const quarterDoc = snapshot.docs[0];
+    const quarterId = quarterDoc.id;
+    
+    // Get full quarter data
+    const quarter = await getQuarterById(quarterId);
+    
+    // Cache current quarter
+    localStorage.setItem('current_quarter', JSON.stringify({
+      data: quarter,
+      timestamp: Date.now()
+    }));
+    
+    return quarter;
+  } catch (error) {
+    console.error('Error in getCurrentQuarter:', error);
+    return null;
+  }
+};
+
+// Helper functions
+function checkCache(quarterId: string): Quarter | null {
+  try {
+    const cached = localStorage.getItem(`${CACHE_PREFIX}${quarterId}`);
+    if (!cached) return null;
+    
+    const { data, timestamp } = JSON.parse(cached);
+    
+    // Check if cache is still valid
+    if (Date.now() - timestamp < CACHE_TTL) {
+      console.log(`Cache hit for quarter ${quarterId}`);
+      return data;
+    }
+    
+    return null;
+  } catch (e) {
+    console.warn('Cache read error:', e);
+    return null;
+  }
+}
+
+function cacheQuarter(quarterId: string, data: Quarter): void {
+  try {
+    localStorage.setItem(`${CACHE_PREFIX}${quarterId}`, JSON.stringify({
+      data,
+      timestamp: Date.now()
+    }));
+  } catch (e) {
+    console.warn('Cache write error:', e);
+  }
+}
+
+export const getGameConfiguration = async (quarterId: string) => {
+  try {
+    // Check if config already exists in quarter data
+    const quarter = await getQuarterById(quarterId);
+    if (quarter.scoringRules) {
+      return quarter;
+    }
+    
+    // Fallback to separate config
+    const configRef = doc(db, 'game_configurations', quarterId);
+    const configDoc = await getDoc(configRef);
+    
+    if (!configDoc.exists()) {
+      return quarter; // Return quarter with default config
+    }
+    
+    return {
+      ...quarter,
+      ...configDoc.data()
+    };
+  } catch (error) {
+    console.error('Error fetching game configuration:', error);
+    return null;
+  }
+};
+
 class QuarterService implements QuarterServiceInterface {
   private static instance: QuarterService;
-  private quartersCollection = collection(db, 'quarters');
+  private db = db;
+  private quartersCollection = collection(this.db, 'quarters');
   private resultsCollection = collection(db, 'game_results');
 
   private constructor() {}
@@ -326,6 +498,64 @@ class QuarterService implements QuarterServiceInterface {
     }
   }
 
+  // In src/services/quarter/quarter.service.ts
+async getQuarterById(quarterId: string): Promise<Quarter | null> {
+  try {
+    // Check cache first
+    const cachedData = localStorage.getItem(`quarter_${quarterId}`);
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        if (parsed.timestamp > Date.now() - 3600000) { // 1 hour cache
+          return parsed.data;
+        }
+      } catch (e) {
+        console.warn('Failed to parse cached quarter data');
+      }
+    }
+
+    // Get quarter document
+    const quarterRef = doc(this.db, 'quarters', quarterId);
+    const quarterSnap = await getDoc(quarterRef);
+    
+    if (!quarterSnap.exists()) {
+      return null;
+    }
+    
+    const quarterData = {
+      id: quarterSnap.id,
+      ...quarterSnap.data()
+    } as Quarter;
+    
+    // Get samples with optimized query
+    const samplesQuery = query(
+      collection(this.db, 'samples'),
+      where('quarterId', '==', quarterId)
+    );
+    
+    const samplesSnapshot = await getDocs(samplesQuery);
+    quarterData.samples = samplesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as WhiskeySample[];
+    
+    // Cache result
+    try {
+      localStorage.setItem(`quarter_${quarterId}`, JSON.stringify({
+        data: quarterData,
+        timestamp: Date.now()
+      }));
+    } catch (e) {
+      console.warn('Failed to cache quarter data');
+    }
+    
+    return quarterData;
+  } catch (error) {
+    console.error(`Error in getQuarterById(${quarterId}):`, error);
+    return null;
+  }
+}
+
   async enrichQuarterWithSamples(quarterDoc: DocumentSnapshot): Promise<Quarter> {
     const quarterData = quarterDoc.data();
     if (!quarterData) throw new Error('Quarter document exists but has no data');
@@ -547,80 +777,6 @@ class QuarterService implements QuarterServiceInterface {
       return [];
     }
   }
-
-  async getQuarterById(quarterId: string) {
-    try {
-      // Check cache first
-      const cachedData = localStorage.getItem(`quarter_${quarterId}`);
-      if (cachedData) {
-        try {
-          return JSON.parse(cachedData);
-        } catch (e) {
-          console.warn('Failed to parse cached quarter data');
-        }
-      }
-  
-      // Get quarter document with retry
-      const quarterRef = doc(db, 'quarters', quarterId);
-      let attempts = 0;
-      let quarterSnap;
-      
-      while (attempts < 3) {
-        try {
-          quarterSnap = await getDoc(quarterRef);
-          if (quarterSnap.exists()) break;
-          attempts++;
-        } catch (error) {
-          if (attempts >= 2) throw error;
-          attempts++;
-          await new Promise(resolve => setTimeout(resolve, 500 * attempts));
-        }
-      }
-      
-      if (!quarterSnap || !quarterSnap.exists()) {
-        throw new Error('Quarter not found');
-      }
-  
-      // Get samples with optimized query
-      const samplesQuery = query(
-        collection(db, 'samples'),
-        where('quarterId', '==', quarterId)
-      )
-  
-      const samplesSnap = await getDocs(samplesQuery);
-      const samples = samplesSnap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-  
-      // Structure and cache result
-      const result = {
-        ...quarterSnap.data(),
-        id: quarterSnap.id,
-        samples
-      };
-  
-      try {
-        localStorage.setItem(`quarter_${quarterId}`, JSON.stringify(result));
-      } catch (e) {
-        console.warn('Failed to cache quarter data');
-      }
-  
-      return result;
-    } catch (error) {
-      console.error('Error fetching quarter:', error);
-      // Check if cached data available as fallback
-      const cachedData = localStorage.getItem(`quarter_${quarterId}`);
-      if (cachedData) {
-        try {
-          return JSON.parse(cachedData);
-        } catch (e) {
-          // If cache parsing fails, throw the original error
-        }
-      }
-      throw error;
-    }
-  };
 
   async getQuarterAnalyticsService(quarterId: string): Promise<QuarterAnalytics | null> {
     try {

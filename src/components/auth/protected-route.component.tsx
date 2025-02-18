@@ -17,7 +17,14 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   redirectPath = '/login'
 }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, error } = useAuth();
+  const userRole = user?.role as UserRole;
+  const isGuest = user?.role === UserRole.GUEST;
+  const isAllowed = allowedRoles.length === 0 || allowedRoles.includes(userRole);
+
+  if (!isAllowed) {
+    return <Navigate to="/game" replace />;
+  }
 
   if (loading) {
     return (
@@ -30,8 +37,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (!user) {
     return <Navigate to={redirectPath} replace />;
   }
-
-  const userRole = user.role as UserRole;
 
   if (adminOnly && userRole !== UserRole.ADMIN) {
     return <Navigate to="/game" replace />;

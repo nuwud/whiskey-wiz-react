@@ -34,25 +34,25 @@ export const AppRoutes: React.FC = () => {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
 
-      {/* Game Routes - Allow guests */}
-      <Route element={<ProtectedRoute allowedRoles={[UserRole.PLAYER, UserRole.ADMIN, UserRole.GUEST]} />}>
-        <Route path="/" element={<QuarterSelection onSelect={(quarter) => {
+      {/* Game Routes - Public Access for Everyone */}
+      <Route path="/" element={
+        <QuarterSelection onSelect={(quarter) => {
           if (quarter?.id) {
             navigate(`/game/${quarter.id}`);
           }
-        }} />} />
-        <Route path="/game/:quarterId" element={
-          <GameErrorBoundary>
-            <GameContainer />
-          </GameErrorBoundary>
-        } />
-        <Route path="/game" element={
-          <GameErrorBoundary>
-            <GameContainer />
-          </GameErrorBoundary>
-        } />
-        <Route path="/game/:quarterId/results" element={<GameResults />} />
-      </Route>
+        }} />
+      } />
+      <Route path="/game/:quarterId" element={
+        <GameErrorBoundary>
+          <GameContainer />
+        </GameErrorBoundary>
+      } />
+      <Route path="/game" element={
+        <GameErrorBoundary>
+          <GameContainer />
+        </GameErrorBoundary>
+      } />
+      <Route path="/game/:quarterId/results" element={<GameResults />} />
 
       {/* Player Only Routes */}
       <Route element={<ProtectedRoute allowedRoles={[UserRole.PLAYER, UserRole.ADMIN]} />}>
