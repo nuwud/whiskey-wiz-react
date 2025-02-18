@@ -17,7 +17,9 @@ import { saveGameState } from '../../utils/storage.utils';
 import { GuestSessionMonitor } from '../guest/guest-session-monitor.component';
 import { GuestGameStateService } from '../../services/guest-game-state.service';
 import { useToast } from '../../hooks/use-toast.hook';
-import { retryOperation } from '../../utils/retry.utils'
+import { retryOperation } from '../../utils/retry.utils';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 
 const SAMPLE_IDS: SampleId[] = ['A', 'B', 'C', 'D'];
 
@@ -44,8 +46,6 @@ export const GameContainer: React.FC = () => {
     const calculateTimeSpent = (startTime: number): number => {
         return Math.floor((Date.now() - startTime) / 1000);
     };
-        
-    // Removed unused validateUserAccess function
 
     const handleSessionExpiring = () => {
         toast({
@@ -82,21 +82,20 @@ export const GameContainer: React.FC = () => {
 
     // Add guess handling
     const handleGuessSubmit = (sampleId: SampleId, guess: SampleGuess) => {
-        
         console.log('Processing guess for sample:', sampleId, guess);
         const sample = samples[sampleId];
         console.log('Raw sample data:', sample);
         console.log('Raw guess data:', guess);
 
-    if (!sample || Number(sample.age) <= 0 || Number(sample.proof) <= 0) {
-        console.error('Invalid sample data:', sample);
-        toast({
-            title: "Error",
-            description: "Invalid sample data detected. Please contact support.",
-            type: "error"
-        });
-        return;
-    }
+        if (!sample || Number(sample.age) <= 0 || Number(sample.proof) <= 0) {
+            console.error('Invalid sample data:', sample);
+            toast({
+                title: "Error",
+                description: "Invalid sample data detected. Please contact support.",
+                type: "error"
+            });
+            return;
+        }
         const cleanGuess = {
             ...guess,
             age: Number(guess.age),
@@ -141,10 +140,9 @@ export const GameContainer: React.FC = () => {
         if (!samples || Object.keys(samples).length < SAMPLE_IDS.length) {
             return false; // Prevent incorrect completion state
         }
-    
+
         return SAMPLE_IDS.every(id => samples[id] && guesses[id]?.submitted);
     }, [samples, guesses]);
-    
 
     // Update effect to handle game completion
     useEffect(() => {
@@ -155,35 +153,35 @@ export const GameContainer: React.FC = () => {
 
     const validateQuarterData = (quarter: any): boolean => {
         if (!quarter) return false;
-    
-        const hasSamples = quarter.samples && 
-                Array.isArray(quarter.samples) && 
-                quarter.samples.length === 4 && // Exactly 4 samples required
-                quarter.samples.every((sample: WhiskeySample) => 
-                    sample && 
-                    typeof sample === 'object' &&
-                    'age' in sample &&
-                    'proof' in sample &&
-                    'mashbill' in sample
-                );
-        
+
+        const hasSamples = quarter.samples &&
+            Array.isArray(quarter.samples) &&
+            quarter.samples.length === 4 && // Exactly 4 samples required
+            quarter.samples.every((sample: WhiskeySample) =>
+                sample &&
+                typeof sample === 'object' &&
+                'age' in sample &&
+                'proof' in sample &&
+                'mashbill' in sample
+            );
+
         console.log('Quarter samples validation:', {
             hasSamples,
             samplesLength: quarter.samples?.length,
             samplesData: quarter.samples
         });
-    
+
         return hasSamples;
     };
 
     const initializeGame = useCallback(async () => {
         if (!user || !quarterId) return;
-    
+
         setLoading(true);
         setError(null);
         const traceId = monitoringService.startTrace('game_initialization');
         console.time("Game Initialization Time");
-    
+
         try {
             await retryOperation(async () => {
                 console.time("Fetching Quarter Data");
@@ -199,7 +197,7 @@ export const GameContainer: React.FC = () => {
                 if (!transformedSamples || Object.keys(transformedSamples).length < 4) {
                     throw new Error('Sample transformation failed');
                 }
-    
+
                 console.log('Setting samples:', transformedSamples);
                 console.time("Updating State");
                 setSamples(transformedSamples);
@@ -221,9 +219,10 @@ export const GameContainer: React.FC = () => {
                     isLoading: false,
                     isPlaying: true
                 }));
-    
-                    await saveGameState({ ...INITIAL_STATE, samples: transformedSamples });
-                });
+
+                await saveGameState({ ...INITIAL_STATE, samples: transformedSamples });
+
+            });
 
         } catch (error) {
             console.error('Game initialization failed:', error);
@@ -234,50 +233,118 @@ export const GameContainer: React.FC = () => {
         }
     }, [quarterId, user, setSamples]);
 
-    if (!isStateInitialized || !samples || Object.keys(samples).length < 4) {
-        return (
-            <div className="flex items-center justify-center h-screen">
-                <Spinner />
-                <p>Loading game data...</p>
-            </div>
-        );
-    } 
+    // Emergency function to bypass complex service layers
+    const emergencyLoadQuarterData = async (quarterId: string) => {
+        try {
+            console.log("🚨 EMERGENCY: Direct Firestore access attempt");
+            // Get quarter document directly
+            const quarterRef = doc(db, 'quarters', quarterId);
+            const quarterSnap = await getDoc(quarterRef);
 
+            if (!quarterSnap.exists()) {
+                throw new Error('Quarter not found');
+            }
+
+            // First try to get samples from subcollection - this matches your Firestore structure
+            let samplesRef = collection(db, `quarters/${quarterId}/samples`);
+            let samplesSnapshot = await getDocs(samplesRef);
+
+            // If no samples in subcollection, then try main collection as fallback
+            if (samplesSnapshot.empty) {
+                console.log("No samples in subcollection, trying main collection");
+                const samplesQuery = query(
+                    collection(db, 'samples'),
+                    where('quarterId', '==', quarterId)
+                );
+                samplesSnapshot = await getDocs(samplesQuery);
+            }
+
+            let samples: Record<SampleId, WhiskeySample> = {
+                A: { id: 'A', name: 'Sample A', age: 6, proof: 90, mashbill: 'Bourbon', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', availability: '', imageUrl: '', price: 0, difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' },
+                B: { id: 'B', name: 'Sample B', age: 10, proof: 100, mashbill: 'Rye', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', availability: '', imageUrl: '', price: 0, difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' },
+                C: { id: 'C', name: 'Sample C', age: 8, proof: 95, mashbill: 'Wheat', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', availability: '', imageUrl: '', price: 0, difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' },
+                D: { id: 'D', name: 'Sample D', age: 12, proof: 110, mashbill: 'Single Malt', rating: 0, hints: [], distillery: '', description: '', notes: [], type: '', region: '', availability: '', imageUrl: '', price: 0, difficulty: 'beginner', score: 0, challengeQuestions: [], image: '' }
+            };
+
+            if (!samplesSnapshot.empty) {
+                // We have real samples - use them instead of fallbacks
+                samplesSnapshot.docs.forEach(doc => {
+                    const sampleId = doc.id as SampleId; // Should be A, B, C, D
+                    samples[sampleId] = {
+                        id: sampleId,
+                        ...doc.data(),
+                        // Ensure essential fields are present
+                        hints: doc.data().hints || [],
+                        notes: doc.data().notes || [],
+                        challengeQuestions: doc.data().challengeQuestions || [],
+                        image: doc.data().image || '',
+                    } as WhiskeySample;
+                });
+            }
+
+            // Get scoring rules from quarter
+            const quarterData = quarterSnap.data();
+            
+            // Set samples and initialize game
+            setSamples(samples);
+            setGameState({
+                ...INITIAL_STATE,
+                samples,
+                isInitialized: true,
+                currentSampleId: 'A',
+                scoringRules: quarterData.scoringRules || DEFAULT_SCORING_RULES
+            });
+            setIsStateInitialized(true);
+            setLoading(false);
+
+            return true;
+        } catch (error) {
+            console.error("Emergency load failed:", error);
+            return false;
+        }
+    };
+    
     // Single initialization effect
     useEffect(() => {
-        let mounted = { current: true };
-    
-        if (user && !useGameStore.getState().isInitialized) {
-            (async () => {
-                try {
-                    if (!mounted.current) return;
-                    setLoading(true);
-                    await initializeGame();
-    
-                    if (!mounted.current) return;
-                    const currentSamples = useGameStore.getState().samples;
-                    logSamples(currentSamples);
-    
-                    if (!currentSamples || Object.keys(currentSamples).length < 4) {
-                        throw new Error('Samples failed to initialize');
-                    }
-                } catch (error) {
-                    if (!mounted.current) return;
-                    console.error('Initialization error:', error);
-                    setError(error instanceof Error ? error.message : 'Failed to initialize game');
-                } finally {
-                    if (mounted.current) {
-                        setLoading(false);
+        let mounted = true;
+
+        const loadGame = async () => {
+            setLoading(true);
+            let success = false;
+
+            // Start a timeout for emergency loading
+            const emergencyTimeout = setTimeout(async () => {
+                if (mounted && loading) {
+                    console.log("🚨 EMERGENCY: Loading taking too long, trying direct access");
+                    if (quarterId) {
+                        success = await emergencyLoadQuarterData(quarterId);
                     }
                 }
-            })();
-        }
-    
-        return () => {
-            mounted.current = false;
+            }, 5000); // Wait 5 seconds before emergency load
+
+            try {
+                // Try normal loading first
+                await initializeGame();
+            } catch (error) {
+                console.error("Normal initialization failed:", error);
+                if (mounted && quarterId) {
+                    success = await emergencyLoadQuarterData(quarterId);
+                }
+            } finally {
+                if (mounted) {
+                    clearTimeout(emergencyTimeout);
+                    if (!success) setLoading(false);
+                }
+            }
         };
-    }, [user, initializeGame]);
-    
+
+        loadGame();
+
+        return () => {
+            mounted = false;
+        };
+    }, [quarterId, initializeGame]);
+
     useEffect(() => {
         if (!samples || Object.keys(samples).length < 4) {
             return;
@@ -340,7 +407,6 @@ export const GameContainer: React.FC = () => {
             return newIndex;
         });
     };
-    
 
     const handleGameComplete = () => {
         if (!quarterId || !user) return;
@@ -357,7 +423,7 @@ export const GameContainer: React.FC = () => {
 
             console.log('Final Guesses:', guesses);
             console.log('Calculated Total Score:', currentTotalScore);
-            console.log('Final score:', finalScore); 
+            console.log('Final score:', finalScore);
 
             const finalState = {
                 guesses,
@@ -464,14 +530,14 @@ export const GameContainer: React.FC = () => {
             <div className="flex items-center justify-center h-screen">
                 <div className="text-center">
                     <h2 className="text-xl font-bold mb-4">
-                        {loading 
-                            ? 'Loading game samples...' 
+                        {loading
+                            ? 'Loading game samples...'
                             : 'Samples not yet available. Please try refreshing.'}
                     </h2>
                     <Spinner />
                     <p className="mt-2 text-gray-600">
-                        {error 
-                            ? `Error: ${error}` 
+                        {error
+                            ? `Error: ${error}`
                             : `This may take a few moments... (${Object.keys(currentSamples || {}).length}/4 samples loaded)`}
                     </p>
                 </div>
