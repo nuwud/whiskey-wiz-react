@@ -1,5 +1,10 @@
 // src/components/game/sample-result.component.tsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { useAuth } from '../../contexts/auth.context';
+import { FirebaseService } from '../../services/firebase.service';
+import { Spinner } from '../ui/spinner-ui.component';
+import SampleResult from './sample-result.component';
 import { Star } from 'lucide-react';
 import {
     AccordionItem,
@@ -94,24 +99,24 @@ export const SampleResult: React.FC<SampleResultProps> = ({
                             points={guess.breakdown?.age ?? 0}
                             maxPoints={50}
                             explanation={guess.explanations?.age ?? getAgeExplanation(sample.age, guess.age)}
-                            />
-                            <ScoringDetail
+                        />
+                        <ScoringDetail
                             label="Proof"
                             guess={`${guess.proof}°`}
                             actual={`${sample.proof}°`}
                             points={guess.breakdown?.proof ?? 0}
                             maxPoints={50}
                             explanation={guess.explanations?.proof ?? getProofExplanation(sample.proof, guess.proof)}
-                            />
-                            <ScoringDetail
+                        />
+                        <ScoringDetail
                             label="Mashbill"
                             guess={guess.mashbill}
                             actual={sample.mashbill}
                             points={guess.breakdown?.mashbill ?? 0}
                             maxPoints={50}
                             explanation={guess.explanations?.mashbill ?? getMashbillExplanation(sample.mashbill, guess.mashbill)}
-                            />
-                        </div>
+                        />
+                    </div>
                     {/* Rating and Notes */}
                     <div>
                         <h4 className="text-sm font-medium text-gray-900 mb-2">Your Rating</h4>
@@ -159,3 +164,107 @@ export const SampleResult: React.FC<SampleResultProps> = ({
 };
 
 export default SampleResult;
+
+interface GameResultsProps {
+    quarterId: string;
+}
+
+const GameResults: React.FC<GameResultsProps> = () => {
+    const { quarterId } = useParams<{ quarterId: string }>();
+    const { user } = useAuth();
+    const [results, setResults] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const loadResults = async () => {
+        try {
+            setLoading(true);
+
+            // Try to load from localStorage first for guest users
+            const guestScoreStr = localStorage.getItem('guestScore');
+            if (guestScoreStr && (!user || user.guest)) {
+                try {
+                    const guestScore = JSON.parse(guestScoreStr);
+                    if (guestScore.quarterId === quarterId) {
+                        setResults({
+                            score: guestScore.score,
+                            guesses: guestScore.guesses,
+                            timeSpent: 0, // We don't track time for guests
+                            userId: 'guest',
+                            quarterId: quarterId,
+                            timestamp: guestScore.timestamp
+                        });
+                        return; // Successfully loaded guest results
+                    }
+                } catch (e) {
+                    console.error("Error parsing guest score:", e);
+                }
+            }
+
+            // If not a guest or no localStorage data, proceed with normal loading
+            if (user && !user.guest) {
+                const resultsData = await FirebaseService.getGameResults(user.userId, quarterId);
+                setResults(resultsData);
+            } else {
+                throw new Error("No results found for guest user");
+            }
+        } catch (error) {
+            console.error("Failed to load results:", error);
+            setError("There was a problem loading your results. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadResults();
+    }, [quarterId, user]);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <Spinner />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <div className="text-center">
+                    <h2 className="text-xl font-bold mb-4">Error</h2>
+                    <p className="text-gray-600">{error}</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!results) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <div className="text-center">
+                    <h2 className="text-xl font-bold mb-4">No Results</h2>
+                    <p className="text-gray-600">No results found for this game.</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="container mx-auto px-4 py-8">
+            <h1 className="text-2xl font-bold mb-8">Game Results</h1>
+            <div className="space-y-4">
+                {Object.keys(results.guesses).map(sampleId => (
+                    <SampleResult
+                        key={sampleId}
+                        sampleId={sampleId}
+                        sample={results.samples[sampleId]}
+                        guess={results.guesses[sampleId]}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+};
+
+export default GameResults;

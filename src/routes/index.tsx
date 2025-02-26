@@ -28,6 +28,9 @@ export const AppRoutes: React.FC = () => {
   const navigate = useNavigate();
   return (
     <Routes>
+      {/* Redirect from root to the featured quarter */}
+      <Route path="/" element={<Navigate to="/game/1224" replace />} />
+
       {/* Public Routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<SignUp />} />
@@ -35,13 +38,6 @@ export const AppRoutes: React.FC = () => {
       <Route path="/verify-email" element={<VerifyEmail />} />
 
       {/* Game Routes - Public Access for Everyone */}
-      <Route path="/" element={
-        <QuarterSelection onSelect={(quarter) => {
-          if (quarter?.id) {
-            navigate(`/game/${quarter.id}`);
-          }
-        }} />
-      } />
       <Route path="/game/:quarterId" element={
         <GameErrorBoundary>
           <GameContainer />
@@ -68,7 +64,7 @@ export const AppRoutes: React.FC = () => {
       </Route>
 
       {/* Catch all */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/game/1224" replace />} />
     </Routes>
   );
 };

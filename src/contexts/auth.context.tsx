@@ -135,6 +135,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const ensureGuestUser = (currentUser: PlayerProfile | GuestProfile | null): PlayerProfile | GuestProfile | null => {
+    if (!currentUser && window.location.pathname.includes('/game')) {
+      return {
+        userId: `guest-${Date.now()}`,
+        role: UserRole.GUEST,
+        email: null,
+        displayName: 'Guest Player',
+        guest: true,
+        isAnonymous: true,
+        emailVerified: false,
+        createdAt: new Date(),
+        metrics: {
+          gamesPlayed: 0,
+          totalScore: 0,
+          bestScore: 0,
+        },
+        adminPrivileges: null
+      } as GuestProfile;
+    }
+    return currentUser;
+  };
+
   useEffect(() => {
     let mounted = true;
     setLoading(true);
@@ -327,11 +349,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const exposedUser = ensureGuestUser(user);
+
   const value = {
-    user,
+    user: exposedUser,
     firebaseUser,
-    userId: user?.userId || '',
-    isAuthenticated,
+    userId: exposedUser?.userId || '',
+    isAuthenticated: Boolean(exposedUser),
     loading,
     error,
     signIn,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/auth.context';
 import { UserRole } from '../../types/auth.types';
 import { Spinner } from '../ui/spinner-ui.component';
@@ -18,6 +18,14 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   redirectPath = '/login'
 }) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
+  
+  // ALLOW GAME ACCESS: If the route is related to gameplay, allow access without authentication
+  const isGameRoute = location.pathname.startsWith('/game/');
+  if (isGameRoute) {
+    return children ? <>{children}</> : <Outlet />;
+  }
+  
   const userRole = user?.role as UserRole;
   const isAllowed = allowedRoles.length === 0 || allowedRoles.includes(userRole);
 

@@ -30,9 +30,11 @@ const LoginForm: React.FC = () => {
     localStorage.removeItem('guestToken');
     localStorage.removeItem('guestSessionToken');
     localStorage.removeItem('guestSessionExpiry');
-    
+
+    const featuredQuarterId = '1224';
+
     // Go directly to quarter selection
-    navigate('/');
+    navigate(`/game/${featuredQuarterId}`);
   };
 
   const handleGuestPlay = async () => {
@@ -52,19 +54,19 @@ const LoginForm: React.FC = () => {
   return (
     <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-lg">
       <h2 className="text-2xl font-bold mb-6 text-center">Welcome to Whiskey Wiz</h2>
-      
+
       {/* Direct Play Button (No Auth) */}
       <div className="mb-6">
         <button
           type="button"
           onClick={handleDirectGuestPlay}
-          className="w-full py-3 px-4 border-2 border-green-700 rounded-md shadow-lg text-xl font-bold text-white bg-green-600 hover:bg-green-700 transition-all duration-200 transform hover:scale-105"
+          className="w-full py-3 px-4 border-2 border-green-700 rounded-md shadow-lg text-xl font-bold text-white bg-green-600 hover:bg-green-700 transition-all duration-200 transform hover:scale-105 flex flex-col items-center justify-center"
         >
-          PLAY NOW
-          <div className="text-sm font-normal mt-1">No sign-up required</div>
+          <span className="text-2xl">PLAY NOW</span>
+          <span className="text-sm font-normal mt-1">Instant access, no sign-up required</span>
         </button>
       </div>
-      
+
       <div className="relative mb-6">
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-gray-300"></div>
@@ -73,7 +75,7 @@ const LoginForm: React.FC = () => {
           <span className="px-2 bg-white text-gray-500">or sign in</span>
         </div>
       </div>
-      
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-gray-700">
@@ -117,7 +119,7 @@ const LoginForm: React.FC = () => {
           >
             {loading || isProcessing ? 'Signing in...' : 'Sign In'}
           </button>
-          
+
           <button
             type="button"
             onClick={handleGuestPlay}
