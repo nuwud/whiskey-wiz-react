@@ -274,7 +274,6 @@ export const GameContainer: React.FC = () => {
         <div className="container px-4 mx-auto">
             <div className="container px-4 py-8 mx-auto">
                 <h1 className="mb-8 text-2xl font-bold">Game of Whiskey Blind Tasting</h1>
-
                 {/* Sample Guessing Component */}
                 <SampleGuessing
                     currentSample={SAMPLE_IDS[currentSampleIndex]}
@@ -286,7 +285,6 @@ export const GameContainer: React.FC = () => {
                     onGameComplete={handleGameComplete}
                 />
             </div>
-
         </div>
     );
 };
