@@ -1,19 +1,23 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/auth.context';
-import { AnalyticsService } from '../../services/analytics.service';
+import { quarterService } from '../../services/quarter/quarter.service';
 import { getAnalytics, logEvent } from 'firebase/analytics';
+import { monitoringService } from '../../services/monitoring.service';
 import { FirebaseService } from '../../services/firebase.service';
 import { Spinner } from '../../components/ui/spinner-ui.component';
 import { useGameStore } from '../../store/game.store';
-import { GameState, SampleGuess, SampleId, SampleKey, WhiskeySample, INITIAL_STATE, DEFAULT_SCORING_RULES, Difficulty } from '../../types/game.types';
+import { GameState, SampleGuess, SampleId, SampleKey } from '../../types/game.types';
+import { GameStateService } from '../../services/game-state.service';
 import { SampleGuessing, createInitialGuesses } from './sample-guessing.component';
 import { useGameProgression } from '../../store/game-progression.store';
 import { ScoreService } from '../../services/score.service';
-import { saveGameState } from '../../utils/storage.utils';
-import { useToast } from '../../hooks/use-toast.hook';
-import { collection, query, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { transformQuarterSamples } from '../../utils/data-transform.utils';
+import { UserRole } from '../../types/auth.types';
+
+const calculateTimeSpent = (startTime: number): number => {
+    return Math.floor((Date.now() - startTime) / 1000);
+};
 
 const SAMPLE_IDS: SampleId[] = ['A', 'B', 'C', 'D'];
 
@@ -22,13 +26,6 @@ export const GameContainer: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { samples, setSamples } = useGameStore();
-    const { toast } = useToast();
-    const [isStateInitialized, setIsStateInitialized] = useState(false);
-
-    const calculateTimeSpent = (startTime: number): number => {
-        return Math.floor((Date.now() - startTime) / 1000);
-    };
-
     // Global game progression state
     const gameProgression = useGameProgression();
     const { setCurrentSample } = gameProgression;
@@ -41,169 +38,66 @@ export const GameContainer: React.FC = () => {
     const [gameState, setGameState] = useState<GameState | null>(null);
     const [guesses, setGuesses] = useState<Record<SampleKey, SampleGuess>>(createInitialGuesses());
 
-    // DIRECT FIRESTORE ACCESS - Bypasses all service layers
-    const loadQuarterDirectly = async (quarterId: string) => {
-        try {
-            console.log("🚀 Loading quarter directly:", quarterId);
-            
-            // Get quarter document
-            const quarterDoc = await getDoc(doc(db, 'quarters', quarterId));
-            if (!quarterDoc.exists()) {
-                throw new Error(`Quarter ${quarterId} not found`);
+    useEffect(() => {
+        if (!user) return;
+        const initGame = async () => {
+            const gameStateService = new GameStateService();
+            const state = await gameStateService.getGameState(user.userId);
+            if (state) {
+                setGameState(state);
+                setGuesses(state.guesses);
+                setCurrentSampleIndex(state.completedSamples.length);
+                setCurrentSample(state.currentSample); // Restore the last sample played
             }
-            
-            const quarterData = quarterDoc.data();
-            
-            // Get samples subcollection - THIS MATCHES YOUR FIRESTORE STRUCTURE
-            const samplesSnapshot = await getDocs(collection(db, `quarters/${quarterId}/samples`));
-            
-            if (samplesSnapshot.empty) {
-                throw new Error(`No samples found for quarter ${quarterId}`);
-            }
-            
-            // Process samples
-            let samples: Record<SampleId, WhiskeySample> = {};
-            samplesSnapshot.docs.forEach(doc => {
-                const sampleId = doc.id as SampleId; // A, B, C, D
-                const sampleData = doc.data();
-                samples[sampleId] = {
-                    ...sampleData,
-                    id: sampleId,
-                    // Ensure required fields
-                    age: sampleData.age || 0,
-                    proof: sampleData.proof || 0,
-                    mashbill: sampleData.mashbill || 'Bourbon',
-                    rating: sampleData.rating || 0,
-                    hints: sampleData.hints || [],
-                    notes: sampleData.notes || [],
-                    challengeQuestions: sampleData.challengeQuestions || [],
-                    image: sampleData.image || '',
-                    availability: sampleData.availability || '',
-                    imageUrl: sampleData.imageUrl || '',
-                    score: 0
-                } as WhiskeySample;
-            });
-            
-            // If any sample is missing, add fallback data
-            SAMPLE_IDS.forEach(id => {
-                if (!samples[id] || !samples[id].age || !samples[id].proof) {
-                    console.log(`Adding fallback data for sample ${id}`);
-                    samples[id] = getFallbackSample(id);
-                }
-            });
-            
-            console.log("Successfully loaded samples:", samples);
-            
-            // Set state
-            setSamples(samples);
-            useGameStore.setState({
-                ...INITIAL_STATE,
-                samples,
-                isInitialized: true
-            });
-            
-            setGameState({
-                ...INITIAL_STATE,
-                samples,
-                scoringRules: quarterData.scoringRules || DEFAULT_SCORING_RULES,
-                isInitialized: true,
-                currentSampleId: 'A',
-                userId: user?.userId || 'guest',
-                quarterId,
-                isLoading: false,
-                isPlaying: true,
-                currentSample: 'A',
-            });
-            
-            setIsStateInitialized(true);
-            
-            return true;
-        } catch (error) {
-            console.error("Direct quarter loading failed:", error);
-            return false;
-        }
-    };
-    
-    const getFallbackSample = (id: SampleId): WhiskeySample => {
-        const fallbacks = {
-            'A': { id: 'A', name: 'Sample A', age: 4, proof: 100, mashbill: 'Single Malt', rating: 0, distillery: 'Andalusia Whiskey Co.', description: 'A triple-distilled American single malt', region: 'Texas', type: 'single malt' },
-            'B': { id: 'B', name: 'Sample B', age: 7, proof: 108, mashbill: 'Bourbon', rating: 0, distillery: 'Dark Arts Whiskey House', description: 'A bourbon finished with French oak staves', region: 'Kentucky', type: 'bourbon' },
-            'C': { id: 'C', name: 'Sample C', age: 6, proof: 115, mashbill: 'Rye', rating: 0, distillery: 'Taconic Distillery', description: 'A cask strength rye whiskey', region: 'New York', type: 'rye' },
-            'D': { id: 'D', name: 'Sample D', age: 5, proof: 97, mashbill: 'Bourbon', rating: 0, distillery: 'Wilderness Trail Distillery', description: 'A high-rye bourbon aged in char #4 barrels', region: 'Kentucky', type: 'bourbon' }
         };
-        
-        return {
-            ...fallbacks[id],
-            hints: [],
-            notes: [],
-            challengeQuestions: [],
-            image: '',
-            availability: '',
-            imageUrl: '',
-            score: 0,
-            price: 0,
-            difficulty: 'beginner'
-        } as WhiskeySample;
-    };
+        initGame();
+    }, [user, setCurrentSample]);
+
+    useEffect(() => {
+        if (gameState) {
+            useGameStore.setState({ 
+                guesses: gameState.guesses, 
+                completedSamples: gameState.completedSamples, 
+                totalScore: gameState.totalScore 
+            });
+        }
+    }, [gameState]);
     
+
     // Add guess handling
     const handleGuessSubmit = (sampleId: SampleId, guess: SampleGuess) => {
         console.log('Processing guess for sample:', sampleId, guess);
         const sample = samples[sampleId];
-        
-        if (!sample || Number(sample.age) <= 0 || Number(sample.proof) <= 0) {
-            console.error('Invalid sample data:', sample);
-            toast({
-                title: "Using fallback sample data",
-                description: "We're using default values for this sample.",
-                type: "warning"
-            });
-            
-            // Use fallback sample
-            const fallbackSample = getFallbackSample(sampleId);
-            setSamples(prev => ({
-                ...prev,
-                [sampleId]: fallbackSample
-            }));
-            
-            const cleanGuess = {
-                ...guess,
-                age: Number(guess.age),
-                proof: Number(guess.proof)
-            };
+        console.log('Sample data:', sample);
+        if (!sample) return;
+        // Use the centralized scoring service
+        const scoreResult = ScoreService.calculateScore(guess, sample);
+        console.log('Score result:', scoreResult);
 
-            const scoreResult = ScoreService.calculateScore(cleanGuess, fallbackSample);
-            
-            setGuesses(prevGuesses => ({
-                ...prevGuesses,
-                [sampleId]: {
-                    ...guess,
-                    score: scoreResult.totalScore,
-                    breakdown: scoreResult.breakdown,
-                    explanations: scoreResult.explanations
-                }
-            }));
-            
-            return;
-        }
-        
-        // Normal scoring
-        const cleanGuess = {
-            ...guess,
-            age: Number(guess.age),
-            proof: Number(guess.proof)
+        // Convert explanations array to required object format
+        const explanationsObject = {
+            age: scoreResult.explanations[0] || '',
+            proof: scoreResult.explanations[1] || '',
+            mashbill: scoreResult.explanations[2] || ''
         };
 
-        const scoreResult = ScoreService.calculateScore(cleanGuess, sample);
-        console.log('Score calculated:', scoreResult);
-
+        // Create the complete guess with score
+        const scoredGuess: SampleGuess = {
+            ...guess,
+            score: scoreResult.totalScore,
+            breakdown: scoreResult.breakdown,
+            explanations: explanationsObject
+        };
+        console.log('Score result:', scoredGuess);
+    
+        // Update guesses with full score information
         setGuesses(prevGuesses => ({
             ...prevGuesses,
             [sampleId]: {
                 ...guess,
                 score: scoreResult.totalScore,
                 breakdown: scoreResult.breakdown,
-                explanations: scoreResult.explanations
+                explanations: explanationsObject
             }
         }));
     };
@@ -214,12 +108,9 @@ export const GameContainer: React.FC = () => {
     }, [guesses]);
 
     const isGameComplete = useCallback(() => {
-        if (!samples || Object.keys(samples).length < SAMPLE_IDS.length) {
-            return false; // Prevent incorrect completion state
-        }
-
-        return SAMPLE_IDS.every(id => samples[id] && guesses[id]?.submitted);
-    }, [samples, guesses]);
+        return Object.keys(samples).length > 0 &&
+            SAMPLE_IDS.every(id => samples[id] && guesses[id]?.submitted);
+        }, [samples, guesses]);
 
     // Update effect to handle game completion
     useEffect(() => {
@@ -228,184 +119,136 @@ export const GameContainer: React.FC = () => {
         }
     }, [guesses, isGameComplete]);
 
-    // Main initialization effect
-    useEffect(() => {
-        if (!quarterId) return;
-        
-        let mounted = true;
-        let timer: ReturnType<typeof setTimeout>;
-        
-        const init = async () => {
+    const initializeGame = useCallback(async () => {
+        if (!quarterId || !user) {
+            navigate('/quarters');
+            return;
+        }
+
+        const traceStartTime = monitoringService.startTrace('game_initialization');
+
+        try {
             setLoading(true);
-            setError(null);
             
-            // Set timeout for emergency measures
-            timer = setTimeout(() => {
-                if (mounted && loading) {
-                    console.warn("⚠️ Loading timeout reached - using fallback data");
-                    const fallbackSamples = SAMPLE_IDS.reduce((acc, id) => {
-                        acc[id] = getFallbackSample(id);
-                        return acc;
-                    }, {} as Record<SampleId, WhiskeySample>);
-                    
-                    setSamples(fallbackSamples);
-                    setGameState({
-                        ...INITIAL_STATE,
-                        samples: fallbackSamples,
-                        isInitialized: true,
-                        currentSampleId: 'A',
-                        userId: user?.userId || 'guest',
-                        quarterId: quarterId || '',
-                        isLoading: false,
-                        isPlaying: true,
-                        currentSample: 'A',
-                    });
-                    setIsStateInitialized(true);
-                    setLoading(false);
-                }
-            }, 3000);
+            // Fetch quarter with samples
+            const quarter = await quarterService.getQuarterById(quarterId);
+            console.log('Fetched Quarter:', quarter);
             
-            try {
-                // Direct Firestore access - most reliable method
-                const success = await loadQuarterDirectly(quarterId);
-                
-                if (!success && mounted) {
-                    throw new Error("Failed to load quarter data");
-                }
-            } catch (error) {
-                console.error('Game initialization failed:', error);
-                if (mounted) {
-                    setError('Failed to load game. Using fallback data.');
-                    
-                    // Use fallback data
-                    const fallbackSamples = SAMPLE_IDS.reduce((acc, id) => {
-                        acc[id] = getFallbackSample(id);
-                        return acc;
-                    }, {} as Record<SampleId, WhiskeySample>);
-                    
-                    setSamples(fallbackSamples);
-                    setGameState({
-                        ...INITIAL_STATE,
-                        samples: fallbackSamples,
-                        isInitialized: true,
-                        currentSampleId: 'A',
-                        userId: user?.userId || 'guest',
-                        quarterId: quarterId || '',
-                        isLoading: false,
-                        isPlaying: true,
-                        currentSample: 'A',
-                    });
-                    setIsStateInitialized(true);
-                }
-            } finally {
-                if (mounted) {
-                    setLoading(false);
-                    if (timer) clearTimeout(timer);
-                }
+            if (!quarter) {
+                throw new Error('Quarter not found');
             }
-        };
-        
-        init();
-        
-        return () => {
-            mounted = false;
-            if (timer) clearTimeout(timer);
-        };
-    }, [quarterId, user]);
+
+            if (!quarter.samples || Object.keys(quarter.samples).length === 0) {
+                console.error('No samples found in quarter:', quarter.samples);
+                throw new Error('No samples found in quarter');
+            }
+            
+
+            // Transform and validate samples
+            const transformedSamples = transformQuarterSamples(quarter.samples);
+            console.log('Transformed Samples:', transformedSamples);
+
+            if (Object.keys(transformedSamples).length !== SAMPLE_IDS.length) {
+                console.error('Incorrect number of samples:', transformedSamples);
+                throw new Error(`Expected ${SAMPLE_IDS.length} samples, found ${Object.keys(transformedSamples).length}`);
+            }
+
+            // Update game state
+            setSamples(transformedSamples);
+            setCurrentSampleIndex(0);
+            setCurrentSample(SAMPLE_IDS[0]);
+
+            // Update global store
+            useGameStore.setState({
+                samples: transformedSamples,
+                currentSampleId: SAMPLE_IDS[0],
+                isInitialized: true
+            });  
+
+            console.log('Game initialized successfully');
+
+        } catch (error) {
+            console.error('Game initialization failed:', error);
+            setError(error instanceof Error ? error.message : 'Failed to initialize game');
+            logEvent(getAnalytics(), 'error', {
+                error_message: error instanceof Error ? error.message : 'Unknown error',
+                error_type: 'game_initialization_failed',
+                userId: user.userId
+            });
+        } finally {
+            monitoringService.endTrace('game_initialization', traceStartTime);
+        }
+    }, [quarterId, user, navigate, setCurrentSample]);
+
+    // Initialize game on mount
+    useEffect(() => {
+        initializeGame();
+    }, [initializeGame]);
+
+    useEffect(() => {
+        const savedQuarter = localStorage.getItem("currentQuarter");
+        if (savedQuarter) {
+            useGameProgression.setState({ currentQuarter: JSON.parse(savedQuarter) });
+        }
+    }, []);          
 
     const handleNextSample = () => {
-        setCurrentSampleIndex(prevIndex => {
-            const newIndex = Math.min(SAMPLE_IDS.length - 1, prevIndex + 1);
-            setCurrentSample(SAMPLE_IDS[newIndex]);
-            return newIndex;
-        });
+        if (currentSampleIndex < SAMPLE_IDS.length - 1) {
+            setCurrentSampleIndex((prev: number) => prev + 1);
+            setCurrentSample(SAMPLE_IDS[currentSampleIndex + 1]);
+        }
     };
-
+    
     const handlePreviousSample = () => {
-        setCurrentSampleIndex(prevIndex => {
-            const newIndex = Math.max(0, prevIndex - 1);
-            setCurrentSample(SAMPLE_IDS[newIndex]);
-            return newIndex;
-        });
-    };
-
-    const handleGameComplete = () => {
-        try {
-            console.log('Starting game completion process...');
-            setLoading(true);
-
-            const timeSpent = calculateTimeSpent(startTime);
-            const finalScore = calculateTotalScore();
-
-            // Save score locally for guests
-            localStorage.setItem('guestScore', JSON.stringify({
-                quarterId,
-                score: finalScore,
-                timestamp: Date.now(),
-                guesses: guesses
-            }));
-
-            // Try to save if user is logged in
-            if (user && !user.guest) {
-                FirebaseService.submitScore(user.userId, quarterId || '', finalScore)
-                    .catch(err => console.error("Failed to submit score:", err));
-            }
-
-            // Track completion
-            try {
-                logEvent(getAnalytics(), 'game_completed', {
-                    quarterId,
-                    score: finalScore,
-                    time_spent: timeSpent
-                });
-            } catch (e) {
-                console.error("Analytics error:", e);
-            }
-
-            console.log('Navigating to results page...');
-            navigate(`/game/${quarterId}/results`);
-        } catch (error) {
-            console.error('Game completion failed:', error);
-            toast({
-                title: "Game Complete",
-                description: "Your results are ready!",
-                type: "success"
-            });
-            navigate(`/game/${quarterId}/results`);
-        } finally {
-            setLoading(false);
+        if (currentSampleIndex > 0) {
+            setCurrentSampleIndex((prev: number) => prev - 1);
+            setCurrentSample(SAMPLE_IDS[currentSampleIndex - 1]);
         }
     };
 
-    // RENDER LOGIC
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-screen">
-                <div className="text-center">
-                    <Spinner />
-                    <p className="mt-4">Loading game data...</p>
-                </div>
-            </div>
-        );
-    }
+    const handleGameComplete = async () => {
+        if (!quarterId || !user) return;
 
-    if (!isStateInitialized || !gameState) {
-        // If not initialized after loading is complete, use fallbacks
-        const fallbackSamples = SAMPLE_IDS.reduce((acc, id) => {
-            acc[id] = getFallbackSample(id);
-            return acc;
-        }, {} as Record<SampleId, WhiskeySample>);
-        
-        setSamples(fallbackSamples);
-        setGameState({
-            ...INITIAL_STATE,
-            samples: fallbackSamples,
-            isInitialized: true,
-            currentSampleId: 'A',
-            isPlaying: true
-        });
-        setIsStateInitialized(true);
-        
+        const gameCompletionTrace = monitoringService.startTrace('game_completion');
+
+        try {
+            setLoading(true);
+            console.log('Starting game completion process...');
+            
+            const timeSpent = calculateTimeSpent(startTime);
+            const totalScore = calculateTotalScore();
+
+            // Only submit score if user is a player or admin
+            if (user.role && [UserRole.PLAYER, UserRole.ADMIN].includes(user.role)) {
+                console.log('Submitting final score:', totalScore);
+                await FirebaseService.submitScore(user.userId, quarterId, totalScore);
+            }
+
+            logEvent(getAnalytics(), 'game_completed', {
+                quarterId,
+                userId: user.userId,
+                userRole: user.role, // Using UserRole enum
+                score: totalScore,
+                time_spent: timeSpent
+            });
+
+            console.log('Navigating to results page...');
+            navigate(`/game/${quarterId}/results`, { replace: true });
+
+        } catch (error) {
+            console.error('Game completion failed:', error);
+            setError('Failed to complete game. Please try again.');
+            logEvent(getAnalytics(), 'error', {
+                error_message: error instanceof Error ? error.message : 'Unknown error',
+                error_type: 'game_completion_failed',
+                userId: user.userId
+            });
+        } finally {
+            monitoringService.endTrace('game_completion', gameCompletionTrace);
+        }
+    };
+
+    if (loading) {
         return (
             <div className="flex items-center justify-center h-screen">
                 <Spinner />
@@ -413,37 +256,26 @@ export const GameContainer: React.FC = () => {
         );
     }
 
-    if (!samples || Object.keys(samples).length < 4) {
-        // Emergency fallback if samples are still missing
-        const fallbackSamples = SAMPLE_IDS.reduce((acc, id) => {
-            acc[id] = getFallbackSample(id);
-            return acc;
-        }, {} as Record<SampleId, WhiskeySample>);
-        
-        setSamples(fallbackSamples);
-        
+    if (error) {
         return (
-            <div className="container mx-auto px-4">
-                <div className="container px-4 py-8 mx-auto">
-                    <h1 className="mb-8 text-2xl font-bold">Game of Whiskey Blind Tasting</h1>
-                    <SampleGuessing
-                        currentSample={SAMPLE_IDS[currentSampleIndex]}
-                        guess={guesses[SAMPLE_IDS[currentSampleIndex]]}
-                        onSubmitGuess={handleGuessSubmit}
-                        onNextSample={handleNextSample}
-                        onPreviousSample={handlePreviousSample}
-                        isLastSample={currentSampleIndex === SAMPLE_IDS.length - 1}
-                        onGameComplete={handleGameComplete}
-                    />
-                </div>
+            <div className="flex flex-col items-center justify-center h-screen">
+                <div className="mb-4 text-red-500">{error}</div>
+                <button
+                    onClick={() => navigate('/quarters')}
+                    className="px-4 py-2 text-white rounded bg-amber-500 hover:bg-amber-600"
+                >
+                    Return to Quarter Selection
+                </button>
             </div>
         );
     }
 
     return (
-        <div className="container mx-auto px-4">
+        <div className="container px-4 mx-auto">
             <div className="container px-4 py-8 mx-auto">
                 <h1 className="mb-8 text-2xl font-bold">Game of Whiskey Blind Tasting</h1>
+
+                {/* Sample Guessing Component */}
                 <SampleGuessing
                     currentSample={SAMPLE_IDS[currentSampleIndex]}
                     guess={guesses[SAMPLE_IDS[currentSampleIndex]]}
@@ -454,6 +286,7 @@ export const GameContainer: React.FC = () => {
                     onGameComplete={handleGameComplete}
                 />
             </div>
+
         </div>
     );
 };
