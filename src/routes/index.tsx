@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from '../components/auth/protected-route.component';
 import { UserRole } from '../types/auth.types';
 import { GameErrorBoundary } from '../components/game/game-error-boundary.component';
@@ -12,7 +12,6 @@ import VerifyEmail from '../components/auth/verify-email.component';
 
 // Game Components
 import { GameContainer } from '../components/game/game-container.component';
-import { QuarterSelection } from '../components/game/quarter-selection.component';
 import { GameResults } from '../components/game/game-results.component'; 
 
 // Admin Components
@@ -25,7 +24,6 @@ import { PlayerDashboard } from '../components/player/player-dashboard.component
 import { PlayerProfile } from '../components/player/player-profile.component';
 
 export const AppRoutes: React.FC = () => {
-  const navigate = useNavigate();
   return (
     <Routes>
       {/* Redirect from root to the featured quarter */}

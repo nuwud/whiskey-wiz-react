@@ -9,69 +9,65 @@ import { quarterService } from '../../services/quarter';
 import { WhiskeySample, SampleId } from '../../types/game.types';
 import { transformQuarterSamples } from '../../utils/data-transform.utils';
 import { AnalyticsService } from '../../services/analytics.service';
-import { loadGameState } from '../../utils/storage.utils'
+import { loadGameState } from '../../utils/storage.utils';
 
 export const GameResults: React.FC = () => {
     const { quarterId } = useParams<{ quarterId: string }>();  
-    const { guesses, score  } = useGameStore();
+    const { guesses, score } = useGameStore();
     const [samplesMap, setSamplesMap] = useState<Record<SampleId, WhiskeySample>>({} as Record<SampleId, WhiskeySample>);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-        // Load saved game state
-        useEffect(() => {
-            const savedState = loadGameState();
-            if (savedState) {
-                console.log('Loading saved game state:', savedState);
-                setSamplesMap(savedState?.samples || {} as Record<SampleId, WhiskeySample>);
-                // You might want to update the global game store here as well
-            }
-        }, []);
-
-        useEffect(() => {
-            const loadQuarterData = async () => {
-                try {
-                    setLoading(true);
-                    setError(null);
-                    
-                    if (!quarterId) {
-                        throw new Error('No quarter ID found');
-                    }
-    
-                    // Only load quarter data if we don't have saved state
-                    if (Object.keys(samplesMap).length === 0) {
-                        console.log('Loading quarter data...');
-                        const quarter = await quarterService.getQuarterById(quarterId);
-                        
-                        if (!quarter?.samples) {
-                            throw new Error('No samples found for this quarter');
-                        }
-    
-                        const transformedSamples = transformQuarterSamples(quarter.samples);
-                        if (Object.keys(transformedSamples).length === 0) {
-                            throw new Error('No valid samples found after transformation');
-                        }
-    
-                        console.log('Setting transformed samples:', transformedSamples);
-                        setSamplesMap(transformedSamples);
-                    }
-                    
-                    // Track successful load
-                    AnalyticsService.trackEvent('game_results_loaded', {
-                        quarterId,
-                        sampleCount: Object.keys(samplesMap).length
-                    });
-    
-                } catch (error) {
-                    console.error('Error loading quarter data:', error);
-                    setError(error instanceof Error ? error.message : 'Failed to load game data');
-                } finally {
-                    setLoading(false);
+    // Load saved game state
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                
+                // Try to load from localStorage first
+                const savedState = loadGameState();
+                if (savedState) {
+                    console.log('Loading saved game state:', savedState);
+                    setSamplesMap(savedState?.samples || {} as Record<SampleId, WhiskeySample>);
+                    return; // Successfully loaded from local storage
                 }
-            };
-    
-            loadQuarterData();
-        }, [quarterId]);
+                
+                // If no saved state and we have a quarterId, load from service
+                if (!quarterId) {
+                    throw new Error('No quarter ID found');
+                }
+                
+                console.log('Loading quarter data...');
+                const quarter = await quarterService.getQuarterById(quarterId);
+                
+                if (!quarter?.samples) {
+                    throw new Error('No samples found for this quarter');
+                }
+
+                const transformedSamples = transformQuarterSamples(quarter.samples);
+                if (Object.keys(transformedSamples).length === 0) {
+                    throw new Error('No valid samples found after transformation');
+                }
+
+                console.log('Setting transformed samples:', transformedSamples);
+                setSamplesMap(transformedSamples);
+                
+                // Track successful load
+                AnalyticsService.trackEvent('game_results_loaded', {
+                    quarterId,
+                    sampleCount: Object.keys(transformedSamples).length
+                });
+            } catch (error) {
+                console.error('Error loading data:', error);
+                setError(error instanceof Error ? error.message : 'Failed to load game data');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadData();
+    }, [quarterId]);
 
     const scoreAnalysis = useScoreAnalysis({
         samples: Object.values(samplesMap),
@@ -100,15 +96,15 @@ export const GameResults: React.FC = () => {
             individualScores: Object.values(guesses).map(g => g.score)
         });
         return (
-            <div className="text-center p-8">
-                <p className="text-red-600 mb-4">Error: Invalid score calculation</p>
+            <div className="p-8 text-center">
+                <p className="mb-4 text-red-600">Error: Invalid score calculation</p>
                 <p className="text-gray-600">Please try resubmitting your guesses</p>
             </div>
         );
     }
 
     return (
-        <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="max-w-4xl px-4 py-8 mx-auto">
             <ResultsHeader scoreAnalysis={scoreAnalysis} />
             <ShareResults
                 score={scoreAnalysis.totalScore}
@@ -127,22 +123,22 @@ export const GameResults: React.FC = () => {
 const LoadingSpinner: React.FC = () => (
     <div className="flex items-center justify-center p-8">
         <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mb-4"></div>
+            <div className="w-12 h-12 mb-4 border-b-2 rounded-full animate-spin border-amber-600"></div>
             <p className="text-gray-600">Loading results...</p>
         </div>
     </div>
 );
 
 const ErrorMessage: React.FC<{ message: string }> = ({ message }) => (
-    <div className="text-center p-8">
-        <p className="text-red-600 mb-4">{message}</p>
+    <div className="p-8 text-center">
+        <p className="mb-4 text-red-600">{message}</p>
         <p className="text-gray-600">Please try refreshing the page</p>
     </div>
 );
 
 const NoSamplesMessage: React.FC = () => (
-    <div className="text-center p-8">
-        <p className="text-red-600 mb-4">No samples available</p>
+    <div className="p-8 text-center">
+        <p className="mb-4 text-red-600">No samples available</p>
         <p className="text-gray-600">Please try refreshing the page</p>
     </div>
 );
@@ -160,14 +156,14 @@ const SampleResults: React.FC<{
 }> = ({ guesses, samplesMap }) => {
     if (!guesses || Object.keys(guesses).length === 0) {
         return (
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
+            <div className="p-4 text-center rounded-lg bg-gray-50">
                 <p className="text-gray-600">No guesses available to display</p>
             </div>
         );
     }
 
     return (
-        <div className="mt-8 border rounded-lg overflow-hidden">
+        <div className="mt-8 overflow-hidden border rounded-lg">
             <Accordion 
                 type="single" 
                 collapsible 
